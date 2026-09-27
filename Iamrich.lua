@@ -27,8 +27,13 @@ local configuration = {
 	AutoAttackPinnedMob = nil,
 	MovementBoostEnabled = true,
 	AutoAttackEnabled = false,
+	AutoSkillEnabled = false,
 	AutoAttackMode = "Mob",
 	AutoAttackRange = 25,
+	AutoAttackInterval = 1,
+	AutoSkillInterval = 3,
+	AutoAttackStandoff = 4,
+	CombatTargetMob = nil,
 	Farming = false,
 	CurrentTarget = nil,
 	LastTarget = nil,
@@ -86,6 +91,8 @@ function configuration.LoadConfig()
 	configuration.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configuration.AlertsDistance, 0, true), 0, 100000)
 	configuration.FollowDistance = math.clamp(ReadNumber("FollowDistance", configuration.FollowDistance, 2, false), 2, 100)
 	configuration.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configuration.AutoAttackRange, 5, false), 5, 500)
+	configuration.AutoAttackInterval = math.clamp(ReadNumber("AutoAttackInterval", configuration.AutoAttackInterval, 1, false), 1, 10)
+	configuration.AutoSkillInterval = math.clamp(ReadNumber("AutoSkillInterval", configuration.AutoSkillInterval, 1, false), 1, 30)
 	if config.AutoAttackMode == "Mob" or config.AutoAttackMode == "Player" or config.AutoAttackMode == "Nearby" then
 		configuration.AutoAttackMode = config.AutoAttackMode
 	end
@@ -117,6 +124,7 @@ function configuration.LoadConfig()
 	if type(config.AutoBlockEnabled) == "boolean" then configuration.AutoBlockEnabled = config.AutoBlockEnabled end
 	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
 	if type(config.AutoAttackEnabled) == "boolean" then configuration.AutoAttackEnabled = config.AutoAttackEnabled end
+	if type(config.AutoSkillEnabled) == "boolean" then configuration.AutoSkillEnabled = config.AutoSkillEnabled end
 	if type(config.ESPEnabled) == "boolean" then configuration.ESPEnabled = config.ESPEnabled end
 	if type(config.ESPLineEnabled) == "boolean" then configuration.ESPLineEnabled = config.ESPLineEnabled end
 	if type(config.ESPBoxEnabled) == "boolean" then configuration.ESPBoxEnabled = config.ESPBoxEnabled end
@@ -152,6 +160,9 @@ function configuration.SaveConfig()
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
 		AutoAttackMode = configuration.AutoAttackMode,
 		AutoAttackRange = configuration.AutoAttackRange,
+		AutoAttackInterval = configuration.AutoAttackInterval,
+		AutoSkillEnabled = configuration.AutoSkillEnabled,
+		AutoSkillInterval = configuration.AutoSkillInterval,
 		MainWidthScale = configuration.MainWidthScale,
 		MainHeightScale = configuration.MainHeightScale,
 		PlayerPanelWidthScale = configuration.PlayerPanelWidthScale,
@@ -387,9 +398,22 @@ HeaderRule.BackgroundTransparency = 0.35
 HeaderRule.BorderSizePixel = 0
 HeaderRule.Parent = Header
 
+function configuration.MakeWindowDot(x, color)
+	local dot = Instance.new("Frame")
+	dot.Size = UDim2.fromScale(0.022, 0.20)
+	dot.Position = UDim2.fromScale(x, 0.40)
+	dot.BackgroundColor3 = color
+	dot.BorderSizePixel = 0
+	dot.Parent = Header
+	Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+end
+configuration.MakeWindowDot(0.035, Color3.fromRGB(255, 95, 86))
+configuration.MakeWindowDot(0.075, Color3.fromRGB(255, 190, 46))
+configuration.MakeWindowDot(0.115, Color3.fromRGB(40, 201, 64))
+
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -100, 0, 20)
-Title.Position = UDim2.fromOffset(14, 8)
+Title.Size = UDim2.fromScale(0.72, 0.32)
+Title.Position = UDim2.fromScale(0.16, 0.12)
 Title.BackgroundTransparency = 1
 Title.Text = "EXP+"
 Title.TextColor3 = TEXT
@@ -399,8 +423,8 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
 local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.new(1, -100, 0, 14)
-Subtitle.Position = UDim2.fromOffset(14, 26)
+Subtitle.Size = UDim2.fromScale(0.72, 0.24)
+Subtitle.Position = UDim2.fromScale(0.16, 0.52)
 Subtitle.BackgroundTransparency = 1
 Subtitle.Text = "Experience tracker"
 Subtitle.TextColor3 = MUTED
@@ -618,7 +642,7 @@ configuration.AddPageHeading(ESPPage, "ESP", "Choose which player markers to sho
 configuration.AddPageHeading(PlayerPage, "Players", "Follow target, spacing, server players and whitelist")
 configuration.AddPageHeading(AlertsPage, "Alerts", "Notifications and idle behavior")
 configuration.AddPageHeading(FarmPage, "EXP Farm", "Set the EXP cycle amount, target range, interval and goal")
-configuration.AddPageHeading(CombatPage, "Auto Attack", "Choose a player or a mob and set attack range")
+configuration.AddPageHeading(CombatPage, "Auto Farm", "Choose a target and control attack, skill and timing")
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
@@ -666,13 +690,33 @@ function configuration.MakeNavButton(text, yScale)
 	return button
 end
 
+function configuration.MakeNavSection(text, yScale)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(0.90, 0.04)
+	label.Position = UDim2.fromScale(0.05, yScale)
+	label.BackgroundTransparency = 1
+	label.Text = string.upper(text)
+	label.TextColor3 = MUTED
+	label.TextSize = 8
+	label.Font = Enum.Font.GothamBold
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = Sidebar
+	return label
+end
+
+configuration.MakeNavSection("Experience", 0.12)
+configuration.MakeNavSection("Automation", 0.37)
+configuration.MakeNavSection("Monitoring", 0.54)
+configuration.MakeNavSection("Players", 0.71)
+configuration.MakeNavSection("Visuals", 0.85)
+
 local NavButtons = {
-	EXP = configuration.MakeNavButton("EXP", 0.14),
+	EXP = configuration.MakeNavButton("EXP", 0.16),
 	Farm = configuration.MakeNavButton("EXP Setting", 0.27),
-	Combat = configuration.MakeNavButton("Auto Attack", 0.40),
-	Alerts = configuration.MakeNavButton("Alerts", 0.53),
-	Player = configuration.MakeNavButton("Player", 0.66),
-	ESP = configuration.MakeNavButton("Player ESP", 0.79),
+	Combat = configuration.MakeNavButton("Auto Farm", 0.41),
+	Alerts = configuration.MakeNavButton("Alerts", 0.58),
+	Player = configuration.MakeNavButton("Player", 0.75),
+	ESP = configuration.MakeNavButton("Player ESP", 0.88),
 }
 
 function configuration.SetMainTab(tab)
@@ -901,6 +945,7 @@ AlertsGrid.Size = UDim2.new(1, 0, 0, 40)
 local PlayersGrid = configuration.MakeToggleGrid(PlayerPage, 2)
 PlayersGrid.Size = UDim2.new(1, 0, 0, 120)
 local CombatGrid = configuration.MakeToggleGrid(CombatPage, 2)
+CombatGrid.Size = UDim2.new(1, 0, 0, 80)
 local AttackModeGrid = configuration.MakeToggleGrid(CombatPage, 3)
 AttackModeGrid.Size = UDim2.new(1, 0, 0, 80)
 
@@ -1009,7 +1054,11 @@ local AutoAttackButton = configuration.MakeToggle(
 	configuration.AutoAttackEnabled and "Auto Attack: ON" or "Auto Attack: OFF",
 	configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid
 )
-CombatTargetButton = configuration.MakeToggle("Choose player target", false, TEXT, CARD, 2, CombatGrid)
+local AutoSkillButton = configuration.MakeToggle(
+	configuration.AutoSkillEnabled and "Auto Skill: ON" or "Auto Skill: OFF",
+	configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid
+)
+CombatTargetButton = configuration.MakeToggle("Choose player target", false, TEXT, CARD, 3, CombatGrid)
 CombatTargetButton.TextColor3 = TEXT
 
 local AutoAttackModeButtons = {
@@ -1023,9 +1072,19 @@ local AutoAttackRangeCard, AutoAttackRangeInput = configuration.MakeNumberCard(
 	function(value) configuration.AutoAttackRange = value end
 )
 
+local AutoAttackIntervalCard, AutoAttackIntervalInput = configuration.MakeNumberCard(
+	CombatPage, "Attack interval (seconds)", function() return configuration.AutoAttackInterval end, 5, 1, 10,
+	function(value) configuration.AutoAttackInterval = value end
+)
+
+local AutoSkillIntervalCard, AutoSkillIntervalInput = configuration.MakeNumberCard(
+	CombatPage, "Skill interval (seconds)", function() return configuration.AutoSkillInterval end, 6, 1, 30,
+	function(value) configuration.AutoSkillInterval = value end
+)
+
 local CombatMobHeading = Instance.new("Frame")
 CombatMobHeading.Size = UDim2.new(1, 0, 0, 30)
-CombatMobHeading.LayoutOrder = 5
+CombatMobHeading.LayoutOrder = 7
 CombatMobHeading.BackgroundTransparency = 1
 CombatMobHeading.Parent = CombatPage
 
@@ -1053,7 +1112,7 @@ Instance.new("UICorner", CombatMobRefresh).CornerRadius = UDim.new(0, 7)
 
 local CombatMobScroll = Instance.new("ScrollingFrame")
 CombatMobScroll.Size = UDim2.new(1, 0, 0, 120)
-CombatMobScroll.LayoutOrder = 6
+CombatMobScroll.LayoutOrder = 8
 CombatMobScroll.BackgroundColor3 = CARD
 CombatMobScroll.BorderSizePixel = 0
 CombatMobScroll.ScrollBarThickness = 3
@@ -1079,18 +1138,23 @@ function configuration.RefreshCombatMobs()
 	local available = 0
 	for _, mob in ipairs(MobsFolder:GetChildren()) do
 		local root = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
-		if root and root:IsA("BasePart") then
+		local humanoid = mob:FindFirstChildOfClass("Humanoid")
+		if root and root:IsA("BasePart") and (not humanoid or humanoid.Health > 0) then
 			available += 1
 			local selectedMob = mob
+			local isSelectedMob = configuration.AutoAttackPinnedMob == selectedMob or configuration.CombatTargetMob == selectedMob
 			local row = Instance.new("TextButton")
 			row.Size = UDim2.new(1, -8, 0, 30)
 			row.LayoutOrder = available
-			row.BackgroundColor3 = configuration.AutoAttackPinnedMob == selectedMob and ACCENT_DIM or INPUT
+			row.BackgroundColor3 = isSelectedMob and ACCENT_DIM or INPUT
 			row.BorderSizePixel = 0
 			local cfg = selectedMob:FindFirstChild("Config")
 			local exp = cfg and cfg:FindFirstChild("EXP")
-			row.Text = string.format("%s%s  •  EXP %s", configuration.AutoAttackPinnedMob == selectedMob and "✓  " or "", selectedMob.Name, exp and tostring(exp.Value) or "-")
-			row.TextColor3 = configuration.AutoAttackPinnedMob == selectedMob and ACCENT or TEXT
+			local entity = cfg and cfg:FindFirstChild("Entity")
+			local entityValue = entity and entity.Value
+			local entityName = typeof(entityValue) == "Instance" and entityValue.Name or (entityValue ~= nil and tostring(entityValue) or selectedMob.Name)
+			row.Text = string.format("%s%s  •  EXP %s", isSelectedMob and "✓  " or "", entityName, exp and tostring(exp.Value) or "-")
+			row.TextColor3 = isSelectedMob and ACCENT or TEXT
 			row.TextSize = 11
 			row.Font = Enum.Font.Gotham
 			row.TextXAlignment = Enum.TextXAlignment.Left
@@ -1102,6 +1166,7 @@ function configuration.RefreshCombatMobs()
 					return
 				end
 				configuration.AutoAttackPinnedMob = selectedMob
+				configuration.CombatTargetMob = selectedMob
 				configuration.AutoAttackMode = "Mob"
 				configuration.UpdateAutoAttackModeButtons()
 				configuration.SaveConfig()
@@ -1130,9 +1195,9 @@ configuration.RefreshCombatMobs()
 
 local CombatInfo = Instance.new("TextLabel")
 CombatInfo.Size = UDim2.new(1, -8, 0, 34)
-CombatInfo.LayoutOrder = 7
+CombatInfo.LayoutOrder = 9
 CombatInfo.BackgroundTransparency = 1
-CombatInfo.Text = "During EXP farming, auto attack waits. When EXP stops, it attacks the last farm target first."
+CombatInfo.Text = "Attack and skills pause during EXP farming. Nearest mob stays selected until it dies."
 CombatInfo.TextColor3 = MUTED
 CombatInfo.TextSize = 10
 CombatInfo.Font = Enum.Font.Gotham
@@ -1165,6 +1230,19 @@ AutoAttackButton.MouseButton1Click:Connect(function()
 	AutoAttackButton.BackgroundColor3 = configuration.AutoAttackEnabled and RED_DIM or CARD
 	if configuration.AutoAttackEnabled and not configuration.Farming and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
 		configuration.AutoAttackPinnedMob = configuration.CurrentTarget
+	end
+	configuration.SaveConfig()
+end)
+
+AutoSkillButton.MouseButton1Click:Connect(function()
+	configuration.AutoSkillEnabled = not configuration.AutoSkillEnabled
+	AutoSkillButton.Text = configuration.AutoSkillEnabled and "Auto Skill: ON" or "Auto Skill: OFF"
+	AutoSkillButton.TextColor3 = configuration.AutoSkillEnabled and ACCENT or MUTED
+	AutoSkillButton.BackgroundColor3 = configuration.AutoSkillEnabled and ACCENT_DIM or CARD
+	if configuration.AutoSkillEnabled and not configuration.Farming and configuration.CurrentTarget
+		and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
+		configuration.AutoAttackPinnedMob = configuration.CurrentTarget
+		configuration.CombatTargetMob = configuration.CurrentTarget
 	end
 	configuration.SaveConfig()
 end)
@@ -1835,8 +1913,9 @@ function configuration.PauseTimer()
 end
 
 function configuration.SetIdle()
-	if configuration.Farming and configuration.AutoAttackEnabled and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
+	if configuration.Farming and (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled) and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
 		configuration.AutoAttackPinnedMob = configuration.CurrentTarget
+		configuration.CombatTargetMob = configuration.CurrentTarget
 	end
 	configuration.Farming = false
 	configuration.PauseTimer()
@@ -1912,7 +1991,8 @@ function configuration.Combat.FindNearestCombatMob(localRoot)
 	local bestMob, bestRoot, bestDistance = nil, nil, configuration.AutoAttackRange
 	for _, mob in ipairs(MobsFolder:GetChildren()) do
 		local mobRoot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
-		if mobRoot and mobRoot:IsA("BasePart") then
+		local humanoid = mob:FindFirstChildOfClass("Humanoid")
+		if mobRoot and mobRoot:IsA("BasePart") and (not humanoid or humanoid.Health > 0) then
 			local distance = (localRoot.Position - mobRoot.Position).Magnitude
 			if distance <= bestDistance then
 				bestMob, bestRoot, bestDistance = mob, mobRoot, distance
@@ -1933,19 +2013,6 @@ function configuration.Combat.FindCombatPlayer(userId)
 end
 
 function configuration.Combat.FindAutoAttackTarget(localRoot)
-	if configuration.AutoAttackMode == "Mob" and configuration.AutoAttackPinnedMob then
-		if configuration.AutoAttackPinnedMob:IsDescendantOf(MobsFolder) then
-			local pinnedHumanoid = configuration.AutoAttackPinnedMob:FindFirstChildOfClass("Humanoid")
-			if not pinnedHumanoid or pinnedHumanoid.Health > 0 then
-				local targetRoot = configuration.AutoAttackPinnedMob.PrimaryPart or configuration.AutoAttackPinnedMob:FindFirstChild("HumanoidRootPart")
-				if targetRoot and targetRoot:IsA("BasePart") then
-					return "Mob", configuration.AutoAttackPinnedMob, targetRoot, (localRoot.Position - targetRoot.Position).Magnitude
-				end
-			end
-		end
-		configuration.AutoAttackPinnedMob = nil
-	end
-
 	if configuration.AutoAttackMode == "Player" then
 		local targetPlayer, targetRoot = configuration.Combat.FindCombatPlayer(configuration.AutoAttackTargetUserId)
 		if targetPlayer then
@@ -1954,11 +2021,30 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 		return nil
 	end
 
-	local mob, mobRoot, mobDistance = configuration.Combat.FindNearestCombatMob(localRoot)
 	if configuration.AutoAttackMode == "Mob" then
-		if mob then return "Mob", mob, mobRoot, mobDistance end
+		local lockedMob = configuration.AutoAttackPinnedMob or configuration.CombatTargetMob
+		if lockedMob then
+			local lockedHumanoid = lockedMob:FindFirstChildOfClass("Humanoid")
+			local lockedRoot = lockedMob.PrimaryPart or lockedMob:FindFirstChild("HumanoidRootPart")
+			if lockedMob:IsDescendantOf(MobsFolder) and (not lockedHumanoid or lockedHumanoid.Health > 0)
+				and lockedRoot and lockedRoot:IsA("BasePart") then
+				configuration.CombatTargetMob = lockedMob
+				return "Mob", lockedMob, lockedRoot, (localRoot.Position - lockedRoot.Position).Magnitude
+			end
+			if configuration.AutoAttackPinnedMob == lockedMob then configuration.AutoAttackPinnedMob = nil end
+			configuration.CombatTargetMob = nil
+		end
+
+		local nearestMob, nearestRoot, nearestDistance = configuration.Combat.FindNearestCombatMob(localRoot)
+		if nearestMob then
+			configuration.CombatTargetMob = nearestMob
+			if configuration.RefreshCombatMobs then configuration.RefreshCombatMobs() end
+			return "Mob", nearestMob, nearestRoot, nearestDistance
+		end
 		return nil
 	end
+
+	local mob, mobRoot, mobDistance = configuration.Combat.FindNearestCombatMob(localRoot)
 
 	local nearestPlayer, nearestRoot, nearestDistance
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -2153,44 +2239,85 @@ task.spawn(function()
 end)
 
 --==================================================
--- AUTO ATTACK (uses the game's input bindable)
+-- AUTO FARM / AUTO SKILL (uses the game's input bindable)
 --==================================================
 task.spawn(function()
 	local lastAttackAt = 0
+	local lastSkillAt = 0
+	local lastMoveAt = 0
 	local equippedCharacter = nil
+	local chasingMob = false
 	while true do
-		if configuration.AutoAttackEnabled and not configuration.Farming then
+		if (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled) and not configuration.Farming then
 			local character = Player.Character
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			local targetKind, target, targetRoot, distance
 			if localRoot then
 				targetKind, target, targetRoot, distance = configuration.Combat.FindAutoAttackTarget(localRoot)
 			end
-			if target and targetRoot and distance <= configuration.AutoAttackRange then
-				local playerGui = Player:FindFirstChildOfClass("PlayerGui")
-				local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
-				if inputFunction and inputFunction:IsA("BindableFunction") then
-					if equippedCharacter ~= character then
-						local equipped = pcall(function()
-							inputFunction:Invoke("EquipButton", Enum.UserInputState.Begin)
-						end)
-						if equipped then
-							equippedCharacter = character
-							lastAttackAt = os.clock()
+			if target and targetRoot then
+				if targetKind == "Mob" and localRoot and configuration.AutoAttackEnabled then
+					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+					local now = os.clock()
+					if distance > configuration.AutoAttackStandoff + 1 then
+						if humanoid and now - lastMoveAt >= 0.4 then
+							local behind = targetRoot.Position - targetRoot.CFrame.LookVector * configuration.AutoAttackStandoff
+							humanoid:MoveTo(Vector3.new(behind.X, localRoot.Position.Y, behind.Z))
+							lastMoveAt = now
+							chasingMob = true
 						end
-					elseif os.clock() - lastAttackAt >= 0.5 then
-						local ok, err = pcall(function()
-							inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
-							inputFunction:Invoke("SkillButton", Enum.UserInputState.Begin)
-						end)
-						if ok then
-							lastAttackAt = os.clock()
+					elseif chasingMob and humanoid and now - lastMoveAt >= 0.4 then
+						humanoid:MoveTo(localRoot.Position)
+						lastMoveAt = now
+						chasingMob = false
+					end
+				elseif chasingMob then
+					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+					if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
+					chasingMob = false
+				end
+
+				if distance <= configuration.AutoAttackRange then
+					local playerGui = Player:FindFirstChildOfClass("PlayerGui")
+					local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
+					if inputFunction and inputFunction:IsA("BindableFunction") then
+						if equippedCharacter ~= character then
+							local equipped = pcall(function()
+								inputFunction:Invoke("EquipButton", Enum.UserInputState.Begin)
+							end)
+							if equipped then
+								equippedCharacter = character
+								lastAttackAt = os.clock() - configuration.AutoAttackInterval
+								lastSkillAt = os.clock() - configuration.AutoSkillInterval
+							end
 						else
-							warn("Auto Attack failed:", err)
+							local now = os.clock()
+							if configuration.AutoAttackEnabled and now - lastAttackAt >= configuration.AutoAttackInterval then
+								local ok, err = pcall(function()
+									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
+								end)
+								if ok then lastAttackAt = now else warn("Auto Attack failed:", err) end
+							end
+							if configuration.AutoSkillEnabled and now - lastSkillAt >= configuration.AutoSkillInterval then
+								local ok, err = pcall(function()
+									inputFunction:Invoke("SkillButton", Enum.UserInputState.Begin)
+								end)
+								if ok then lastSkillAt = now else warn("Auto Skill failed:", err) end
+							end
 						end
 					end
 				end
+			elseif chasingMob then
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
+				chasingMob = false
 			end
+		elseif chasingMob then
+			local character = Player.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
+			if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
+			chasingMob = false
 		end
 		task.wait(0.1)
 	end
@@ -2301,7 +2428,10 @@ task.spawn(function()
 		local char = Player.Character
 		local localRoot = char and char:FindFirstChild("HumanoidRootPart")
 		local followedPlayer = configuration.FollowPlayerUserId and Players:GetPlayerByUserId(tonumber(configuration.FollowPlayerUserId))
-		if followedPlayer and char and os.clock() - lastFollowMove >= 0.6 then
+		local autoAttackHasMobTarget = configuration.AutoAttackEnabled and not configuration.Farming
+			and configuration.AutoAttackMode == "Mob"
+			and (configuration.AutoAttackPinnedMob ~= nil or configuration.CombatTargetMob ~= nil)
+		if followedPlayer and char and not autoAttackHasMobTarget and os.clock() - lastFollowMove >= 0.6 then
 			local humanoid = char:FindFirstChildOfClass("Humanoid")
 			local followedCharacter = followedPlayer.Character
 			local followedRoot = followedCharacter and followedCharacter:FindFirstChild("HumanoidRootPart")
