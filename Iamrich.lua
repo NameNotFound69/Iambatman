@@ -8,6 +8,25 @@ local TeleportService = game:GetService("TeleportService")
 
 local Player = Players.LocalPlayer
 local MobsFolder = workspace:WaitForChild("Mobs")
+local MovementBoostSnapshot = { Humanoid = nil, WalkSpeed = nil, Stamina = nil, StaminaValue = nil }
+
+local function RestoreMovementBoost()
+	if MovementBoostSnapshot.Humanoid and MovementBoostSnapshot.WalkSpeed then
+		pcall(function()
+			MovementBoostSnapshot.Humanoid.WalkSpeed = MovementBoostSnapshot.WalkSpeed
+		end)
+	end
+	if MovementBoostSnapshot.Stamina and MovementBoostSnapshot.StaminaValue ~= nil then
+		pcall(function()
+			MovementBoostSnapshot.Stamina.Value = MovementBoostSnapshot.StaminaValue
+		end)
+	end
+	MovementBoostSnapshot.Humanoid = nil
+	MovementBoostSnapshot.WalkSpeed = nil
+	MovementBoostSnapshot.Stamina = nil
+	MovementBoostSnapshot.StaminaValue = nil
+end
+
 local InitClashing = ReplicatedStorage:FindFirstChild("InitClashing", true)
 if not InitClashing then return end
 
@@ -16,7 +35,8 @@ if not InitClashing then return end
 --==================================================
 local configuration = {
 	Amount = 5000,
-	MaxDistance = 15,
+	MaxDistance = 250,
+	ExpApproachDistance = 25,
 	Interval = 1,
 	ExpGoal = 2000000,
 	AlertsDistance = 1000,
@@ -50,6 +70,8 @@ local configuration = {
 	SessionExpGained = 0,
 	SessionFarmSeconds = 0,
 	NoProgressCycles = 0,
+	AutoResumeAfterAlert = false,
+	EmergencyStopActive = false,
 	AlertsEnabled = true,
 	AlertFlashEnabled = true,
 	AutoBlockEnabled = true,
@@ -73,18 +95,73 @@ local configuration = {
 	PlayerPanelHeightScale = 0.62,
 	WhitelistPanelWidthScale = 0.40,
 	WhitelistPanelHeightScale = 0.58,
-	ConfigFileName = "EXPPlus_Config.json",
+	ConfigFileName = "",
+	ConfigRootFolder = "Iamrich",
+	ConfigUserFolder = "",
+	LegacyConfigFileName = "EXPPlus_Config.json",
+	LegacyConfigOwnerFileName = "Iamrich_LegacyConfigOwner.txt",
+	MigratedLegacyConfig = false,
 	IsMinimized = false,
 	Combat = {},
 }
 
+function configuration.PrepareConfigStorage()
+	local userId = tostring(Player.UserId)
+	configuration.ConfigUserFolder = configuration.ConfigRootFolder .. "/" .. userId
+	local nestedPath = configuration.ConfigUserFolder .. "/Config.json"
+	local flatPath = configuration.ConfigRootFolder .. "_" .. userId .. ".json"
+
+	if type(makefolder) == "function" then
+		pcall(makefolder, configuration.ConfigRootFolder)
+		pcall(makefolder, configuration.ConfigUserFolder)
+		local folderReady = type(isfolder) ~= "function"
+		if type(isfolder) == "function" then
+			local ok, exists = pcall(isfolder, configuration.ConfigUserFolder)
+			folderReady = ok and exists == true
+		end
+		if folderReady then
+			configuration.ConfigFileName = nestedPath
+			return
+		end
+	end
+
+	-- Keep per-user isolation even on executors without folder APIs.
+	configuration.ConfigFileName = flatPath
+end
+
 
 function configuration.LoadConfig()
 	if type(readfile) ~= "function" then return end
-	local ok, config = pcall(function()
-		return HttpService:JSONDecode(readfile(configuration.ConfigFileName))
-	end)
-	if not ok or type(config) ~= "table" then return end
+	configuration.PrepareConfigStorage()
+	local function ReadConfig(path)
+		local ok, config = pcall(function()
+			return HttpService:JSONDecode(readfile(path))
+		end)
+		return ok and type(config) == "table" and config or nil
+	end
+
+	local config = ReadConfig(configuration.ConfigFileName)
+	if not config then
+		-- Import the old shared config once, assigning it to the first UserId that runs this version.
+		local owner = ""
+		local ownerOk, ownerValue = pcall(function()
+			return readfile(configuration.LegacyConfigOwnerFileName)
+		end)
+		if ownerOk then owner = tostring(ownerValue) end
+		if owner == "" and type(writefile) == "function" then
+			local legacyConfig = ReadConfig(configuration.LegacyConfigFileName)
+			if legacyConfig then
+				local markerWritten = pcall(function()
+					writefile(configuration.LegacyConfigOwnerFileName, tostring(Player.UserId))
+				end)
+				if markerWritten then
+					configuration.MigratedLegacyConfig = true
+					config = legacyConfig
+				end
+			end
+		end
+	end
+	if type(config) ~= "table" then return end
 
 	local function ReadNumber(key, current, minimum, allowZero)
 		local value = tonumber(config[key])
@@ -95,7 +172,11 @@ function configuration.LoadConfig()
 	end
 
 	configuration.Amount = math.floor(ReadNumber("Amount", configuration.Amount, 0, false))
-	configuration.MaxDistance = ReadNumber("MaxDistance", configuration.MaxDistance, 0, false)
+	configuration.ExpApproachDistance = math.clamp(ReadNumber("ExpApproachDistance", configuration.ExpApproachDistance, 5, false), 5, 100)
+	configuration.MaxDistance = math.max(
+		ReadNumber("MaxDistance", configuration.MaxDistance, 0, false),
+		configuration.ExpApproachDistance + 5
+	)
 	configuration.Interval = ReadNumber("Interval", configuration.Interval, 0, true)
 	configuration.ExpGoal = ReadNumber("ExpGoal", configuration.ExpGoal, 0, false)
 	configuration.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configuration.AlertsDistance, 0, true), 0, 100000)
@@ -132,6 +213,7 @@ function configuration.LoadConfig()
 	configuration.WhitelistPanelWidthScale = math.clamp(ReadNumber("WhitelistPanelWidthScale", configuration.WhitelistPanelWidthScale, 0.26, false), 0.26, 0.8)
 	configuration.WhitelistPanelHeightScale = math.clamp(ReadNumber("WhitelistPanelHeightScale", configuration.WhitelistPanelHeightScale, 0.32, false), 0.32, 0.9)
 	if type(config.AlertsEnabled) == "boolean" then configuration.AlertsEnabled = config.AlertsEnabled end
+	if type(config.AutoResumeAfterAlert) == "boolean" then configuration.AutoResumeAfterAlert = config.AutoResumeAfterAlert end
 	if type(config.AlertFlashEnabled) == "boolean" then configuration.AlertFlashEnabled = config.AlertFlashEnabled end
 	if type(config.AutoBlockEnabled) == "boolean" then configuration.AutoBlockEnabled = config.AutoBlockEnabled end
 	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
@@ -154,7 +236,14 @@ function configuration.LoadConfig()
 end
 
 function configuration.SaveConfig()
-	if type(writefile) ~= "function" then return false end
+	if type(writefile) ~= "function" then
+		if not configuration.ConfigSaveWarningShown then
+			warn("[Iamrich] Config was not saved: this executor does not provide writefile.")
+			configuration.ConfigSaveWarningShown = true
+		end
+		return false
+	end
+	configuration.PrepareConfigStorage()
 	local ids = {}
 	for userId in pairs(configuration.WhitelistIds) do
 		table.insert(ids, userId)
@@ -164,6 +253,7 @@ function configuration.SaveConfig()
 	local config = {
 		Amount = configuration.Amount,
 		MaxDistance = configuration.MaxDistance,
+		ExpApproachDistance = configuration.ExpApproachDistance,
 		Interval = configuration.Interval,
 		ExpGoal = configuration.ExpGoal,
 		AlertsDistance = configuration.AlertsDistance,
@@ -185,6 +275,7 @@ function configuration.SaveConfig()
 		WhitelistPanelWidthScale = configuration.WhitelistPanelWidthScale,
 		WhitelistPanelHeightScale = configuration.WhitelistPanelHeightScale,
 		AlertsEnabled = configuration.AlertsEnabled,
+		AutoResumeAfterAlert = configuration.AutoResumeAfterAlert,
 		AlertFlashEnabled = configuration.AlertFlashEnabled,
 		AutoBlockEnabled = configuration.AutoBlockEnabled,
 		MovementBoostEnabled = configuration.MovementBoostEnabled,
@@ -195,13 +286,19 @@ function configuration.SaveConfig()
 		WhitelistIds = ids,
 		Minimized = configuration.IsMinimized == true,
 	}
-	local ok = pcall(function()
+	local ok, err = pcall(function()
 		writefile(configuration.ConfigFileName, HttpService:JSONEncode(config))
 	end)
+	if not ok then
+		warn("[Iamrich] Config save failed:", err)
+	end
 	return ok
 end
 
 configuration.LoadConfig()
+if configuration.MigratedLegacyConfig then
+	configuration.SaveConfig()
+end
 if configuration.AutoAttackUseExpTarget then
 	configuration.AutoAttackMode = "Mob"
 end
@@ -1058,6 +1155,18 @@ StartBtn.Font = Enum.Font.GothamBold
 StartBtn.Parent = ExpPage
 Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 10)
 
+local EmergencyStopButton = Instance.new("TextButton")
+EmergencyStopButton.Size = UDim2.new(1, 0, 0, 34)
+EmergencyStopButton.LayoutOrder = 4
+EmergencyStopButton.BackgroundColor3 = CARD
+EmergencyStopButton.BorderSizePixel = 0
+EmergencyStopButton.Text = "Emergency stop: OFF"
+EmergencyStopButton.TextColor3 = MUTED
+EmergencyStopButton.TextSize = 12
+EmergencyStopButton.Font = Enum.Font.GothamBold
+EmergencyStopButton.Parent = ExpPage
+Instance.new("UICorner", EmergencyStopButton).CornerRadius = UDim.new(0, 8)
+
 --==================================================
 -- TOGGLE GRID (2 columns)
 --==================================================
@@ -1088,7 +1197,7 @@ function configuration.MakeToggleGrid(parent, order)
 end
 
 local AlertsGrid = configuration.MakeToggleGrid(AlertsPage, 2)
-AlertsGrid.Size = UDim2.new(1, 0, 0, 40)
+AlertsGrid.Size = UDim2.new(1, 0, 0, 80)
 local PlayersGrid = configuration.MakeToggleGrid(PlayerPage, 2)
 PlayersGrid.Size = UDim2.new(1, 0, 0, 120)
 local CombatGrid = configuration.MakeToggleGrid(CombatPage, 2)
@@ -1399,7 +1508,7 @@ local CombatInfo = Instance.new("TextLabel")
 CombatInfo.Size = UDim2.new(1, -8, 0, 34)
 CombatInfo.LayoutOrder = 10
 CombatInfo.BackgroundTransparency = 1
-CombatInfo.Text = "Attack and skills pause during EXP farming. Nearest mob stays selected until it dies."
+CombatInfo.Text = "Combat pauses during EXP firing. At EXP Max or Alert, it attacks the locked EXP target."
 CombatInfo.TextColor3 = MUTED
 CombatInfo.TextSize = 10
 CombatInfo.Font = Enum.Font.Gotham
@@ -1494,6 +1603,10 @@ local AlertFlashButton = configuration.MakeToggle(
 	configuration.AlertFlashEnabled and "Screen flash: ON" or "Screen flash: OFF",
 	configuration.AlertFlashEnabled, RED, RED_DIM, 2, AlertsGrid
 )
+local AutoResumeButton = configuration.MakeToggle(
+	configuration.AutoResumeAfterAlert and "Resume after Alert: ON" or "Resume after Alert: OFF",
+	configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM, 3, AlertsGrid
+)
 local ESPToggleButton = configuration.MakeToggle(configuration.ESPEnabled and "ESP: ON" or "ESP: OFF", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2)
 local ESPLineButton = configuration.MakeToggle(configuration.ESPLineEnabled and "Lines: ON" or "Lines: OFF", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3)
 local ESPBoxButton = configuration.MakeToggle(configuration.ESPBoxEnabled and "Boxes: ON" or "Boxes: OFF", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4)
@@ -1543,6 +1656,14 @@ AlertFlashButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
+AutoResumeButton.MouseButton1Click:Connect(function()
+	configuration.AutoResumeAfterAlert = not configuration.AutoResumeAfterAlert
+	AutoResumeButton.Text = configuration.AutoResumeAfterAlert and "Resume after Alert: ON" or "Resume after Alert: OFF"
+	AutoResumeButton.TextColor3 = configuration.AutoResumeAfterAlert and ACCENT or MUTED
+	AutoResumeButton.BackgroundColor3 = configuration.AutoResumeAfterAlert and ACCENT_DIM or CARD
+	configuration.SaveConfig()
+end)
+
 ESPToggleButton.MouseButton1Click:Connect(function()
 	configuration.ESPEnabled = not configuration.ESPEnabled
 	ESPToggleButton.Text = configuration.ESPEnabled and "ESP: ON" or "ESP: OFF"
@@ -1579,8 +1700,45 @@ AutoBlockButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
+function configuration.UpdateEmergencyStopButton()
+	EmergencyStopButton.Text = configuration.EmergencyStopActive and "Emergency stop: ON  •  click to resume" or "Emergency stop: OFF"
+	EmergencyStopButton.TextColor3 = configuration.EmergencyStopActive and RED or MUTED
+	EmergencyStopButton.BackgroundColor3 = configuration.EmergencyStopActive and RED_DIM or CARD
+end
+
+EmergencyStopButton.MouseButton1Click:Connect(function()
+	configuration.EmergencyStopActive = not configuration.EmergencyStopActive
+	if configuration.EmergencyStopActive then
+		configuration.Farming = false
+		configuration.PauseTimer()
+		configuration.ExpMaxCombatTarget = nil
+		configuration.AlertCombatPending = false
+		configuration.AlertCombatTarget = nil
+		configuration.AlertCombatHold = false
+		configuration.AlertCombatBlockReady = false
+		configuration.AlertBlockTarget = nil
+		configuration.LastAlertCombatUserId = nil
+		StartBtn.Text = "Start"
+		StartBtn.BackgroundColor3 = ACCENT
+		Status.Text = "OFF"
+		Status.TextColor3 = RED
+		Status.BackgroundColor3 = RED_DIM
+		StateLabel.Text = "Emergency stop"
+		MiniState.Text = "Emergency stop"
+		local character = Player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if root and humanoid then humanoid:MoveTo(root.Position) end
+		RestoreMovementBoost()
+	else
+		StateLabel.Text = configuration.Farming and "Searching..." or "Stopped"
+		MiniState.Text = StateLabel.Text
+	end
+	configuration.UpdateEmergencyStopButton()
+end)
+
 Player.Idled:Connect(function()
-	if not configuration.AntiAFKEnabled then return end
+	if not configuration.AntiAFKEnabled or configuration.EmergencyStopActive then return end
 	task.spawn(function()
 		pcall(function()
 			local camera = workspace.CurrentCamera
@@ -1596,11 +1754,32 @@ end)
 
 task.spawn(function()
 	while task.wait(1) do
-		if not configuration.MovementBoostEnabled then continue end
+		if not configuration.MovementBoostEnabled or configuration.EmergencyStopActive then
+			RestoreMovementBoost()
+			continue
+		end
 
 		local playerGui = Player:FindFirstChildOfClass("PlayerGui")
 		local gameGui = playerGui and playerGui:FindFirstChild("GameGui")
 		local stamina = gameGui and gameGui:FindFirstChild("Stamina")
+		local playerStats = Player:FindFirstChild("PlayerStats")
+		local level = playerStats and playerStats:FindFirstChild("Level")
+		local character = Player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if (MovementBoostSnapshot.Stamina and MovementBoostSnapshot.Stamina ~= stamina)
+			or (MovementBoostSnapshot.Humanoid and MovementBoostSnapshot.Humanoid ~= humanoid) then
+			RestoreMovementBoost()
+		end
+		if stamina and (stamina:IsA("NumberValue") or stamina:IsA("IntValue")) and not MovementBoostSnapshot.Stamina then
+			MovementBoostSnapshot.Stamina = stamina
+			MovementBoostSnapshot.StaminaValue = stamina.Value
+		end
+		if level and humanoid then
+			if not MovementBoostSnapshot.Humanoid then
+				MovementBoostSnapshot.Humanoid = humanoid
+				MovementBoostSnapshot.WalkSpeed = humanoid.WalkSpeed
+			end
+		end
 		if stamina and (stamina:IsA("NumberValue") or stamina:IsA("IntValue")) then
 			local ok = pcall(function()
 				stamina.Value = 1e18
@@ -1609,11 +1788,6 @@ task.spawn(function()
 				pcall(function() stamina.Value = 2147483647 end)
 			end
 		end
-
-		local playerStats = Player:FindFirstChild("PlayerStats")
-		local level = playerStats and playerStats:FindFirstChild("Level")
-		local character = Player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		if level and humanoid then
 			if level.Value >= 300 then
 				humanoid.WalkSpeed = 38
@@ -1645,7 +1819,7 @@ end)
 -- SETTINGS (compact 2x2)
 --==================================================
 SettingsCard = Instance.new("Frame")
-SettingsCard.Size = UDim2.new(1, 0, 0, 104)
+SettingsCard.Size = UDim2.new(1, 0, 0, 142)
 SettingsCard.LayoutOrder = 2
 SettingsCard.BackgroundColor3 = CARD
 SettingsCard.BorderSizePixel = 0
@@ -1691,9 +1865,10 @@ function configuration.MakeCompactSetting(parent, name, default, xScale, yOffset
 end
 
 local AmountBox = configuration.MakeCompactSetting(SettingsCard, "Amount / cycle", configuration.Amount, 0, 24)
-local DistBox = configuration.MakeCompactSetting(SettingsCard, "EXP mob search distance", configuration.MaxDistance, 0.5, 24)
+local DistBox = configuration.MakeCompactSetting(SettingsCard, "Search radius (studs)", configuration.MaxDistance, 0.5, 24)
 local IntervalBox = configuration.MakeCompactSetting(SettingsCard, "Interval (s)", configuration.Interval, 0, 62)
 local MaxBox = configuration.MakeCompactSetting(SettingsCard, "EXP Max", configuration.ExpGoal, 0.5, 62)
+local ExpApproachBox = configuration.MakeCompactSetting(SettingsCard, "EXP standoff (studs)", configuration.ExpApproachDistance, 0, 100)
 
 AmountBox.FocusLost:Connect(function()
 	local v = tonumber(AmountBox.Text)
@@ -1703,8 +1878,20 @@ AmountBox.FocusLost:Connect(function()
 end)
 DistBox.FocusLost:Connect(function()
 	local v = tonumber(DistBox.Text)
-	if v and v > 0 then configuration.MaxDistance = v end
+	if v and v > 0 then
+		configuration.MaxDistance = math.clamp(v, configuration.ExpApproachDistance + 5, 100000)
+	end
 	DistBox.Text = tostring(configuration.MaxDistance)
+	configuration.SaveConfig()
+end)
+ExpApproachBox.FocusLost:Connect(function()
+	local v = tonumber(ExpApproachBox.Text)
+	if v and v > 0 then
+		configuration.ExpApproachDistance = math.clamp(v, 5, 100)
+		configuration.MaxDistance = math.max(configuration.MaxDistance, configuration.ExpApproachDistance + 5)
+		DistBox.Text = tostring(configuration.MaxDistance)
+	end
+	ExpApproachBox.Text = tostring(configuration.ExpApproachDistance)
 	configuration.SaveConfig()
 end)
 IntervalBox.FocusLost:Connect(function()
@@ -2226,7 +2413,7 @@ end)
 --==================================================
 function configuration.PauseTimer()
 	if not configuration.IsPaused and configuration.LastTarget then
-		configuration.AccumulatedTime = configuration.AccumulatedTime + (tick() - configuration.TargetStartTime)
+		configuration.AccumulatedTime = configuration.AccumulatedTime + (os.clock() - configuration.TargetStartTime)
 		configuration.IsPaused = true
 	end
 end
@@ -2252,6 +2439,8 @@ end
 
 function configuration.SetRunning()
 	if configuration.AlertCombatPending or configuration.AlertCombatHold or configuration.AlertCombatBlockReady then return end
+	configuration.EmergencyStopActive = false
+	if configuration.UpdateEmergencyStopButton then configuration.UpdateEmergencyStopButton() end
 	configuration.Farming = true
 	configuration.ExpMaxCombatTarget = nil
 	configuration.AutoAttackPinnedMob = nil
@@ -2263,7 +2452,7 @@ function configuration.SetRunning()
 	configuration.RecentCycle = "รอบล่าสุด  -"
 	RecentCycleLabel.Text = configuration.RecentCycle
 	if configuration.LastTarget then
-		configuration.TargetStartTime = tick()
+		configuration.TargetStartTime = os.clock()
 	end
 	StartBtn.Text = "Stop"
 	StartBtn.BackgroundColor3 = RED
@@ -2461,8 +2650,26 @@ end
 -- FARM LOOP (ยิงไม่เกิน Max)
 --==================================================
 task.spawn(function()
+	local lastExpMoveAt = 0
+	local chasingExpTarget = nil
+	local watchedTarget = nil
+	local lastObservedExp = nil
+	local lastExpProgressAt = 0
 	while true do
-		if not configuration.Farming then
+		if not configuration.Farming or configuration.EmergencyStopActive then
+			if watchedTarget then
+				local watchedConfig = watchedTarget:FindFirstChild("Config")
+				local watchedExp = watchedConfig and watchedConfig:FindFirstChild("EXP")
+				if watchedExp then lastObservedExp = watchedExp.Value end
+				lastExpProgressAt = os.clock()
+			end
+			if chasingExpTarget then
+				local character = Player.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart")
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				if root and humanoid then humanoid:MoveTo(root.Position) end
+				chasingExpTarget = nil
+			end
 			task.wait(0.1)
 			continue
 		end
@@ -2472,6 +2679,13 @@ task.spawn(function()
 		if target and configuration.Combat.IsLivingMob(target) then
 			-- ยึดตัวเดิม
 		else
+			if chasingExpTarget then
+				local character = Player.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart")
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				if root and humanoid then humanoid:MoveTo(root.Position) end
+				chasingExpTarget = nil
+			end
 			if configuration.ExpMaxCombatTarget == target then
 				configuration.ExpMaxCombatTarget = nil
 			end
@@ -2486,10 +2700,10 @@ task.spawn(function()
 				MiniExp.Text = "-"
 				DistLabel.Text = "Dist  -"
 				StateLabel.Text = "Searching..."
-				MiniState.Text = "Searching..."
+				MiniState.Text = "Searching within the configured radius"
 				RateLabel.Text = "Rate -"
 				configuration.PauseTimer()
-				task.wait(0.2)
+				task.wait(0.5)
 				continue
 			end
 
@@ -2499,13 +2713,45 @@ task.spawn(function()
 
 			-- เริ่มจับเวลา rate ของมอนตัวนี้
 			configuration.SessionStartEXP = exp and exp.Value or 0
-			configuration.SessionStartTime = tick()
+			configuration.SessionStartTime = os.clock()
 		end
 
 		local cfg = target:FindFirstChild("Config")
 		local exp = cfg and cfg:FindFirstChild("EXP")
 		if not exp then
-			task.wait(0.1)
+			StateLabel.Text = "Waiting"
+			MiniState.Text = "Waiting for target EXP data"
+			task.wait(0.25)
+			continue
+		end
+
+		local now = os.clock()
+		if watchedTarget ~= target then
+			watchedTarget = target
+			lastObservedExp = exp.Value
+			lastExpProgressAt = now
+		elseif exp.Value ~= lastObservedExp then
+			lastObservedExp = exp.Value
+			lastExpProgressAt = now
+		end
+
+		if exp.Value < configuration.ExpGoal and now - lastExpProgressAt >= 20 then
+			local character = Player.Character
+			local playerGui = Player:FindFirstChildOfClass("PlayerGui")
+			local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
+			local _, needsEquip = configuration.Combat.GetWeaponEquipState(character)
+			StateLabel.Text = needsEquip and "Checking weapon" or "EXP stalled"
+			MiniState.Text = needsEquip and "No EXP change; checking weapon and keeping target" or "No EXP change; retrying same target"
+			if needsEquip and inputFunction and inputFunction:IsA("BindableFunction") then
+				pcall(function()
+					inputFunction:Invoke("EquipButton", Enum.UserInputState.Begin)
+				end)
+			end
+			lastExpProgressAt = now
+			local recoveryEndsAt = now + 3
+			while configuration.Farming and not configuration.EmergencyStopActive and os.clock() < recoveryEndsAt do
+				task.wait(0.1)
+			end
 			continue
 		end
 
@@ -2519,6 +2765,34 @@ task.spawn(function()
 		MaxLabel.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
 		DistLabel.Text = "Dist  " .. string.format("%.1f", dist)
 
+		-- Walk toward the locked EXP mob and hold the configured firing distance.
+		if exp.Value < configuration.ExpGoal and root and mroot then
+			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+			if dist > configuration.ExpApproachDistance + 1 then
+				if humanoid and (chasingExpTarget ~= target or os.clock() - lastExpMoveAt >= 0.4) then
+					local flatOffset = Vector3.new(
+						root.Position.X - mroot.Position.X,
+						0,
+						root.Position.Z - mroot.Position.Z
+					)
+					if flatOffset.Magnitude < 0.1 then
+						flatOffset = Vector3.new(mroot.CFrame.LookVector.X, 0, mroot.CFrame.LookVector.Z)
+					end
+					if flatOffset.Magnitude < 0.1 then flatOffset = Vector3.new(1, 0, 0) end
+					humanoid:MoveTo(mroot.Position + flatOffset.Unit * configuration.ExpApproachDistance)
+					chasingExpTarget = target
+					lastExpMoveAt = os.clock()
+				end
+			elseif chasingExpTarget then
+				if humanoid then humanoid:MoveTo(root.Position) end
+				chasingExpTarget = nil
+			end
+		elseif chasingExpTarget then
+			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+			if humanoid and root then humanoid:MoveTo(root.Position) end
+			chasingExpTarget = nil
+		end
+
 		-- เมื่อถึง Max ให้คงเป้าหมายเดิมไว้จนกว่ามอนจะตาย
 		if exp.Value >= configuration.ExpGoal then
 			configuration.ExpMaxCombatTarget = target
@@ -2531,8 +2805,16 @@ task.spawn(function()
 			continue
 		end
 
-		StateLabel.Text = configuration.NoProgressCycles >= 2 and ("No EXP progress (" .. configuration.NoProgressCycles .. ")") or "Farming..."
-		MiniState.Text = StateLabel.Text
+		if dist > configuration.ExpApproachDistance + 1 then
+			StateLabel.Text = "Moving"
+			MiniState.Text = "Walking to locked EXP target"
+		elseif configuration.NoProgressCycles >= 2 then
+			StateLabel.Text = "Waiting"
+			MiniState.Text = "Waiting for EXP to update on this target"
+		else
+			StateLabel.Text = "Firing"
+			MiniState.Text = "Sending EXP to locked target"
+		end
 		configuration.UpdateBillboardText(exp.Value, false)
 
 		-- ยิงเฉพาะจำนวนที่เหลือถึง Max (กันยิงเกิน)
@@ -2543,7 +2825,7 @@ task.spawn(function()
 		local callsSent = 0
 
 		for i = 1, toFire do
-			if not configuration.Farming then break end
+			if not configuration.Farming or configuration.EmergencyStopActive then break end
 			if not target:IsDescendantOf(MobsFolder) then break end
 			if exp.Value >= configuration.ExpGoal then break end
 
@@ -2564,7 +2846,7 @@ task.spawn(function()
 			end
 		end
 
-		if not configuration.Farming then continue end
+		if not configuration.Farming or configuration.EmergencyStopActive then continue end
 
 		if not target:IsDescendantOf(MobsFolder) then
 			configuration.ClearBillboard()
@@ -2587,13 +2869,13 @@ task.spawn(function()
 
 		-- รอ EXP ขึ้น (timeout สั้นลงเมื่อใกล้ Max)
 		if target:IsDescendantOf(MobsFolder) then
-			StateLabel.Text = "Waiting..."
-			MiniState.Text = "Waiting..."
+			StateLabel.Text = "Waiting"
+			MiniState.Text = "Waiting for EXP update on locked target"
 			local expected = math.min(cycleStartExp + callsSent, configuration.ExpGoal)
 			local startWait = os.clock()
 			local maxWait = (exp.Value >= configuration.ExpGoal - 500) and 2 or 5
 
-			while configuration.Farming and exp.Parent and exp.Value < expected do
+			while configuration.Farming and not configuration.EmergencyStopActive and exp.Parent and exp.Value < expected do
 				if not target:IsDescendantOf(MobsFolder) then break end
 				if exp.Value >= configuration.ExpGoal then break end
 				if os.clock() - startWait > maxWait then break end
@@ -2614,8 +2896,10 @@ task.spawn(function()
 				configuration.PauseTimer()
 				continue
 			end
-			StateLabel.Text = configuration.NoProgressCycles >= 2 and ("No EXP progress (" .. configuration.NoProgressCycles .. ")") or "Cycle done"
-			MiniState.Text = StateLabel.Text
+			StateLabel.Text = configuration.NoProgressCycles >= 2 and "Waiting" or "Interval"
+			MiniState.Text = configuration.NoProgressCycles >= 2
+				and "EXP did not update; keeping the same target"
+				or ("Waiting " .. tostring(configuration.Interval) .. "s before next cycle")
 			task.wait(configuration.Interval)
 		end
 	end
@@ -2632,7 +2916,8 @@ task.spawn(function()
 	local chasingMob = false
 	while true do
 		local canCombatWhileExpMaxed = configuration.Farming and configuration.ExpMaxCombatTarget ~= nil
-		if (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or configuration.AlertCombatPending)
+		if not configuration.EmergencyStopActive
+			and (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or configuration.AlertCombatPending)
 			and not configuration.AlertCombatHold
 			and (not configuration.Farming or canCombatWhileExpMaxed) and not configuration.AlertCombatBlockReady then
 			local character = Player.Character
@@ -2680,6 +2965,11 @@ task.spawn(function()
 						local hasWeapon, needsEquip = configuration.Combat.GetWeaponEquipState(character)
 						local canAttack = humanoid and humanoid.Health > 0 and hasWeapon
 						if not canAttack then
+							CombatInfo.Text = needsEquip and "Waiting for Sword; trying EquipButton before attacking." or "Waiting for PlayerStats and Sword/MainWeld."
+							if not configuration.Farming or configuration.AlertCombatPending or configuration.ExpMaxCombatTarget then
+								StateLabel.Text = needsEquip and "Equipping" or "Waiting"
+								MiniState.Text = needsEquip and "Auto Attack is equipping the Sword" or "Waiting for Sword and PlayerStats"
+							end
 							-- Match F8: an un-equipped or UpperTorso-stowed weapon needs EquipButton.
 							if needsEquip and now - lastEquipAt >= 1 then
 								local ok, err = pcall(function()
@@ -2689,6 +2979,7 @@ task.spawn(function()
 								if not ok then warn("Auto Equip failed:", err) end
 							end
 						else
+							CombatInfo.Text = configuration.AlertCombatPending and "Alert response: attacking only the locked EXP target." or "Weapon ready; Auto Attack can engage the selected target."
 							if (configuration.AutoAttackEnabled or configuration.AlertCombatPending) and now - lastAttackAt >= configuration.AutoAttackInterval then
 								local ok, err = pcall(function()
 									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
@@ -2733,21 +3024,21 @@ task.spawn(function()
 
 			if configuration.CurrentTarget ~= configuration.LastTarget then
 				configuration.LastTarget = configuration.CurrentTarget
-				configuration.TargetStartTime = tick()
+				configuration.TargetStartTime = os.clock()
 				configuration.AccumulatedTime = 0
 				configuration.IsPaused = false
 				if exp then
 					configuration.SessionStartEXP = exp.Value
-					configuration.SessionStartTime = tick()
+					configuration.SessionStartTime = os.clock()
 				end
 			end
 
 			if not reachedMax then
 				if configuration.IsPaused then
-					configuration.TargetStartTime = tick()
+					configuration.TargetStartTime = os.clock()
 					configuration.IsPaused = false
 				end
-				TimeLabel.Text = configuration.FormatTime(configuration.AccumulatedTime + (tick() - configuration.TargetStartTime))
+				TimeLabel.Text = configuration.FormatTime(configuration.AccumulatedTime + (os.clock() - configuration.TargetStartTime))
 				MiniTime.Text = TimeLabel.Text
 			else
 				configuration.PauseTimer()
@@ -2757,7 +3048,7 @@ task.spawn(function()
 
 			-- EXP / Hour
 			if exp and configuration.SessionStartTime > 0 then
-				local elapsed = tick() - configuration.SessionStartTime
+				local elapsed = os.clock() - configuration.SessionStartTime
 				if elapsed > 1 then
 					local gained = exp.Value - configuration.SessionStartEXP
 					local perHour = (gained / elapsed) * 3600
@@ -2831,7 +3122,7 @@ task.spawn(function()
 		local localRoot = char and char:FindFirstChild("HumanoidRootPart")
 		local nearbyPlayer = nil
 		local nearbyDistance = math.huge
-		if configuration.AlertsEnabled and localRoot then
+		if configuration.AlertsEnabled and not configuration.EmergencyStopActive and localRoot then
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= Player and not configuration.IsWhitelisted(otherPlayer) then
 					local otherCharacter = otherPlayer.Character
@@ -2845,6 +3136,22 @@ task.spawn(function()
 					end
 				end
 			end
+		end
+
+		local trackedAlertId = tonumber(configuration.LastAlertCombatUserId)
+		local trackedAlertPlayer = trackedAlertId and Players:GetPlayerByUserId(trackedAlertId)
+		local trackedCharacter = trackedAlertPlayer and trackedAlertPlayer.Character
+		local trackedRoot = trackedCharacter and trackedCharacter:FindFirstChild("HumanoidRootPart")
+		local trackedPlayerInRange = configuration.AlertsEnabled and localRoot and trackedRoot
+			and (localRoot.Position - trackedRoot.Position).Magnitude <= configuration.AlertsDistance
+		if not trackedPlayerInRange and not configuration.AlertCombatPending then
+			local shouldResume = configuration.AlertCombatHold and configuration.AutoResumeAfterAlert
+				and not configuration.AlertCombatBlockReady and not configuration.EmergencyStopActive
+			configuration.AlertCombatHold = false
+			if not configuration.AlertCombatBlockReady then
+				configuration.LastAlertCombatUserId = nil
+			end
+			if shouldResume then configuration.SetRunning() end
 		end
 
 		if nearbyPlayer then
@@ -2862,16 +3169,30 @@ task.spawn(function()
 				if mob then
 					configuration.AutoAttackPinnedMob = mob
 					configuration.CombatTargetMob = mob
+					StateLabel.Text = "Alert"
+					MiniState.Text = "Attacking locked EXP target before Block"
 				else
 					-- Never substitute a nearby mob when there is no active EXP target.
 					configuration.AlertCombatPending = false
 					configuration.AlertCombatHold = true
 					configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
+					StateLabel.Text = configuration.AutoBlockEnabled and "Block" or "Alert hold"
+					MiniState.Text = configuration.AutoBlockEnabled and "No EXP target; opening Block prompt" or "No EXP target; waiting for player to leave"
 					if not configuration.AutoBlockEnabled then
 						configuration.AlertBlockTarget = nil
 					end
 				end
 				if configuration.Farming then configuration.SetIdle() end
+				if configuration.AlertCombatPending then
+					StateLabel.Text = "Alert"
+					MiniState.Text = "Attacking locked EXP target before Block"
+				elseif configuration.AlertCombatBlockReady then
+					StateLabel.Text = "Block"
+					MiniState.Text = "No EXP target; opening Block prompt"
+				elseif configuration.AlertCombatHold then
+					StateLabel.Text = "Alert hold"
+					MiniState.Text = "No EXP target; waiting for player to leave"
+				end
 			end
 		else
 			configuration.AlertCombatHold = false
@@ -2888,6 +3209,8 @@ task.spawn(function()
 					configuration.AlertCombatTarget = nil
 					configuration.AlertCombatHold = true
 					configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
+					StateLabel.Text = configuration.AutoBlockEnabled and "Block" or "Alert hold"
+					MiniState.Text = configuration.AutoBlockEnabled and "EXP target defeated; opening Block prompt" or "EXP target defeated; waiting for player to leave"
 				else
 					configuration.AutoAttackPinnedMob = alertMob
 					configuration.CombatTargetMob = alertMob
@@ -2900,7 +3223,7 @@ task.spawn(function()
 			or (configuration.AutoAttackEnabled and not configuration.Farming
 				and configuration.AutoAttackMode == "Mob"
 				and (configuration.AutoAttackPinnedMob ~= nil or configuration.CombatTargetMob ~= nil))
-		if followedPlayer and char and not autoAttackHasMobTarget and os.clock() - lastFollowMove >= 0.6 then
+		if not configuration.EmergencyStopActive and followedPlayer and char and not autoAttackHasMobTarget and os.clock() - lastFollowMove >= 0.6 then
 			local humanoid = char:FindFirstChildOfClass("Humanoid")
 			local followedCharacter = followedPlayer.Character
 			local followedRoot = followedCharacter and followedCharacter:FindFirstChild("HumanoidRootPart")
@@ -2914,7 +3237,7 @@ task.spawn(function()
 			end
 		end
 
-		if configuration.AutoBlockEnabled and not configuration.AlertCombatPending
+		if configuration.AutoBlockEnabled and not configuration.EmergencyStopActive and not configuration.AlertCombatPending
 			and os.clock() - lastAutoBlockCheck >= 1 then
 			lastAutoBlockCheck = os.clock()
 			local blockedUsers = configuration.GetBlockedUserSet()
@@ -2949,6 +3272,8 @@ task.spawn(function()
 			elseif blockedNonWhitelistedPlayer and not autoBlockTeleporting then
 				configuration.AlertCombatBlockReady = false
 				configuration.AlertBlockTarget = nil
+				StateLabel.Text = "Server hop"
+				MiniState.Text = "A non-Whitelisted player is already blocked"
 				autoBlockTeleporting = true
 				task.spawn(function()
 					local ok, err = pcall(function()
@@ -2969,6 +3294,8 @@ task.spawn(function()
 				if ok and configuration.AlertCombatBlockReady and nextPlayerToPrompt == alertTarget then
 					configuration.AlertCombatBlockReady = false
 					configuration.AlertBlockTarget = nil
+					StateLabel.Text = "Block prompt"
+					MiniState.Text = "Block prompt opened; waiting for the Alert player to leave"
 				elseif not ok then
 					warn("Auto Block prompt failed:", err)
 				end
@@ -3424,11 +3751,11 @@ task.spawn(function()
 			reachedMax = exp ~= nil and exp.Value >= configuration.ExpGoal
 		end
 
-		if configuration.AlertsEnabled and configuration.AlertFlashEnabled and nearbyPlayer then
+		if configuration.AlertsEnabled and not configuration.EmergencyStopActive and configuration.AlertFlashEnabled and nearbyPlayer then
 			AlarmOverlay.BackgroundColor3 = RED
 			AlarmText.Text = string.format("PLAYER NEARBY  •  %s  •  %.0f studs", nearbyPlayer.Name, nearbyDistance)
 			AlarmOverlay.Visible = true
-		elseif configuration.AlertsEnabled and configuration.AlertFlashEnabled and reachedMax then
+		elseif configuration.AlertsEnabled and not configuration.EmergencyStopActive and configuration.AlertFlashEnabled and reachedMax then
 			AlarmOverlay.BackgroundColor3 = GREEN
 			AlarmText.Text = "EXP MAX REACHED"
 			AlarmOverlay.Visible = true
