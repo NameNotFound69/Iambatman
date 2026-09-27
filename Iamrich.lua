@@ -402,6 +402,7 @@ HeaderRule.BackgroundTransparency = 0.4
 HeaderRule.BorderSizePixel = 0
 HeaderRule.Parent = Header
 
+local WindowDots = {}
 function configuration.MakeWindowDot(x, color)
 	local dot = Instance.new("Frame")
 	dot.Size = UDim2.fromScale(0.018, 0.28)
@@ -410,6 +411,8 @@ function configuration.MakeWindowDot(x, color)
 	dot.BorderSizePixel = 0
 	dot.Parent = Header
 	Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+	table.insert(WindowDots, dot)
+	return dot
 end
 configuration.MakeWindowDot(0.035, Color3.fromRGB(255, 95, 86))
 configuration.MakeWindowDot(0.075, Color3.fromRGB(255, 190, 46))
@@ -460,44 +463,67 @@ MinimizeBtn.Font = Enum.Font.GothamBold
 MinimizeBtn.Parent = Header
 Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 6)
 
--- Mini bar (visible only when minimized) — big EXP + time
+--==================================================
+-- MINI CARD (compact EXP box when minimized)
+--==================================================
+local MINI_WIDTH = 300
+local MINI_HEIGHT = 128
+local SavedMainPosition = nil
+
 local MiniBar = Instance.new("Frame")
 MiniBar.Name = "MiniBar"
-MiniBar.Size = UDim2.new(1, -110, 1, -8)
-MiniBar.Position = UDim2.fromOffset(10, 4)
+MiniBar.Size = UDim2.fromScale(1, 1)
 MiniBar.BackgroundTransparency = 1
 MiniBar.Visible = false
 MiniBar.Parent = Header
 
+-- Top strip: title + status + expand
+local MiniTop = Instance.new("Frame")
+MiniTop.Size = UDim2.new(1, -16, 0, 28)
+MiniTop.Position = UDim2.fromOffset(8, 6)
+MiniTop.BackgroundTransparency = 1
+MiniTop.Parent = MiniBar
+
+local MiniTitle = Instance.new("TextLabel")
+MiniTitle.Size = UDim2.new(0.4, 0, 1, 0)
+MiniTitle.BackgroundTransparency = 1
+MiniTitle.Text = "EXP+"
+MiniTitle.TextColor3 = TEXT
+MiniTitle.TextSize = 13
+MiniTitle.Font = Enum.Font.GothamBold
+MiniTitle.TextXAlignment = Enum.TextXAlignment.Left
+MiniTitle.Parent = MiniTop
+
+-- Big EXP number
 local MiniExp = Instance.new("TextLabel")
 MiniExp.Name = "MiniExp"
-MiniExp.Size = UDim2.new(0.55, 0, 0.6, 0)
-MiniExp.Position = UDim2.fromScale(0, 0.05)
+MiniExp.Size = UDim2.new(1, -20, 0, 36)
+MiniExp.Position = UDim2.fromOffset(10, 34)
 MiniExp.BackgroundTransparency = 1
 MiniExp.Text = "0"
 MiniExp.TextColor3 = GREEN
-MiniExp.TextSize = 18
+MiniExp.TextSize = 28
 MiniExp.Font = Enum.Font.GothamBlack
 MiniExp.TextXAlignment = Enum.TextXAlignment.Left
-MiniExp.TextYAlignment = Enum.TextYAlignment.Bottom
 MiniExp.Parent = MiniBar
 
 local MiniMax = Instance.new("TextLabel")
-MiniMax.Size = UDim2.new(0.55, 0, 0.35, 0)
-MiniMax.Position = UDim2.fromScale(0, 0.62)
+MiniMax.Size = UDim2.new(0.55, 0, 0, 16)
+MiniMax.Position = UDim2.fromOffset(10, 70)
 MiniMax.BackgroundTransparency = 1
 MiniMax.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
 MiniMax.TextColor3 = MUTED
-MiniMax.TextSize = 10
+MiniMax.TextSize = 11
 MiniMax.Font = Enum.Font.Gotham
 MiniMax.TextXAlignment = Enum.TextXAlignment.Left
-MiniMax.TextYAlignment = Enum.TextYAlignment.Top
 MiniMax.Parent = MiniBar
 
+-- Right side: time + state
 local MiniTime = Instance.new("TextLabel")
 MiniTime.Name = "MiniTime"
-MiniTime.Size = UDim2.new(0.4, 0, 0.55, 0)
-MiniTime.Position = UDim2.fromScale(0.55, 0.1)
+MiniTime.Size = UDim2.new(0.42, 0, 0, 20)
+MiniTime.Position = UDim2.new(1, -12, 0, 38)
+MiniTime.AnchorPoint = Vector2.new(1, 0)
 MiniTime.BackgroundTransparency = 1
 MiniTime.Text = "00:00:00"
 MiniTime.TextColor3 = YELLOW
@@ -508,15 +534,44 @@ MiniTime.Parent = MiniBar
 
 local MiniState = Instance.new("TextLabel")
 MiniState.Name = "MiniState"
-MiniState.Size = UDim2.new(0.4, 0, 0.35, 0)
-MiniState.Position = UDim2.fromScale(0.55, 0.6)
+MiniState.Size = UDim2.new(0.42, 0, 0, 16)
+MiniState.Position = UDim2.new(1, -12, 0, 58)
+MiniState.AnchorPoint = Vector2.new(1, 0)
 MiniState.BackgroundTransparency = 1
 MiniState.Text = "Idle"
 MiniState.TextColor3 = MUTED
-MiniState.TextSize = 10
+MiniState.TextSize = 11
 MiniState.Font = Enum.Font.Gotham
 MiniState.TextXAlignment = Enum.TextXAlignment.Right
 MiniState.Parent = MiniBar
+
+-- Progress bar at bottom of mini card
+local MiniBarBg = Instance.new("Frame")
+MiniBarBg.Size = UDim2.new(1, -20, 0, 5)
+MiniBarBg.Position = UDim2.fromOffset(10, 96)
+MiniBarBg.BackgroundColor3 = INPUT
+MiniBarBg.BorderSizePixel = 0
+MiniBarBg.Parent = MiniBar
+Instance.new("UICorner", MiniBarBg).CornerRadius = UDim.new(1, 0)
+
+local MiniBarFill = Instance.new("Frame")
+MiniBarFill.Name = "MiniBarFill"
+MiniBarFill.Size = UDim2.fromScale(0, 1)
+MiniBarFill.BackgroundColor3 = GREEN
+MiniBarFill.BorderSizePixel = 0
+MiniBarFill.Parent = MiniBarBg
+Instance.new("UICorner", MiniBarFill).CornerRadius = UDim.new(1, 0)
+
+local MiniHint = Instance.new("TextLabel")
+MiniHint.Size = UDim2.new(1, -20, 0, 14)
+MiniHint.Position = UDim2.fromOffset(10, 106)
+MiniHint.BackgroundTransparency = 1
+MiniHint.Text = "คลิก + เพื่อขยาย"
+MiniHint.TextColor3 = MUTED
+MiniHint.TextSize = 10
+MiniHint.Font = Enum.Font.Gotham
+MiniHint.TextXAlignment = Enum.TextXAlignment.Left
+MiniHint.Parent = MiniBar
 
 function configuration.ApplyMinimized(state)
 	configuration.IsMinimized = state
@@ -526,15 +581,42 @@ function configuration.ApplyMinimized(state)
 	MiniBar.Visible = state
 	Title.Visible = not state
 	Subtitle.Visible = not state
-	Main.Size = UDim2.fromScale(configuration.MainWidthScale, state and 0.085 or configuration.MainHeightScale)
-	Header.Size = UDim2.fromScale(1, state and 1 or 0.09)
+	HeaderFix.Visible = not state
+	HeaderRule.Visible = not state
+	for _, dot in ipairs(WindowDots) do
+		dot.Visible = not state
+	end
 	MinimizeBtn.Text = state and "+" or "−"
+
 	if state then
-		Status.Position = UDim2.new(1, -62, 0.5, -10)
-		MinimizeBtn.Position = UDim2.new(1, -92, 0.5, -12)
+		SavedMainPosition = Main.Position
+		-- Compact floating card
+		Main.Size = UDim2.fromOffset(MINI_WIDTH, MINI_HEIGHT)
+		Header.Size = UDim2.fromScale(1, 1)
+		Header.BackgroundColor3 = BG
+		-- Keep near previous top-left, clamp into viewport
+		local camera = workspace.CurrentCamera
+		local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+		local px = math.clamp(Main.Position.X.Scale * viewport.X + Main.Position.X.Offset, 8, math.max(8, viewport.X - MINI_WIDTH - 8))
+		local py = math.clamp(Main.Position.Y.Scale * viewport.Y + Main.Position.Y.Offset, 8, math.max(8, viewport.Y - MINI_HEIGHT - 8))
+		Main.Position = UDim2.fromOffset(px, py)
+		Status.Position = UDim2.new(1, -86, 0, 8)
+		Status.Size = UDim2.fromOffset(40, 18)
+		MinimizeBtn.Position = UDim2.new(1, -40, 0, 6)
+		MinimizeBtn.Size = UDim2.fromOffset(28, 22)
 	else
+		Header.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+		Main.Size = UDim2.fromScale(configuration.MainWidthScale, configuration.MainHeightScale)
+		Header.Size = UDim2.fromScale(1, 0.09)
+		if SavedMainPosition then
+			Main.Position = SavedMainPosition
+		else
+			Main.Position = UDim2.fromScale(0.5 - configuration.MainWidthScale / 2, 0.5 - configuration.MainHeightScale / 2)
+		end
 		Status.Position = UDim2.new(1, -62, 0, 10)
+		Status.Size = UDim2.fromOffset(48, 20)
 		MinimizeBtn.Position = UDim2.new(1, -92, 0, 8)
+		MinimizeBtn.Size = UDim2.fromOffset(24, 24)
 	end
 end
 
@@ -562,10 +644,17 @@ UserInputService.InputChanged:Connect(function(input)
 	if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 		local d = input.Position - DragStart
 		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
-		if viewport then
+		if not viewport then return end
+		if configuration.IsMinimized then
+			local startX = StartPos.X.Scale * viewport.X + StartPos.X.Offset
+			local startY = StartPos.Y.Scale * viewport.Y + StartPos.Y.Offset
+			local px = math.clamp(startX + d.X, 4, math.max(4, viewport.X - MINI_WIDTH - 4))
+			local py = math.clamp(startY + d.Y, 4, math.max(4, viewport.Y - MINI_HEIGHT - 4))
+			Main.Position = UDim2.fromOffset(px, py)
+		else
 			Main.Position = UDim2.fromScale(
 				math.clamp(StartPos.X.Scale + d.X / viewport.X, 0, 1 - configuration.MainWidthScale),
-				math.clamp(StartPos.Y.Scale + d.Y / viewport.Y, 0, 1 - (configuration.IsMinimized and 0.085 or configuration.MainHeightScale))
+				math.clamp(StartPos.Y.Scale + d.Y / viewport.Y, 0, 1 - configuration.MainHeightScale)
 			)
 		end
 	end
@@ -1115,6 +1204,7 @@ local AutoSkillButton = configuration.MakeToggle(
 )
 CombatTargetButton = configuration.MakeToggle("Choose player target", false, TEXT, CARD, 3, CombatGrid)
 CombatTargetButton.TextColor3 = TEXT
+local ExpMobTargetButton = configuration.MakeToggle("Lock EXP mob", false, ACCENT, ACCENT_DIM, 4, CombatGrid)
 
 local AutoAttackModeButtons = {
 	Mob = configuration.MakeToggle("Mob", configuration.AutoAttackMode == "Mob", ACCENT, ACCENT_DIM, 1, AttackModeGrid),
@@ -1277,6 +1367,32 @@ function configuration.UpdateAutoAttackModeButtons()
 	if configuration.RefreshCombatMobs then configuration.RefreshCombatMobs() end
 end
 configuration.UpdateAutoAttackModeButtons()
+
+function configuration.UpdateExpMobTargetButton()
+	local target = configuration.AutoAttackPinnedMob or configuration.CombatTargetMob
+	if configuration.AutoAttackMode == "Mob" and configuration.Combat.IsLivingMob(target) then
+		ExpMobTargetButton.Text = "Locked: " .. target.Name
+	elseif configuration.Combat.IsLivingMob(configuration.CurrentTarget) then
+		ExpMobTargetButton.Text = "Lock EXP mob"
+	else
+		ExpMobTargetButton.Text = "No EXP target"
+	end
+end
+
+ExpMobTargetButton.MouseButton1Click:Connect(function()
+	local target = configuration.CurrentTarget
+	if not configuration.Combat.IsLivingMob(target) then
+		configuration.UpdateExpMobTargetButton()
+		return
+	end
+
+	configuration.AutoAttackMode = "Mob"
+	configuration.AutoAttackPinnedMob = target
+	configuration.CombatTargetMob = target
+	configuration.UpdateAutoAttackModeButtons()
+	configuration.UpdateExpMobTargetButton()
+	configuration.SaveConfig()
+end)
 
 AutoAttackButton.MouseButton1Click:Connect(function()
 	configuration.AutoAttackEnabled = not configuration.AutoAttackEnabled
@@ -1958,7 +2074,11 @@ UserInputService.InputChanged:Connect(function(input)
 	if not configuration.IsMinimized then
 		configuration.MainHeightScale = math.clamp(ResizeStartSize.Y + delta.Y / viewport.Y, 0.4, maxHeight)
 	end
-	Main.Size = UDim2.fromScale(configuration.MainWidthScale, configuration.IsMinimized and 0.085 or configuration.MainHeightScale)
+	if configuration.IsMinimized then
+		Main.Size = UDim2.fromOffset(MINI_WIDTH, MINI_HEIGHT)
+	else
+		Main.Size = UDim2.fromScale(configuration.MainWidthScale, configuration.MainHeightScale)
+	end
 end)
 
 --==================================================
@@ -2408,6 +2528,7 @@ task.spawn(function()
 			if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
 			chasingMob = false
 		end
+		configuration.UpdateExpMobTargetButton()
 		task.wait(0.1)
 	end
 end)
@@ -2469,6 +2590,10 @@ task.spawn(function()
 				local ratio = math.clamp(exp.Value / configuration.ExpGoal, 0, 1)
 				if math.floor(ratio * 1000) ~= math.floor((Bar.Size.X.Scale or 0) * 1000) then
 					Bar.Size = UDim2.fromScale(ratio, 1)
+				end
+				if math.floor(ratio * 1000) ~= math.floor((MiniBarFill.Size.X.Scale or 0) * 1000) then
+					MiniBarFill.Size = UDim2.fromScale(ratio, 1)
+					MiniBarFill.BackgroundColor3 = ratio >= 1 and GREEN or (ratio >= 0.6 and ACCENT or GREEN)
 				end
 				local expText = configuration.FormatNumber(exp.Value)
 				if ExpLabel.Text ~= expText then ExpLabel.Text = expText end
