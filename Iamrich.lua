@@ -218,21 +218,21 @@ function configuration.FormatPlayerStats(otherPlayer)
 end
 
 --==================================================
--- COLORS (refined modern dark)
+-- COLORS (minimal graphite + ice blue)
 --==================================================
-local BG      = Color3.fromRGB(21, 18, 30)
-local CARD    = Color3.fromRGB(31, 27, 43)
-local INPUT   = Color3.fromRGB(40, 35, 54)
-local BORDER  = Color3.fromRGB(57, 50, 72)
-local TEXT    = Color3.fromRGB(245, 245, 248)
-local MUTED   = Color3.fromRGB(140, 140, 155)
-local ACCENT  = Color3.fromRGB(99, 140, 255)
-local GREEN   = Color3.fromRGB(72, 210, 140)
-local RED     = Color3.fromRGB(235, 80, 90)
-local YELLOW  = Color3.fromRGB(255, 190, 70)
-local ACCENT_DIM = Color3.fromRGB(40, 55, 110)
-local GREEN_DIM  = Color3.fromRGB(28, 58, 42)
-local RED_DIM    = Color3.fromRGB(50, 26, 30)
+local BG      = Color3.fromRGB(13, 16, 22)
+local CARD    = Color3.fromRGB(20, 24, 32)
+local INPUT   = Color3.fromRGB(28, 34, 44)
+local BORDER  = Color3.fromRGB(47, 57, 70)
+local TEXT    = Color3.fromRGB(232, 238, 246)
+local MUTED   = Color3.fromRGB(132, 145, 161)
+local ACCENT  = Color3.fromRGB(101, 184, 255)
+local GREEN   = Color3.fromRGB(76, 218, 164)
+local RED     = Color3.fromRGB(255, 92, 112)
+local YELLOW  = Color3.fromRGB(255, 196, 92)
+local ACCENT_DIM = Color3.fromRGB(27, 48, 70)
+local GREEN_DIM  = Color3.fromRGB(24, 53, 45)
+local RED_DIM    = Color3.fromRGB(56, 30, 37)
 
 function configuration.GetHealthColor(current, maximum)
 	if not current or not maximum or maximum <= 0 then return MUTED end
@@ -345,11 +345,17 @@ Main.ZIndex = 90
 Main.BackgroundColor3 = BG
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 16)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 13)
+local MainGradient = Instance.new("UIGradient", Main)
+MainGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(19, 23, 31)),
+	ColorSequenceKeypoint.new(1, BG),
+})
+MainGradient.Rotation = 90
 local MainStroke = Instance.new("UIStroke", Main)
 MainStroke.Color = BORDER
-MainStroke.Thickness = 1.2
-MainStroke.Transparency = 0.15
+MainStroke.Thickness = 1
+MainStroke.Transparency = 0.3
 
 --==================================================
 -- HEADER (compact)
@@ -364,7 +370,7 @@ Header.Active = true
 Header.BackgroundColor3 = CARD
 Header.BorderSizePixel = 0
 Header.Parent = Main
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 16)
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 13)
 
 local HeaderFix = Instance.new("Frame")
 HeaderFix.Size = UDim2.fromScale(1, 0.4)
@@ -372,6 +378,14 @@ HeaderFix.Position = UDim2.fromScale(0, 0.6)
 HeaderFix.BackgroundColor3 = CARD
 HeaderFix.BorderSizePixel = 0
 HeaderFix.Parent = Header
+
+local HeaderRule = Instance.new("Frame")
+HeaderRule.Size = UDim2.new(1, -24, 0, 1)
+HeaderRule.Position = UDim2.new(0, 12, 1, -1)
+HeaderRule.BackgroundColor3 = BORDER
+HeaderRule.BackgroundTransparency = 0.35
+HeaderRule.BorderSizePixel = 0
+HeaderRule.Parent = Header
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -100, 0, 20)
@@ -568,8 +582,7 @@ local ExpPage = configuration.CreatePage("EXP", true)
 local ESPPage = configuration.CreatePage("ESP", false)
 local PlayerPage = configuration.CreatePage("Player", false)
 local AlertsPage = configuration.CreatePage("Alerts", false)
-local SettingsPage = configuration.CreatePage("Settings", false)
-local MovementPage = configuration.CreatePage("Movement", false)
+local FarmPage = configuration.CreatePage("Farm", false)
 local CombatPage = configuration.CreatePage("Combat", false)
 
 function configuration.AddPageHeading(page, title, description)
@@ -602,11 +615,10 @@ function configuration.AddPageHeading(page, title, description)
 end
 
 configuration.AddPageHeading(ESPPage, "ESP", "Choose which player markers to show")
-configuration.AddPageHeading(PlayerPage, "Players", "Server list, player ESP and whitelist")
+configuration.AddPageHeading(PlayerPage, "Players", "Follow target, spacing, server players and whitelist")
 configuration.AddPageHeading(AlertsPage, "Alerts", "Notifications and idle behavior")
-configuration.AddPageHeading(SettingsPage, "Settings", "Tune EXP farming parameters")
-configuration.AddPageHeading(MovementPage, "Movement", "Stamina, walk speed and follow spacing")
-configuration.AddPageHeading(CombatPage, "Combat", "Choose a target type and control auto attack")
+configuration.AddPageHeading(FarmPage, "EXP Farm", "Set the EXP cycle amount, target range, interval and goal")
+configuration.AddPageHeading(CombatPage, "Auto Attack", "Choose a player or a mob and set attack range")
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
@@ -622,7 +634,7 @@ local SidebarTitle = Instance.new("TextLabel")
 SidebarTitle.Size = UDim2.new(1, -16, 0, 24)
 SidebarTitle.Position = UDim2.fromOffset(8, 10)
 SidebarTitle.BackgroundTransparency = 1
-SidebarTitle.Text = "PAGES"
+SidebarTitle.Text = "NAVIGATION"
 SidebarTitle.TextColor3 = MUTED
 SidebarTitle.TextSize = 10
 SidebarTitle.Font = Enum.Font.GothamBold
@@ -633,25 +645,34 @@ function configuration.MakeNavButton(text, yScale)
 	local button = Instance.new("TextButton")
 	button.Size = UDim2.fromScale(0.92, 0.09)
 	button.Position = UDim2.fromScale(0.04, yScale)
-	button.BackgroundColor3 = text == "EXP" and ACCENT_DIM or INPUT
+	button.BackgroundColor3 = text == "Home" and ACCENT_DIM or CARD
+	button.BackgroundTransparency = text == "Home" and 0 or 1
 	button.BorderSizePixel = 0
 	button.Text = text
-	button.TextColor3 = text == "EXP" and ACCENT or TEXT
-	button.TextSize = 11
+	button.TextColor3 = text == "Home" and ACCENT or TEXT
+	button.TextSize = 12
 	button.Font = Enum.Font.GothamBold
 	button.Parent = Sidebar
 	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 7)
+	local marker = Instance.new("Frame")
+	marker.Name = "ActiveMark"
+	marker.Size = UDim2.new(0, 3, 0.52, 0)
+	marker.Position = UDim2.new(0, 0, 0.24, 0)
+	marker.BackgroundColor3 = ACCENT
+	marker.BorderSizePixel = 0
+	marker.Visible = text == "Home"
+	marker.Parent = button
+	Instance.new("UICorner", marker).CornerRadius = UDim.new(1, 0)
 	return button
 end
 
 local NavButtons = {
-	EXP = configuration.MakeNavButton("EXP", 0.14),
-	ESP = configuration.MakeNavButton("ESP", 0.26),
-	Player = configuration.MakeNavButton("Players", 0.38),
-	Alerts = configuration.MakeNavButton("Alerts", 0.50),
-	Settings = configuration.MakeNavButton("Settings", 0.62),
-	Movement = configuration.MakeNavButton("Movement", 0.74),
-	Combat = configuration.MakeNavButton("Combat", 0.86),
+	EXP = configuration.MakeNavButton("Home", 0.14),
+	ESP = configuration.MakeNavButton("Player ESP", 0.27),
+	Player = configuration.MakeNavButton("Players", 0.40),
+	Alerts = configuration.MakeNavButton("Alerts", 0.53),
+	Farm = configuration.MakeNavButton("EXP Farm", 0.66),
+	Combat = configuration.MakeNavButton("Auto Attack", 0.79),
 }
 
 function configuration.SetMainTab(tab)
@@ -662,7 +683,10 @@ function configuration.SetMainTab(tab)
 	for name, button in pairs(NavButtons) do
 		local selected = name == tab
 		button.BackgroundColor3 = selected and ACCENT_DIM or INPUT
+		button.BackgroundTransparency = selected and 0 or 1
 		button.TextColor3 = selected and ACCENT or TEXT
+		local marker = button:FindFirstChild("ActiveMark")
+		if marker then marker.Visible = selected end
 	end
 end
 
@@ -977,7 +1001,7 @@ function configuration.MakeNumberCard(parent, title, initialValue, order, minVal
 end
 
 local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
-	MovementPage, "Follow spacing (studs)", function() return configuration.FollowDistance end, 2, 2, 100,
+	PlayerPage, "Follow spacing (studs)", function() return configuration.FollowDistance end, 3, 2, 100,
 	function(value) configuration.FollowDistance = value end
 )
 
@@ -999,9 +1023,114 @@ local AutoAttackRangeCard, AutoAttackRangeInput = configuration.MakeNumberCard(
 	function(value) configuration.AutoAttackRange = value end
 )
 
+local CombatMobHeading = Instance.new("Frame")
+CombatMobHeading.Size = UDim2.new(1, 0, 0, 30)
+CombatMobHeading.LayoutOrder = 5
+CombatMobHeading.BackgroundTransparency = 1
+CombatMobHeading.Parent = CombatPage
+
+local CombatMobTitle = Instance.new("TextLabel")
+CombatMobTitle.Size = UDim2.new(0.65, 0, 1, 0)
+CombatMobTitle.BackgroundTransparency = 1
+CombatMobTitle.Text = "Available mobs"
+CombatMobTitle.TextColor3 = TEXT
+CombatMobTitle.TextSize = 12
+CombatMobTitle.Font = Enum.Font.GothamBold
+CombatMobTitle.TextXAlignment = Enum.TextXAlignment.Left
+CombatMobTitle.Parent = CombatMobHeading
+
+local CombatMobRefresh = Instance.new("TextButton")
+CombatMobRefresh.Size = UDim2.new(0.32, 0, 1, 0)
+CombatMobRefresh.Position = UDim2.new(0.68, 0, 0, 0)
+CombatMobRefresh.BackgroundColor3 = INPUT
+CombatMobRefresh.BorderSizePixel = 0
+CombatMobRefresh.Text = "Refresh list"
+CombatMobRefresh.TextColor3 = TEXT
+CombatMobRefresh.TextSize = 11
+CombatMobRefresh.Font = Enum.Font.GothamBold
+CombatMobRefresh.Parent = CombatMobHeading
+Instance.new("UICorner", CombatMobRefresh).CornerRadius = UDim.new(0, 7)
+
+local CombatMobScroll = Instance.new("ScrollingFrame")
+CombatMobScroll.Size = UDim2.new(1, 0, 0, 120)
+CombatMobScroll.LayoutOrder = 6
+CombatMobScroll.BackgroundColor3 = CARD
+CombatMobScroll.BorderSizePixel = 0
+CombatMobScroll.ScrollBarThickness = 3
+CombatMobScroll.ScrollBarImageColor3 = MUTED
+CombatMobScroll.CanvasSize = UDim2.new()
+CombatMobScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+CombatMobScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+CombatMobScroll.Parent = CombatPage
+Instance.new("UICorner", CombatMobScroll).CornerRadius = UDim.new(0, 8)
+
+local CombatMobListLayout = Instance.new("UIListLayout")
+CombatMobListLayout.Padding = UDim.new(0, 4)
+CombatMobListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+CombatMobListLayout.Parent = CombatMobScroll
+
+configuration.CombatMobRows = {}
+function configuration.RefreshCombatMobs()
+	for _, row in ipairs(configuration.CombatMobRows) do
+		row:Destroy()
+	end
+	table.clear(configuration.CombatMobRows)
+
+	local available = 0
+	for _, mob in ipairs(MobsFolder:GetChildren()) do
+		local root = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
+		if root and root:IsA("BasePart") then
+			available += 1
+			local selectedMob = mob
+			local row = Instance.new("TextButton")
+			row.Size = UDim2.new(1, -8, 0, 30)
+			row.LayoutOrder = available
+			row.BackgroundColor3 = configuration.AutoAttackPinnedMob == selectedMob and ACCENT_DIM or INPUT
+			row.BorderSizePixel = 0
+			local cfg = selectedMob:FindFirstChild("Config")
+			local exp = cfg and cfg:FindFirstChild("EXP")
+			row.Text = string.format("%s%s  •  EXP %s", configuration.AutoAttackPinnedMob == selectedMob and "✓  " or "", selectedMob.Name, exp and tostring(exp.Value) or "-")
+			row.TextColor3 = configuration.AutoAttackPinnedMob == selectedMob and ACCENT or TEXT
+			row.TextSize = 11
+			row.Font = Enum.Font.Gotham
+			row.TextXAlignment = Enum.TextXAlignment.Left
+			row.Parent = CombatMobScroll
+			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+			row.MouseButton1Click:Connect(function()
+				if not selectedMob:IsDescendantOf(MobsFolder) then
+					configuration.RefreshCombatMobs()
+					return
+				end
+				configuration.AutoAttackPinnedMob = selectedMob
+				configuration.AutoAttackMode = "Mob"
+				configuration.UpdateAutoAttackModeButtons()
+				configuration.SaveConfig()
+				configuration.RefreshCombatMobs()
+			end)
+			table.insert(configuration.CombatMobRows, row)
+		end
+	end
+	if available == 0 then
+		local empty = Instance.new("TextLabel")
+		empty.Size = UDim2.new(1, -8, 0, 30)
+		empty.BackgroundTransparency = 1
+		empty.Text = "No mobs found in this server"
+		empty.TextColor3 = MUTED
+		empty.TextSize = 11
+		empty.Font = Enum.Font.Gotham
+		empty.Parent = CombatMobScroll
+		table.insert(configuration.CombatMobRows, empty)
+	end
+end
+
+CombatMobRefresh.MouseButton1Click:Connect(configuration.RefreshCombatMobs)
+MobsFolder.ChildAdded:Connect(configuration.RefreshCombatMobs)
+MobsFolder.ChildRemoved:Connect(configuration.RefreshCombatMobs)
+configuration.RefreshCombatMobs()
+
 local CombatInfo = Instance.new("TextLabel")
 CombatInfo.Size = UDim2.new(1, -8, 0, 34)
-CombatInfo.LayoutOrder = 5
+CombatInfo.LayoutOrder = 7
 CombatInfo.BackgroundTransparency = 1
 CombatInfo.Text = "During EXP farming, auto attack waits. When EXP stops, it attacks the last farm target first."
 CombatInfo.TextColor3 = MUTED
@@ -1025,6 +1154,7 @@ function configuration.UpdateAutoAttackModeButtons()
 		button.TextColor3 = selected and ACCENT or MUTED
 		button.BackgroundColor3 = selected and ACCENT_DIM or CARD
 	end
+	if configuration.RefreshCombatMobs then configuration.RefreshCombatMobs() end
 end
 configuration.UpdateAutoAttackModeButtons()
 
@@ -1190,7 +1320,7 @@ SettingsCard.Size = UDim2.new(1, 0, 0, 104)
 SettingsCard.LayoutOrder = 2
 SettingsCard.BackgroundColor3 = CARD
 SettingsCard.BorderSizePixel = 0
-SettingsCard.Parent = SettingsPage
+SettingsCard.Parent = FarmPage
 Instance.new("UICorner", SettingsCard).CornerRadius = UDim.new(0, 10)
 
 local SettingsTitle = Instance.new("TextLabel")
@@ -1803,7 +1933,7 @@ function configuration.Combat.FindCombatPlayer(userId)
 end
 
 function configuration.Combat.FindAutoAttackTarget(localRoot)
-	if configuration.AutoAttackPinnedMob then
+	if configuration.AutoAttackMode == "Mob" and configuration.AutoAttackPinnedMob then
 		if configuration.AutoAttackPinnedMob:IsDescendantOf(MobsFolder) then
 			local pinnedHumanoid = configuration.AutoAttackPinnedMob:FindFirstChildOfClass("Humanoid")
 			if not pinnedHumanoid or pinnedHumanoid.Health > 0 then
