@@ -1,3 +1,5 @@
+print("[Iamrich] Starting...")
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -7,7 +9,11 @@ local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
 
 local Player = Players.LocalPlayer
-local MobsFolder = workspace:WaitForChild("Mobs")
+local MobsFolder = workspace:WaitForChild("Mobs", 10)
+if not MobsFolder then
+	warn("[Iamrich] Startup stopped: workspace.Mobs was not found.")
+	return
+end
 local MovementBoostSnapshot = { Humanoid = nil, WalkSpeed = nil, Stamina = nil, StaminaValue = nil }
 
 local function RestoreMovementBoost()
@@ -28,12 +34,15 @@ local function RestoreMovementBoost()
 end
 
 local InitClashing = ReplicatedStorage:FindFirstChild("InitClashing", true)
-if not InitClashing then return end
+if not InitClashing or not InitClashing:IsA("RemoteEvent") then
+	warn("[Iamrich] Startup stopped: ReplicatedStorage.InitClashing RemoteEvent was not found.")
+	return
+end
 
 --==================================================
 -- CONFIG
 --==================================================
-local configuration = {
+local configuration: {[string]: any} = {
 	Amount = 5000,
 	MaxDistance = 250,
 	ExpApproachDistance = 25,
@@ -96,6 +105,7 @@ local configuration = {
 	WhitelistPanelWidthScale = 0.40,
 	WhitelistPanelHeightScale = 0.58,
 	ConfigFileName = "",
+	ConfigSaveWarningShown = false,
 	ConfigRootFolder = "Iamrich",
 	ConfigUserFolder = "",
 	LegacyConfigFileName = "EXPPlus_Config.json",
@@ -147,7 +157,9 @@ function configuration.LoadConfig()
 		local ownerOk, ownerValue = pcall(function()
 			return readfile(configuration.LegacyConfigOwnerFileName)
 		end)
-		if ownerOk then owner = tostring(ownerValue) end
+		if ownerOk then
+			owner = tostring(ownerValue)
+		end
 		if owner == "" and type(writefile) == "function" then
 			local legacyConfig = ReadConfig(configuration.LegacyConfigFileName)
 			if legacyConfig then
@@ -1413,7 +1425,9 @@ function configuration.RefreshCombatMobs()
 	local groupHasLevels = {}
 	local function numericValue(value)
 		if typeof(value) == "Instance" then
-			if value:IsA("ValueBase") then return tonumber(value.Value) end
+			if value:IsA("ValueBase") then
+				return tonumber((value :: any).Value)
+			end
 			return nil
 		end
 		return tonumber(value)
@@ -1891,7 +1905,9 @@ local ExpApproachBox = configuration.MakeCompactSetting(SettingsCard, "EXP stand
 
 AmountBox.FocusLost:Connect(function()
 	local v = tonumber(AmountBox.Text)
-	if v and v > 0 then configuration.Amount = math.floor(v) end
+	if v and v > 0 then
+		configuration.Amount = math.floor(v)
+	end
 	AmountBox.Text = tostring(configuration.Amount)
 	configuration.SaveConfig()
 end)
@@ -2797,7 +2813,9 @@ task.spawn(function()
 					if flatOffset.Magnitude < 0.1 then
 						flatOffset = Vector3.new(mroot.CFrame.LookVector.X, 0, mroot.CFrame.LookVector.Z)
 					end
-					if flatOffset.Magnitude < 0.1 then flatOffset = Vector3.new(1, 0, 0) end
+					if flatOffset.Magnitude < 0.1 then
+						flatOffset = Vector3.new(1, 0, 0)
+					end
 					humanoid:MoveTo(mroot.Position + flatOffset.Unit * configuration.ExpApproachDistance)
 					chasingExpTarget = target
 					lastExpMoveAt = os.clock()
@@ -3003,13 +3021,21 @@ task.spawn(function()
 								local ok, err = pcall(function()
 									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
 								end)
-								if ok then lastAttackAt = now else warn("Auto Attack failed:", err) end
+								if ok then
+									lastAttackAt = now
+								else
+									warn("Auto Attack failed:", err)
+								end
 							end
 							if configuration.AutoSkillEnabled and now - lastSkillAt >= configuration.AutoSkillInterval then
 								local ok, err = pcall(function()
 									inputFunction:Invoke("SkillButton", Enum.UserInputState.Begin)
 								end)
-								if ok then lastSkillAt = now else warn("Auto Skill failed:", err) end
+								if ok then
+									lastSkillAt = now
+								else
+									warn("Auto Skill failed:", err)
+								end
 							end
 						end
 					end
@@ -3631,7 +3657,6 @@ task.spawn(function()
 					end
 				end
 			end
-			end
 
 			-- Refresh changing player data in-place; keep cards and their callbacks alive.
 			if configuration.PlayerPanelMode == "server" then
@@ -3662,9 +3687,9 @@ task.spawn(function()
 							local statsText = configuration.FormatPlayerStats(listedPlayer)
 							if statsLabel.Text ~= statsText then statsLabel.Text = statsText end
 						end
+					end
 				end
 			end
-		end
 		end
 
 		-- Keep markers for every replicated player, regardless of distance.
@@ -3853,3 +3878,4 @@ task.spawn(function()
 end)
 
 getgenv().IamrichLoaded = true
+print("[Iamrich] Loaded successfully.")
