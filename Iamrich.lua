@@ -49,6 +49,11 @@ local configuration = {
 	NoProgressCycles = 0,
 	AlertsEnabled = true,
 	AutoBlockEnabled = true,
+	AlertCombatPending = false,
+	AlertCombatTarget = nil,
+	AlertCombatBlockReady = false,
+	AlertBlockTarget = nil,
+	LastAlertCombatUserId = nil,
 	ESPEnabled = true,
 	ESPLineEnabled = true,
 	ESPBoxEnabled = true,
@@ -1326,6 +1331,10 @@ AutoBlockButton.MouseButton1Click:Connect(function()
 	AutoBlockButton.Text = configuration.AutoBlockEnabled and "Auto Block: ON" or "Auto Block: OFF"
 	AutoBlockButton.TextColor3 = configuration.AutoBlockEnabled and RED or MUTED
 	AutoBlockButton.BackgroundColor3 = configuration.AutoBlockEnabled and RED_DIM or CARD
+	if not configuration.AutoBlockEnabled and not configuration.AlertCombatPending then
+		configuration.AlertCombatBlockReady = false
+		configuration.AlertBlockTarget = nil
+	end
 	configuration.SaveConfig()
 end)
 
@@ -1932,6 +1941,7 @@ function configuration.SetIdle()
 end
 
 function configuration.SetRunning()
+	if configuration.AlertCombatPending or configuration.AlertCombatBlockReady then return end
 	configuration.Farming = true
 	configuration.AutoAttackPinnedMob = nil
 	configuration.IsPaused = false
@@ -1988,8 +1998,14 @@ function configuration.FindTarget()
 	return best
 end
 
-function configuration.Combat.FindNearestCombatMob(localRoot)
-	local bestMob, bestRoot, bestDistance = nil, nil, configuration.AutoAttackRange
+function configuration.Combat.IsLivingMob(mob)
+	if not mob or not mob:IsDescendantOf(MobsFolder) then return false end
+	local humanoid = mob:FindFirstChildOfClass("Humanoid")
+	return not humanoid or humanoid.Health > 0
+end
+
+function configuration.Combat.FindNearestCombatMob(localRoot, maxDistance)
+	local bestMob, bestRoot, bestDistance = nil, nil, maxDistance or configuration.AutoAttackRange
 	for _, mob in ipairs(MobsFolder:GetChildren()) do
 		local mobRoot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
 		local humanoid = mob:FindFirstChildOfClass("Humanoid")
@@ -2014,6 +2030,15 @@ function configuration.Combat.FindCombatPlayer(userId)
 end
 
 function configuration.Combat.FindAutoAttackTarget(localRoot)
+	if configuration.AlertCombatPending then
+		local alertMob = configuration.AlertCombatTarget
+		local alertRoot = alertMob and (alertMob.PrimaryPart or alertMob:FindFirstChild("HumanoidRootPart"))
+		if configuration.Combat.IsLivingMob(alertMob) and alertRoot and alertRoot:IsA("BasePart") then
+			return "Mob", alertMob, alertRoot, (localRoot.Position - alertRoot.Position).Magnitude
+		end
+		return nil
+	end
+
 	if configuration.AutoAttackMode == "Player" then
 		local targetPlayer, targetRoot = configuration.Combat.FindCombatPlayer(configuration.AutoAttackTargetUserId)
 		if targetPlayer then
@@ -2172,6 +2197,11 @@ task.spawn(function()
 			if not target:IsDescendantOf(MobsFolder) then break end
 			if exp.Value >= configuration.ExpGoal then break end
 
+			-- Keep Auto Attack on the same mob EXP is targeting.
+			if configuration.AutoAttackEnabled then
+				configuration.AutoAttackPinnedMob = target
+				configuration.CombatTargetMob = target
+			end
 			InitClashing:FireServer(2, exp)
 			callsSent += 1
 
@@ -2249,7 +2279,8 @@ task.spawn(function()
 	local equippedCharacter = nil
 	local chasingMob = false
 	while true do
-		if (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled) and not configuration.Farming then
+		if (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or configuration.AlertCombatPending)
+			and not configuration.Farming and not configuration.AlertCombatBlockReady then
 			local character = Player.Character
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			local targetKind, target, targetRoot, distance
@@ -2257,13 +2288,21 @@ task.spawn(function()
 				targetKind, target, targetRoot, distance = configuration.Combat.FindAutoAttackTarget(localRoot)
 			end
 			if target and targetRoot then
-				if targetKind == "Mob" and localRoot and configuration.AutoAttackEnabled then
+				if targetKind == "Mob" and localRoot and (configuration.AutoAttackEnabled or configuration.AlertCombatPending) then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					local now = os.clock()
 					if distance > configuration.AutoAttackStandoff + 1 then
-						if humanoid and now - lastMoveAt >= 0.4 then
-							local behind = targetRoot.Position - targetRoot.CFrame.LookVector * configuration.AutoAttackStandoff
-							humanoid:MoveTo(Vector3.new(behind.X, localRoot.Position.Y, behind.Z))
+						if humanoid and now - lastMoveAt >= 0.3 then
+							local flatOffset = Vector3.new(
+								localRoot.Position.X - targetRoot.Position.X,
+								0,
+								localRoot.Position.Z - targetRoot.Position.Z
+							)
+							if flatOffset.Magnitude < 0.1 then
+								flatOffset = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
+							end
+							local approachPoint = targetRoot.Position + flatOffset.Unit * configuration.AutoAttackStandoff
+							humanoid:MoveTo(approachPoint)
 							lastMoveAt = now
 							chasingMob = true
 						end
@@ -2293,7 +2332,7 @@ task.spawn(function()
 							end
 						else
 							local now = os.clock()
-							if configuration.AutoAttackEnabled and now - lastAttackAt >= configuration.AutoAttackInterval then
+							if (configuration.AutoAttackEnabled or configuration.AlertCombatPending) and now - lastAttackAt >= configuration.AutoAttackInterval then
 								local ok, err = pcall(function()
 									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
 								end)
@@ -2428,10 +2467,72 @@ task.spawn(function()
 	while true do
 		local char = Player.Character
 		local localRoot = char and char:FindFirstChild("HumanoidRootPart")
+		local nearbyPlayer = nil
+		local nearbyDistance = math.huge
+		if configuration.AlertsEnabled and localRoot then
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= Player and not configuration.IsWhitelisted(otherPlayer) then
+					local otherCharacter = otherPlayer.Character
+					local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
+					if otherRoot then
+						local distance = (localRoot.Position - otherRoot.Position).Magnitude
+						if distance <= configuration.AlertsDistance and distance < nearbyDistance then
+							nearbyPlayer = otherPlayer
+							nearbyDistance = distance
+						end
+					end
+				end
+			end
+		end
+
+		if nearbyPlayer then
+			local alertUserId = tostring(nearbyPlayer.UserId)
+			if not configuration.AlertCombatPending and not configuration.AlertCombatBlockReady
+				and configuration.LastAlertCombatUserId ~= alertUserId then
+				configuration.LastAlertCombatUserId = alertUserId
+				configuration.AlertCombatPending = true
+				configuration.AlertBlockTarget = nearbyPlayer
+				local mob = configuration.CurrentTarget
+				if not configuration.Combat.IsLivingMob(mob) then
+					mob = configuration.Combat.FindNearestCombatMob(localRoot, math.huge)
+				end
+				configuration.AlertCombatTarget = mob
+				if mob then
+					configuration.AutoAttackPinnedMob = mob
+					configuration.CombatTargetMob = mob
+				end
+				if configuration.Farming then configuration.SetIdle() end
+			end
+		elseif not configuration.AlertCombatPending and not configuration.AlertCombatBlockReady then
+			configuration.LastAlertCombatUserId = nil
+		end
+
+		if configuration.AlertCombatPending then
+			local alertMob = configuration.AlertCombatTarget
+			if alertMob then
+				if not configuration.Combat.IsLivingMob(alertMob) then
+					configuration.AlertCombatPending = false
+					configuration.AlertCombatTarget = nil
+					configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
+				else
+					configuration.AutoAttackPinnedMob = alertMob
+					configuration.CombatTargetMob = alertMob
+				end
+			elseif localRoot then
+				local mob = configuration.Combat.FindNearestCombatMob(localRoot, math.huge)
+				if mob then
+					configuration.AlertCombatTarget = mob
+					configuration.AutoAttackPinnedMob = mob
+					configuration.CombatTargetMob = mob
+				end
+			end
+		end
+
 		local followedPlayer = configuration.FollowPlayerUserId and Players:GetPlayerByUserId(tonumber(configuration.FollowPlayerUserId))
-		local autoAttackHasMobTarget = configuration.AutoAttackEnabled and not configuration.Farming
-			and configuration.AutoAttackMode == "Mob"
-			and (configuration.AutoAttackPinnedMob ~= nil or configuration.CombatTargetMob ~= nil)
+		local autoAttackHasMobTarget = configuration.AlertCombatPending
+			or (configuration.AutoAttackEnabled and not configuration.Farming
+				and configuration.AutoAttackMode == "Mob"
+				and (configuration.AutoAttackPinnedMob ~= nil or configuration.CombatTargetMob ~= nil))
 		if followedPlayer and char and not autoAttackHasMobTarget and os.clock() - lastFollowMove >= 0.6 then
 			local humanoid = char:FindFirstChildOfClass("Humanoid")
 			local followedCharacter = followedPlayer.Character
@@ -2446,7 +2547,8 @@ task.spawn(function()
 			end
 		end
 
-		if configuration.AutoBlockEnabled and os.clock() - lastAutoBlockCheck >= 1 then
+		if configuration.AutoBlockEnabled and not configuration.AlertCombatPending
+			and os.clock() - lastAutoBlockCheck >= 1 then
 			lastAutoBlockCheck = os.clock()
 			local blockedUsers = configuration.GetBlockedUserSet()
 			local hasNonWhitelistedPlayer = false
@@ -2465,10 +2567,21 @@ task.spawn(function()
 				end
 			end
 
+			local alertTarget = configuration.AlertCombatBlockReady and configuration.AlertBlockTarget
+			if alertTarget and alertTarget.Parent == Players
+				and not configuration.IsWhitelisted(alertTarget)
+				and not (blockedUsers and blockedUsers[tostring(alertTarget.UserId)]) then
+				nextPlayerToPrompt = alertTarget
+			end
+
 			if not hasNonWhitelistedPlayer then
 				-- A server containing only whitelisted players never triggers block or teleport.
 				nextAutoBlockPromptAt = 0
+				configuration.AlertCombatBlockReady = false
+				configuration.AlertBlockTarget = nil
 			elseif blockedNonWhitelistedPlayer and not autoBlockTeleporting then
+				configuration.AlertCombatBlockReady = false
+				configuration.AlertBlockTarget = nil
 				autoBlockTeleporting = true
 				task.spawn(function()
 					local ok, err = pcall(function()
@@ -2486,16 +2599,16 @@ task.spawn(function()
 				local ok, err = pcall(function()
 					StarterGui:SetCore("PromptBlockPlayer", nextPlayerToPrompt)
 				end)
-				if not ok then
+				if ok and configuration.AlertCombatBlockReady and nextPlayerToPrompt == alertTarget then
+					configuration.AlertCombatBlockReady = false
+					configuration.AlertBlockTarget = nil
+				elseif not ok then
 					warn("Auto Block prompt failed:", err)
 				end
 			end
 		elseif not configuration.AutoBlockEnabled then
 			nextAutoBlockPromptAt = 0
 		end
-
-		local nearbyPlayer = nil
-		local nearbyDistance = math.huge
 
 		if PlayerPanel.Visible and os.clock() - lastPlayerRefresh >= 0.5 then
 			lastPlayerRefresh = os.clock()
