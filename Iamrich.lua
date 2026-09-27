@@ -38,6 +38,7 @@ local configuration = {
 	CombatTargetMob = nil,
 	Farming = false,
 	CurrentTarget = nil,
+	ExpMaxCombatTarget = nil,
 	LastTarget = nil,
 	TargetStartTime = 0,
 	AccumulatedTime = 0,
@@ -2251,6 +2252,7 @@ end
 function configuration.SetRunning()
 	if configuration.AlertCombatPending or configuration.AlertCombatBlockReady then return end
 	configuration.Farming = true
+	configuration.ExpMaxCombatTarget = nil
 	configuration.AutoAttackPinnedMob = nil
 	configuration.IsPaused = false
 	configuration.SessionExpGained = 0
@@ -2347,6 +2349,15 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 		return nil
 	end
 
+	local maxedExpMob = configuration.ExpMaxCombatTarget
+	if maxedExpMob then
+		local maxedRoot = maxedExpMob.PrimaryPart or maxedExpMob:FindFirstChild("HumanoidRootPart")
+		if configuration.Combat.IsLivingMob(maxedExpMob) and maxedRoot and maxedRoot:IsA("BasePart") then
+			return "Mob", maxedExpMob, maxedRoot, (localRoot.Position - maxedRoot.Position).Magnitude
+		end
+		configuration.ExpMaxCombatTarget = nil
+	end
+
 	if configuration.AutoAttackMode == "Player" then
 		local targetPlayer, targetRoot = configuration.Combat.FindCombatPlayer(configuration.AutoAttackTargetUserId)
 		if targetPlayer then
@@ -2438,6 +2449,9 @@ task.spawn(function()
 		if target and configuration.Combat.IsLivingMob(target) then
 			-- ยึดตัวเดิม
 		else
+			if configuration.ExpMaxCombatTarget == target then
+				configuration.ExpMaxCombatTarget = nil
+			end
 			configuration.ClearBillboard()
 			configuration.CurrentTarget = nil
 			target = configuration.FindTarget()
@@ -2484,6 +2498,7 @@ task.spawn(function()
 
 		-- เมื่อถึง Max ให้คงเป้าหมายเดิมไว้จนกว่ามอนจะตาย
 		if exp.Value >= configuration.ExpGoal then
+			configuration.ExpMaxCombatTarget = target
 			StateLabel.Text = "EXP max - waiting for mob to die"
 			MiniState.Text = "Waiting for mob to die"
 			configuration.UpdateBillboardText(exp.Value, true)
@@ -2537,6 +2552,7 @@ task.spawn(function()
 
 		if exp.Value >= configuration.ExpGoal then
 			configuration.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
+			configuration.ExpMaxCombatTarget = target
 			StateLabel.Text = "EXP max - waiting for mob to die"
 			MiniState.Text = "Waiting for mob to die"
 			configuration.UpdateBillboardText(exp.Value, true)
@@ -2592,8 +2608,9 @@ task.spawn(function()
 	local equippedCharacter = nil
 	local chasingMob = false
 	while true do
+		local canCombatWhileExpMaxed = configuration.Farming and configuration.ExpMaxCombatTarget ~= nil
 		if (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or configuration.AlertCombatPending)
-			and not configuration.Farming and not configuration.AlertCombatBlockReady then
+			and (not configuration.Farming or canCombatWhileExpMaxed) and not configuration.AlertCombatBlockReady then
 			local character = Player.Character
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			local targetKind, target, targetRoot, distance
