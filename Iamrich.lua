@@ -57,8 +57,8 @@ local configuration = {
 	PlayerESPEnabled = {},
 	BlockPromptCache = {},
 	SavedMinimized = false,
-	MainWidthScale = 0.30,
-	MainHeightScale = 0.72,
+	MainWidthScale = 0.72,
+	MainHeightScale = 0.84,
 	PlayerPanelWidthScale = 0.42,
 	PlayerPanelHeightScale = 0.62,
 	WhitelistPanelWidthScale = 0.40,
@@ -231,17 +231,17 @@ end
 --==================================================
 -- COLORS (minimal graphite + ice blue)
 --==================================================
-local BG      = Color3.fromRGB(13, 16, 22)
-local CARD    = Color3.fromRGB(20, 24, 32)
-local INPUT   = Color3.fromRGB(28, 34, 44)
-local BORDER  = Color3.fromRGB(47, 57, 70)
-local TEXT    = Color3.fromRGB(232, 238, 246)
-local MUTED   = Color3.fromRGB(132, 145, 161)
-local ACCENT  = Color3.fromRGB(101, 184, 255)
+local BG      = Color3.fromRGB(8, 8, 9)
+local CARD    = Color3.fromRGB(17, 17, 18)
+local INPUT   = Color3.fromRGB(27, 27, 29)
+local BORDER  = Color3.fromRGB(48, 48, 51)
+local TEXT    = Color3.fromRGB(235, 235, 238)
+local MUTED   = Color3.fromRGB(145, 145, 151)
+local ACCENT  = Color3.fromRGB(113, 211, 245)
 local GREEN   = Color3.fromRGB(76, 218, 164)
 local RED     = Color3.fromRGB(255, 92, 112)
 local YELLOW  = Color3.fromRGB(255, 196, 92)
-local ACCENT_DIM = Color3.fromRGB(27, 48, 70)
+local ACCENT_DIM = Color3.fromRGB(39, 116, 145)
 local GREEN_DIM  = Color3.fromRGB(24, 53, 45)
 local RED_DIM    = Color3.fromRGB(56, 30, 37)
 
@@ -359,7 +359,7 @@ Main.Parent = ScreenGui
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 13)
 local MainGradient = Instance.new("UIGradient", Main)
 MainGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(19, 23, 31)),
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(12, 12, 13)),
 	ColorSequenceKeypoint.new(1, BG),
 })
 MainGradient.Rotation = 90
@@ -376,9 +376,9 @@ local Sidebar
 local InfoCard, StartBtn, ToggleGrid, SettingsCard
 local AlarmOverlay
 local Header = Instance.new("Frame")
-Header.Size = UDim2.fromScale(1, 0.09)
+Header.Size = UDim2.fromScale(1, 0.11)
 Header.Active = true
-Header.BackgroundColor3 = CARD
+Header.BackgroundColor3 = Color3.fromRGB(22, 22, 23)
 Header.BorderSizePixel = 0
 Header.Parent = Main
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 13)
@@ -386,7 +386,7 @@ Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 13)
 local HeaderFix = Instance.new("Frame")
 HeaderFix.Size = UDim2.fromScale(1, 0.4)
 HeaderFix.Position = UDim2.fromScale(0, 0.6)
-HeaderFix.BackgroundColor3 = CARD
+HeaderFix.BackgroundColor3 = Color3.fromRGB(22, 22, 23)
 HeaderFix.BorderSizePixel = 0
 HeaderFix.Parent = Header
 
@@ -522,7 +522,7 @@ function configuration.ApplyMinimized(state)
 	Title.Visible = not state
 	Subtitle.Visible = not state
 	Main.Size = UDim2.fromScale(configuration.MainWidthScale, state and 0.095 or configuration.MainHeightScale)
-	Header.Size = UDim2.fromScale(1, state and 1 or 0.09)
+	Header.Size = UDim2.fromScale(1, state and 1 or 0.11)
 	MinimizeBtn.Text = state and "+" or "−"
 	if state then
 		Status.Position = UDim2.new(1, -62, 0.5, -10)
@@ -571,8 +571,8 @@ end)
 --==================================================
 Content = Instance.new("Frame")
 Content.Name = "MainContent"
-Content.Size = UDim2.fromScale(0.67, 0.88)
-Content.Position = UDim2.fromScale(0.30, 0.10)
+Content.Size = UDim2.fromScale(0.67, 0.83)
+Content.Position = UDim2.fromScale(0.30, 0.13)
 Content.BackgroundTransparency = 1
 Content.BorderSizePixel = 0
 Content.Parent = Main
@@ -638,6 +638,7 @@ function configuration.AddPageHeading(page, title, description)
 	return heading
 end
 
+configuration.AddPageHeading(ExpPage, "Experience", "Track your EXP progress and current farming session")
 configuration.AddPageHeading(ESPPage, "ESP", "Choose which player markers to show")
 configuration.AddPageHeading(PlayerPage, "Players", "Follow target, spacing, server players and whitelist")
 configuration.AddPageHeading(AlertsPage, "Alerts", "Notifications and idle behavior")
@@ -646,9 +647,9 @@ configuration.AddPageHeading(CombatPage, "Auto Farm", "Choose a target and contr
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
-Sidebar.Size = UDim2.fromScale(0.25, 0.88)
-Sidebar.Position = UDim2.fromScale(0.03, 0.10)
-Sidebar.BackgroundColor3 = CARD
+Sidebar.Size = UDim2.fromScale(0.25, 0.83)
+Sidebar.Position = UDim2.fromScale(0.03, 0.13)
+Sidebar.BackgroundColor3 = Color3.fromRGB(20, 20, 21)
 Sidebar.BorderSizePixel = 0
 Sidebar.Visible = not configuration.IsMinimized
 Sidebar.Parent = Main
@@ -726,7 +727,7 @@ function configuration.SetMainTab(tab)
 	end
 	for name, button in pairs(NavButtons) do
 		local selected = name == tab
-		button.BackgroundColor3 = selected and ACCENT_DIM or INPUT
+		button.BackgroundColor3 = selected and ACCENT_DIM or Color3.fromRGB(20, 20, 21)
 		button.BackgroundTransparency = selected and 0 or 1
 		button.TextColor3 = selected and ACCENT or TEXT
 		local marker = button:FindFirstChild("ActiveMark")
@@ -744,7 +745,7 @@ configuration.SetMainTab("EXP")
 --==================================================
 InfoCard = Instance.new("Frame")
 InfoCard.Size = UDim2.new(1, 0, 0, 208)
-InfoCard.LayoutOrder = 1
+InfoCard.LayoutOrder = 2
 InfoCard.BackgroundColor3 = CARD
 InfoCard.BorderSizePixel = 0
 InfoCard.Parent = ExpPage
@@ -901,7 +902,7 @@ RecentCycleLabel.Parent = InfoCard
 --==================================================
 StartBtn = Instance.new("TextButton")
 StartBtn.Size = UDim2.new(1, 0, 0, 42)
-StartBtn.LayoutOrder = 2
+StartBtn.LayoutOrder = 3
 StartBtn.BackgroundColor3 = ACCENT
 StartBtn.BorderSizePixel = 0
 StartBtn.Text = "Start"
@@ -2961,3 +2962,5 @@ task.spawn(function()
 		task.wait(0.05)
 	end
 end)
+
+getgenv().IamrichLoaded = true
