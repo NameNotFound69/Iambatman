@@ -55,6 +55,7 @@ local configuration = {
 	AutoBlockEnabled = true,
 	AlertCombatPending = false,
 	AlertCombatTarget = nil,
+	AlertCombatHold = false,
 	AlertCombatBlockReady = false,
 	AlertBlockTarget = nil,
 	LastAlertCombatUserId = nil,
@@ -2250,7 +2251,7 @@ function configuration.SetIdle()
 end
 
 function configuration.SetRunning()
-	if configuration.AlertCombatPending or configuration.AlertCombatBlockReady then return end
+	if configuration.AlertCombatPending or configuration.AlertCombatHold or configuration.AlertCombatBlockReady then return end
 	configuration.Farming = true
 	configuration.ExpMaxCombatTarget = nil
 	configuration.AutoAttackPinnedMob = nil
@@ -2632,6 +2633,7 @@ task.spawn(function()
 	while true do
 		local canCombatWhileExpMaxed = configuration.Farming and configuration.ExpMaxCombatTarget ~= nil
 		if (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or configuration.AlertCombatPending)
+			and not configuration.AlertCombatHold
 			and (not configuration.Farming or canCombatWhileExpMaxed) and not configuration.AlertCombatBlockReady then
 			local character = Player.Character
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
@@ -2854,17 +2856,28 @@ task.spawn(function()
 				configuration.AlertBlockTarget = nearbyPlayer
 				local mob = configuration.CurrentTarget
 				if not configuration.Combat.IsLivingMob(mob) then
-					mob = configuration.Combat.FindNearestCombatMob(localRoot, math.huge)
+					mob = nil
 				end
 				configuration.AlertCombatTarget = mob
 				if mob then
 					configuration.AutoAttackPinnedMob = mob
 					configuration.CombatTargetMob = mob
+				else
+					-- Never substitute a nearby mob when there is no active EXP target.
+					configuration.AlertCombatPending = false
+					configuration.AlertCombatHold = true
+					configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
+					if not configuration.AutoBlockEnabled then
+						configuration.AlertBlockTarget = nil
+					end
 				end
 				if configuration.Farming then configuration.SetIdle() end
 			end
-		elseif not configuration.AlertCombatPending and not configuration.AlertCombatBlockReady then
-			configuration.LastAlertCombatUserId = nil
+		else
+			configuration.AlertCombatHold = false
+			if not configuration.AlertCombatPending and not configuration.AlertCombatBlockReady then
+				configuration.LastAlertCombatUserId = nil
+			end
 		end
 
 		if configuration.AlertCombatPending then
@@ -2873,17 +2886,11 @@ task.spawn(function()
 				if not configuration.Combat.IsLivingMob(alertMob) then
 					configuration.AlertCombatPending = false
 					configuration.AlertCombatTarget = nil
+					configuration.AlertCombatHold = true
 					configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
 				else
 					configuration.AutoAttackPinnedMob = alertMob
 					configuration.CombatTargetMob = alertMob
-				end
-			elseif localRoot then
-				local mob = configuration.Combat.FindNearestCombatMob(localRoot, math.huge)
-				if mob then
-					configuration.AlertCombatTarget = mob
-					configuration.AutoAttackPinnedMob = mob
-					configuration.CombatTargetMob = mob
 				end
 			end
 		end
