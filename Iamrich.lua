@@ -70,7 +70,7 @@ local configuration = {
 	SessionExpGained = 0,
 	SessionFarmSeconds = 0,
 	NoProgressCycles = 0,
-	AutoResumeAfterAlert = false,
+	AutoResumeAfterAlert = true,
 	EmergencyStopActive = false,
 	AlertsEnabled = true,
 	AlertFlashEnabled = true,
@@ -213,7 +213,13 @@ function configuration.LoadConfig()
 	configuration.WhitelistPanelWidthScale = math.clamp(ReadNumber("WhitelistPanelWidthScale", configuration.WhitelistPanelWidthScale, 0.26, false), 0.26, 0.8)
 	configuration.WhitelistPanelHeightScale = math.clamp(ReadNumber("WhitelistPanelHeightScale", configuration.WhitelistPanelHeightScale, 0.32, false), 0.32, 0.9)
 	if type(config.AlertsEnabled) == "boolean" then configuration.AlertsEnabled = config.AlertsEnabled end
-	if type(config.AutoResumeAfterAlert) == "boolean" then configuration.AutoResumeAfterAlert = config.AutoResumeAfterAlert end
+	if config.AutoResumeAfterAlertVersion == 1 and type(config.AutoResumeAfterAlert) == "boolean" then
+		configuration.AutoResumeAfterAlert = config.AutoResumeAfterAlert
+	elseif config.AutoResumeAfterAlertVersion ~= 1 then
+		-- Older configs predate the resume setting; migrate them to the new default.
+		configuration.AutoResumeAfterAlert = true
+		configuration.MigratedLegacyConfig = true
+	end
 	if type(config.AlertFlashEnabled) == "boolean" then configuration.AlertFlashEnabled = config.AlertFlashEnabled end
 	if type(config.AutoBlockEnabled) == "boolean" then configuration.AutoBlockEnabled = config.AutoBlockEnabled end
 	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
@@ -276,6 +282,7 @@ function configuration.SaveConfig()
 		WhitelistPanelHeightScale = configuration.WhitelistPanelHeightScale,
 		AlertsEnabled = configuration.AlertsEnabled,
 		AutoResumeAfterAlert = configuration.AutoResumeAfterAlert,
+		AutoResumeAfterAlertVersion = 1,
 		AlertFlashEnabled = configuration.AlertFlashEnabled,
 		AutoBlockEnabled = configuration.AutoBlockEnabled,
 		MovementBoostEnabled = configuration.MovementBoostEnabled,
@@ -3159,11 +3166,11 @@ task.spawn(function()
 			and (localRoot.Position - trackedRoot.Position).Magnitude <= configuration.AlertsDistance
 		if not trackedPlayerInRange and not configuration.AlertCombatPending then
 			local shouldResume = configuration.AlertCombatHold and configuration.AutoResumeAfterAlert
-				and not configuration.AlertCombatBlockReady and not configuration.EmergencyStopActive
+				and not configuration.EmergencyStopActive
+			configuration.LastAlertCombatUserId = nil
 			configuration.AlertCombatHold = false
-			if not configuration.AlertCombatBlockReady then
-				configuration.LastAlertCombatUserId = nil
-			end
+			configuration.AlertCombatBlockReady = false
+			configuration.AlertBlockTarget = nil
 			if shouldResume then configuration.SetRunning() end
 		end
 
@@ -3208,8 +3215,8 @@ task.spawn(function()
 				end
 			end
 		else
-			configuration.AlertCombatHold = false
 			if not configuration.AlertCombatPending and not configuration.AlertCombatBlockReady then
+				configuration.AlertCombatHold = false
 				configuration.LastAlertCombatUserId = nil
 			end
 		end
