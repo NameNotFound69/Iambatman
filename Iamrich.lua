@@ -1,0 +1,2670 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local StarterGui = game:GetService("StarterGui")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+
+local Player = Players.LocalPlayer
+local MobsFolder = workspace:WaitForChild("Mobs")
+local InitClashing = ReplicatedStorage:FindFirstChild("InitClashing", true)
+if not InitClashing then return end
+
+--==================================================
+-- CONFIG
+--==================================================
+local Amount = 5000
+local MaxDistance = 15
+local Interval = 1
+local ExpGoal = 2000000
+local AlertsDistance = 1000
+local FollowDistance = 8
+local FollowPlayerUserId = nil
+local PlayerPanelMode = "server"
+local FollowSelectButton, StopFollowButton
+local AutoAttackTargetUserId = nil
+local AutoAttackPinnedMob = nil
+local MovementBoostEnabled = true
+local AutoAttackEnabled = false
+local AutoAttackMode = "Mob"
+local AutoAttackRange = 25
+local CombatTargetButton
+local Farming = false
+local CurrentTarget = nil
+local LastTarget = nil
+local TargetStartTime = 0
+local AccumulatedTime = 0
+local IsPaused = false
+local CurrentBillboard = nil
+local SessionStartEXP = 0      -- สำหรับคำนวณ EXP/Hour
+local SessionStartTime = 0
+local RecentCycle = "รอบล่าสุด  -"
+local SessionExpGained = 0
+local SessionFarmSeconds = 0
+local NoProgressCycles = 0
+local AlertsEnabled = true
+local AutoBlockEnabled = true
+local ESPEnabled = true
+local ESPLineEnabled = true
+local ESPBoxEnabled = true
+local AntiAFKEnabled = true
+local WhitelistIds = {}
+local PlayerESPEnabled = {}
+local BlockPromptCache = {}
+local SavedMinimized = false
+local MainWidthScale = 0.30
+local MainHeightScale = 0.72
+local PlayerPanelWidthScale = 0.42
+local PlayerPanelHeightScale = 0.62
+local WhitelistPanelWidthScale = 0.40
+local WhitelistPanelHeightScale = 0.58
+local ConfigFileName = "EXPPlus_Config.json"
+local IsMinimized = false
+
+local function LoadConfig()
+	if type(readfile) ~= "function" then return end
+	local ok, config = pcall(function()
+		return HttpService:JSONDecode(readfile(ConfigFileName))
+	end)
+	if not ok or type(config) ~= "table" then return end
+
+	local function ReadNumber(key, current, minimum, allowZero)
+		local value = tonumber(config[key])
+		if value and value >= minimum and (allowZero or value > 0) then
+			return value
+		end
+		return current
+	end
+
+	Amount = math.floor(ReadNumber("Amount", Amount, 0, false))
+	MaxDistance = ReadNumber("MaxDistance", MaxDistance, 0, false)
+	Interval = ReadNumber("Interval", Interval, 0, true)
+	ExpGoal = ReadNumber("ExpGoal", ExpGoal, 0, false)
+	AlertsDistance = math.clamp(ReadNumber("AlertsDistance", AlertsDistance, 0, true), 0, 100000)
+	FollowDistance = math.clamp(ReadNumber("FollowDistance", FollowDistance, 2, false), 2, 100)
+	AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", AutoAttackRange, 5, false), 5, 500)
+	if config.AutoAttackMode == "Mob" or config.AutoAttackMode == "Player" or config.AutoAttackMode == "Nearby" then
+		AutoAttackMode = config.AutoAttackMode
+	end
+	local attackUserId = tonumber(config.AutoAttackTargetUserId)
+	if attackUserId and attackUserId > 0 and attackUserId % 1 == 0 then
+		AutoAttackTargetUserId = tostring(attackUserId)
+	end
+	local followUserId = tonumber(config.FollowPlayerUserId)
+	if followUserId and followUserId > 0 and followUserId % 1 == 0 then
+		FollowPlayerUserId = tostring(followUserId)
+	end
+	MainWidthScale = math.clamp(ReadNumber("MainWidthScale", MainWidthScale, 0.2, false), 0.2, 0.75)
+	MainHeightScale = math.clamp(ReadNumber("MainHeightScale", MainHeightScale, 0.4, false), 0.4, 0.95)
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize or Vector2.new(1000, 800)
+	if config.MainWidthScale == nil and tonumber(config.MainWidth) then
+		MainWidthScale = math.clamp(tonumber(config.MainWidth) / math.max(1, viewport.X), 0.2, 0.75)
+	end
+	if config.MainHeightScale == nil and tonumber(config.MainHeight) then
+		MainHeightScale = math.clamp(tonumber(config.MainHeight) / math.max(1, viewport.Y), 0.4, 0.95)
+	end
+	PlayerPanelWidthScale = math.clamp(ReadNumber("PlayerPanelWidthScale", PlayerPanelWidthScale, 0.28, false), 0.28, 0.8)
+	PlayerPanelHeightScale = math.clamp(ReadNumber("PlayerPanelHeightScale", PlayerPanelHeightScale, 0.35, false), 0.35, 0.9)
+	WhitelistPanelWidthScale = math.clamp(ReadNumber("WhitelistPanelWidthScale", WhitelistPanelWidthScale, 0.26, false), 0.26, 0.8)
+	WhitelistPanelHeightScale = math.clamp(ReadNumber("WhitelistPanelHeightScale", WhitelistPanelHeightScale, 0.32, false), 0.32, 0.9)
+	if type(config.AlertsEnabled) == "boolean" then AlertsEnabled = config.AlertsEnabled end
+	if type(config.AutoBlockEnabled) == "boolean" then AutoBlockEnabled = config.AutoBlockEnabled end
+	if type(config.MovementBoostEnabled) == "boolean" then MovementBoostEnabled = config.MovementBoostEnabled end
+	if type(config.AutoAttackEnabled) == "boolean" then AutoAttackEnabled = config.AutoAttackEnabled end
+	if type(config.ESPEnabled) == "boolean" then ESPEnabled = config.ESPEnabled end
+	if type(config.ESPLineEnabled) == "boolean" then ESPLineEnabled = config.ESPLineEnabled end
+	if type(config.ESPBoxEnabled) == "boolean" then ESPBoxEnabled = config.ESPBoxEnabled end
+	if type(config.AntiAFKEnabled) == "boolean" then AntiAFKEnabled = config.AntiAFKEnabled end
+	SavedMinimized = config.Minimized == true
+	if type(config.WhitelistIds) == "table" then
+		for _, userId in ipairs(config.WhitelistIds) do
+			local id = tostring(userId)
+			if id:match("^%d+$") and tonumber(id) and tonumber(id) > 0 then
+				WhitelistIds[id] = true
+			end
+		end
+	end
+end
+
+local function SaveConfig()
+	if type(writefile) ~= "function" then return false end
+	local ids = {}
+	for userId in pairs(WhitelistIds) do
+		table.insert(ids, userId)
+	end
+	table.sort(ids, function(a, b) return tonumber(a) < tonumber(b) end)
+
+	local config = {
+		Amount = Amount,
+		MaxDistance = MaxDistance,
+		Interval = Interval,
+		ExpGoal = ExpGoal,
+		AlertsDistance = AlertsDistance,
+		FollowDistance = FollowDistance,
+		FollowPlayerUserId = FollowPlayerUserId,
+		AutoAttackTargetUserId = AutoAttackTargetUserId,
+		AutoAttackEnabled = AutoAttackEnabled,
+		AutoAttackMode = AutoAttackMode,
+		AutoAttackRange = AutoAttackRange,
+		MainWidthScale = MainWidthScale,
+		MainHeightScale = MainHeightScale,
+		PlayerPanelWidthScale = PlayerPanelWidthScale,
+		PlayerPanelHeightScale = PlayerPanelHeightScale,
+		WhitelistPanelWidthScale = WhitelistPanelWidthScale,
+		WhitelistPanelHeightScale = WhitelistPanelHeightScale,
+		AlertsEnabled = AlertsEnabled,
+		AutoBlockEnabled = AutoBlockEnabled,
+		MovementBoostEnabled = MovementBoostEnabled,
+		ESPEnabled = ESPEnabled,
+		ESPLineEnabled = ESPLineEnabled,
+		ESPBoxEnabled = ESPBoxEnabled,
+		AntiAFKEnabled = AntiAFKEnabled,
+		WhitelistIds = ids,
+		Minimized = IsMinimized == true,
+	}
+	local ok = pcall(function()
+		writefile(ConfigFileName, HttpService:JSONEncode(config))
+	end)
+	return ok
+end
+
+LoadConfig()
+
+local function IsWhitelisted(otherPlayer)
+	return WhitelistIds[tostring(otherPlayer.UserId)] == true
+end
+
+local function GetBlockedUserSet()
+	local ok, blockedUserIds = pcall(function()
+		return StarterGui:GetCore("GetBlockedUserIds")
+	end)
+	if not ok or type(blockedUserIds) ~= "table" then return nil end
+	local blocked = {}
+	for _, userId in pairs(blockedUserIds) do
+		blocked[tostring(userId)] = true
+	end
+	return blocked
+end
+
+local function IsPlayerESPEnabled(otherPlayer)
+	return PlayerESPEnabled[tostring(otherPlayer.UserId)] ~= false
+end
+
+local function GetPlayerHealth(otherPlayer)
+	local character = otherPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return nil, nil end
+	return math.max(0, math.floor(humanoid.Health + 0.5)), math.max(0, math.floor(humanoid.MaxHealth + 0.5))
+end
+
+local function GetPlayerStats(otherPlayer)
+	local stats = otherPlayer:FindFirstChild("PlayerStats")
+	local level = stats and stats:FindFirstChild("Level")
+	local defense = stats and stats:FindFirstChild("Defense")
+	local levelValue = level and level.Value
+	local defenseValue = defense and defense.Value
+	return levelValue, defenseValue
+end
+
+local function FormatPlayerStats(otherPlayer)
+	local level, defense = GetPlayerStats(otherPlayer)
+	return string.format("Level %s  •  Defense %s", level ~= nil and tostring(level) or "—", defense ~= nil and tostring(defense) or "—")
+end
+
+--==================================================
+-- COLORS (refined modern dark)
+--==================================================
+local BG      = Color3.fromRGB(21, 18, 30)
+local CARD    = Color3.fromRGB(31, 27, 43)
+local INPUT   = Color3.fromRGB(40, 35, 54)
+local BORDER  = Color3.fromRGB(57, 50, 72)
+local TEXT    = Color3.fromRGB(245, 245, 248)
+local MUTED   = Color3.fromRGB(140, 140, 155)
+local ACCENT  = Color3.fromRGB(99, 140, 255)
+local GREEN   = Color3.fromRGB(72, 210, 140)
+local RED     = Color3.fromRGB(235, 80, 90)
+local YELLOW  = Color3.fromRGB(255, 190, 70)
+local ACCENT_DIM = Color3.fromRGB(40, 55, 110)
+local GREEN_DIM  = Color3.fromRGB(28, 58, 42)
+local RED_DIM    = Color3.fromRGB(50, 26, 30)
+
+local function GetHealthColor(current, maximum)
+	if not current or not maximum or maximum <= 0 then return MUTED end
+	local ratio = current / maximum
+	if ratio <= 0.25 then return RED end
+	if ratio <= 0.6 then return YELLOW end
+	return GREEN
+end
+
+--==================================================
+-- HELPERS
+--==================================================
+local function FormatNumber(n)
+	local s = tostring(math.floor(n))
+	local result = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	if result:sub(1, 1) == "," then
+		result = result:sub(2)
+	end
+	return result
+end
+
+local function FormatTime(sec)
+	local h = math.floor(sec / 3600)
+	local m = math.floor((sec % 3600) / 60)
+	local s = math.floor(sec % 60)
+	return string.format("%02d:%02d:%02d", h, m, s)
+end
+
+--==================================================
+-- BILLBOARD
+--==================================================
+local function ClearBillboard()
+	if CurrentBillboard then
+		CurrentBillboard:Destroy()
+		CurrentBillboard = nil
+	end
+end
+
+local function AttachBillboard(mob, expValue)
+	ClearBillboard()
+	local root = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "FarmMarker"
+	bb.Size = UDim2.fromScale(3, 1)
+	bb.StudsOffset = Vector3.new(0, 3.2, 0)
+	bb.AlwaysOnTop = true
+	bb.MaxDistance = 120
+	bb.Parent = root
+
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.fromScale(1, 1)
+	frame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+	frame.BackgroundTransparency = 0.15
+	frame.BorderSizePixel = 0
+	frame.Parent = bb
+	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+	local stroke = Instance.new("UIStroke", frame)
+	stroke.Color = ACCENT
+	stroke.Thickness = 1.5
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Text"
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Text = "FARMING\n" .. FormatNumber(expValue)
+	label.TextColor3 = ACCENT
+	label.TextSize = 11
+	label.Font = Enum.Font.GothamBold
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.Parent = frame
+
+	CurrentBillboard = bb
+end
+
+local function UpdateBillboardText(expValue, isMax)
+	if CurrentBillboard then
+		local label = CurrentBillboard:FindFirstChild("Text", true)
+		if label then
+			if isMax then
+				local text = "MAX\n" .. FormatNumber(expValue)
+				if label.Text ~= text then label.Text = text end
+				label.TextColor3 = GREEN
+			else
+				local text = "FARMING\n" .. FormatNumber(expValue)
+				if label.Text ~= text then label.Text = text end
+				label.TextColor3 = ACCENT
+			end
+		end
+	end
+end
+
+--==================================================
+-- GUI
+--==================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EXPFarmUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 100
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromScale(MainWidthScale, MainHeightScale)
+Main.Position = UDim2.fromScale(0.5 - MainWidthScale / 2, 0.5 - MainHeightScale / 2)
+Main.ZIndex = 90
+Main.BackgroundColor3 = BG
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 16)
+local MainStroke = Instance.new("UIStroke", Main)
+MainStroke.Color = BORDER
+MainStroke.Thickness = 1.2
+MainStroke.Transparency = 0.15
+
+--==================================================
+-- HEADER (compact)
+--==================================================
+local Content
+local Sidebar
+local InfoCard, StartBtn, ToggleGrid, SettingsCard
+local AlarmOverlay
+local Header = Instance.new("Frame")
+Header.Size = UDim2.fromScale(1, 0.09)
+Header.Active = true
+Header.BackgroundColor3 = CARD
+Header.BorderSizePixel = 0
+Header.Parent = Main
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 16)
+
+local HeaderFix = Instance.new("Frame")
+HeaderFix.Size = UDim2.fromScale(1, 0.4)
+HeaderFix.Position = UDim2.fromScale(0, 0.6)
+HeaderFix.BackgroundColor3 = CARD
+HeaderFix.BorderSizePixel = 0
+HeaderFix.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -100, 0, 20)
+Title.Position = UDim2.fromOffset(14, 8)
+Title.BackgroundTransparency = 1
+Title.Text = "EXP+"
+Title.TextColor3 = TEXT
+Title.TextSize = 15
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1, -100, 0, 14)
+Subtitle.Position = UDim2.fromOffset(14, 26)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "Experience tracker"
+Subtitle.TextColor3 = MUTED
+Subtitle.TextSize = 10
+Subtitle.Font = Enum.Font.Gotham
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Subtitle.Parent = Header
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.fromOffset(48, 20)
+Status.Position = UDim2.new(1, -62, 0, 12)
+Status.BackgroundColor3 = RED_DIM
+Status.Text = "OFF"
+Status.TextColor3 = RED
+Status.TextSize = 10
+Status.Font = Enum.Font.GothamBold
+Status.Parent = Header
+Instance.new("UICorner", Status).CornerRadius = UDim.new(1, 0)
+
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.fromOffset(24, 24)
+MinimizeBtn.Position = UDim2.new(1, -92, 0, 10)
+MinimizeBtn.BackgroundColor3 = INPUT
+MinimizeBtn.BorderSizePixel = 0
+MinimizeBtn.Text = "−"
+MinimizeBtn.TextColor3 = TEXT
+MinimizeBtn.TextSize = 16
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Parent = Header
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 6)
+
+-- Mini bar (visible only when minimized) — big EXP + time
+local MiniBar = Instance.new("Frame")
+MiniBar.Name = "MiniBar"
+MiniBar.Size = UDim2.new(1, -110, 1, -8)
+MiniBar.Position = UDim2.fromOffset(10, 4)
+MiniBar.BackgroundTransparency = 1
+MiniBar.Visible = false
+MiniBar.Parent = Header
+
+local MiniExp = Instance.new("TextLabel")
+MiniExp.Name = "MiniExp"
+MiniExp.Size = UDim2.new(0.55, 0, 0.6, 0)
+MiniExp.Position = UDim2.fromScale(0, 0.05)
+MiniExp.BackgroundTransparency = 1
+MiniExp.Text = "0"
+MiniExp.TextColor3 = GREEN
+MiniExp.TextSize = 18
+MiniExp.Font = Enum.Font.GothamBlack
+MiniExp.TextXAlignment = Enum.TextXAlignment.Left
+MiniExp.TextYAlignment = Enum.TextYAlignment.Bottom
+MiniExp.Parent = MiniBar
+
+local MiniMax = Instance.new("TextLabel")
+MiniMax.Size = UDim2.new(0.55, 0, 0.35, 0)
+MiniMax.Position = UDim2.fromScale(0, 0.62)
+MiniMax.BackgroundTransparency = 1
+MiniMax.Text = "/ " .. FormatNumber(ExpGoal)
+MiniMax.TextColor3 = MUTED
+MiniMax.TextSize = 10
+MiniMax.Font = Enum.Font.Gotham
+MiniMax.TextXAlignment = Enum.TextXAlignment.Left
+MiniMax.TextYAlignment = Enum.TextYAlignment.Top
+MiniMax.Parent = MiniBar
+
+local MiniTime = Instance.new("TextLabel")
+MiniTime.Name = "MiniTime"
+MiniTime.Size = UDim2.new(0.4, 0, 0.55, 0)
+MiniTime.Position = UDim2.fromScale(0.55, 0.1)
+MiniTime.BackgroundTransparency = 1
+MiniTime.Text = "00:00:00"
+MiniTime.TextColor3 = YELLOW
+MiniTime.TextSize = 14
+MiniTime.Font = Enum.Font.GothamBold
+MiniTime.TextXAlignment = Enum.TextXAlignment.Right
+MiniTime.Parent = MiniBar
+
+local MiniState = Instance.new("TextLabel")
+MiniState.Name = "MiniState"
+MiniState.Size = UDim2.new(0.4, 0, 0.35, 0)
+MiniState.Position = UDim2.fromScale(0.55, 0.6)
+MiniState.BackgroundTransparency = 1
+MiniState.Text = "Idle"
+MiniState.TextColor3 = MUTED
+MiniState.TextSize = 10
+MiniState.Font = Enum.Font.Gotham
+MiniState.TextXAlignment = Enum.TextXAlignment.Right
+MiniState.Parent = MiniBar
+
+local function ApplyMinimized(state)
+	IsMinimized = state
+	if Content then Content.Visible = not state end
+	if Sidebar then Sidebar.Visible = not state end
+	MiniBar.Visible = state
+	Title.Visible = not state
+	Subtitle.Visible = not state
+	Main.Size = UDim2.fromScale(MainWidthScale, state and 0.095 or MainHeightScale)
+	Header.Size = UDim2.fromScale(1, state and 1 or 0.09)
+	MinimizeBtn.Text = state and "+" or "−"
+	if state then
+		Status.Position = UDim2.new(1, -62, 0.5, -10)
+		MinimizeBtn.Position = UDim2.new(1, -92, 0.5, -12)
+	else
+		Status.Position = UDim2.new(1, -62, 0, 12)
+		MinimizeBtn.Position = UDim2.new(1, -92, 0, 10)
+	end
+end
+
+IsMinimized = SavedMinimized
+MinimizeBtn.MouseButton1Click:Connect(function()
+	ApplyMinimized(not IsMinimized)
+	SaveConfig()
+end)
+
+-- Drag
+local Dragging, DragStart, StartPos = false, nil, nil
+Header.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		Dragging = true
+		DragStart = input.Position
+		StartPos = Main.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				Dragging = false
+			end
+		end)
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local d = input.Position - DragStart
+		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
+		if viewport then
+			Main.Position = UDim2.fromScale(
+				math.clamp(StartPos.X.Scale + d.X / viewport.X, 0, 1 - MainWidthScale),
+				math.clamp(StartPos.Y.Scale + d.Y / viewport.Y, 0, 1 - (IsMinimized and 0.095 or MainHeightScale))
+			)
+		end
+	end
+end)
+
+--==================================================
+-- CONTENT
+--==================================================
+Content = Instance.new("Frame")
+Content.Name = "MainContent"
+Content.Size = UDim2.fromScale(0.67, 0.88)
+Content.Position = UDim2.fromScale(0.30, 0.10)
+Content.BackgroundTransparency = 1
+Content.BorderSizePixel = 0
+Content.Parent = Main
+ApplyMinimized(IsMinimized)
+
+local Pages = {}
+local PageLayouts = {}
+local function CreatePage(name, visible)
+	local page = Instance.new("ScrollingFrame")
+	page.Name = name .. "Page"
+	page.Size = UDim2.fromScale(1, 1)
+	page.BackgroundTransparency = 1
+	page.BorderSizePixel = 0
+	page.ScrollBarThickness = 3
+	page.ScrollBarImageColor3 = MUTED
+	page.CanvasSize = UDim2.new()
+	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	page.ScrollingDirection = Enum.ScrollingDirection.Y
+	page.Visible = visible
+	page.Parent = Content
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = page
+	Pages[name] = page
+	PageLayouts[name] = layout
+	return page
+end
+
+local ExpPage = CreatePage("EXP", true)
+local ESPPage = CreatePage("ESP", false)
+local PlayerPage = CreatePage("Player", false)
+local AlertsPage = CreatePage("Alerts", false)
+local SettingsPage = CreatePage("Settings", false)
+local MovementPage = CreatePage("Movement", false)
+local CombatPage = CreatePage("Combat", false)
+
+local function AddPageHeading(page, title, description)
+	local heading = Instance.new("Frame")
+	heading.Size = UDim2.new(1, 0, 0, 48)
+	heading.LayoutOrder = 1
+	heading.BackgroundTransparency = 1
+	heading.Parent = page
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Size = UDim2.new(1, -8, 0, 24)
+	titleLabel.Position = UDim2.fromOffset(4, 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = title
+	titleLabel.TextColor3 = TEXT
+	titleLabel.TextSize = 18
+	titleLabel.Font = Enum.Font.GothamBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.Parent = heading
+	local descriptionLabel = Instance.new("TextLabel")
+	descriptionLabel.Size = UDim2.new(1, -8, 0, 16)
+	descriptionLabel.Position = UDim2.fromOffset(4, 26)
+	descriptionLabel.BackgroundTransparency = 1
+	descriptionLabel.Text = description
+	descriptionLabel.TextColor3 = MUTED
+	descriptionLabel.TextSize = 11
+	descriptionLabel.Font = Enum.Font.Gotham
+	descriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+	descriptionLabel.Parent = heading
+	return heading
+end
+
+AddPageHeading(ESPPage, "ESP", "Choose which player markers to show")
+AddPageHeading(PlayerPage, "Players", "Server list, player ESP and whitelist")
+AddPageHeading(AlertsPage, "Alerts", "Notifications and idle behavior")
+AddPageHeading(SettingsPage, "Settings", "Tune EXP farming parameters")
+AddPageHeading(MovementPage, "Movement", "Stamina, walk speed and follow spacing")
+AddPageHeading(CombatPage, "Combat", "Choose a target type and control auto attack")
+
+Sidebar = Instance.new("Frame")
+Sidebar.Name = "Navigation"
+Sidebar.Size = UDim2.fromScale(0.25, 0.88)
+Sidebar.Position = UDim2.fromScale(0.03, 0.10)
+Sidebar.BackgroundColor3 = CARD
+Sidebar.BorderSizePixel = 0
+Sidebar.Visible = not IsMinimized
+Sidebar.Parent = Main
+Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
+
+local SidebarTitle = Instance.new("TextLabel")
+SidebarTitle.Size = UDim2.new(1, -16, 0, 24)
+SidebarTitle.Position = UDim2.fromOffset(8, 10)
+SidebarTitle.BackgroundTransparency = 1
+SidebarTitle.Text = "PAGES"
+SidebarTitle.TextColor3 = MUTED
+SidebarTitle.TextSize = 10
+SidebarTitle.Font = Enum.Font.GothamBold
+SidebarTitle.TextXAlignment = Enum.TextXAlignment.Left
+SidebarTitle.Parent = Sidebar
+
+local function MakeNavButton(text, yScale)
+	local button = Instance.new("TextButton")
+	button.Size = UDim2.fromScale(0.92, 0.09)
+	button.Position = UDim2.fromScale(0.04, yScale)
+	button.BackgroundColor3 = text == "EXP" and ACCENT_DIM or INPUT
+	button.BorderSizePixel = 0
+	button.Text = text
+	button.TextColor3 = text == "EXP" and ACCENT or TEXT
+	button.TextSize = 11
+	button.Font = Enum.Font.GothamBold
+	button.Parent = Sidebar
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 7)
+	return button
+end
+
+local NavButtons = {
+	EXP = MakeNavButton("EXP", 0.14),
+	ESP = MakeNavButton("ESP", 0.26),
+	Player = MakeNavButton("Players", 0.38),
+	Alerts = MakeNavButton("Alerts", 0.50),
+	Settings = MakeNavButton("Settings", 0.62),
+	Movement = MakeNavButton("Movement", 0.74),
+	Combat = MakeNavButton("Combat", 0.86),
+}
+
+local function SetMainTab(tab)
+	for name, page in pairs(Pages) do
+		page.Visible = name == tab
+		if page.Visible then page.CanvasPosition = Vector2.zero end
+	end
+	for name, button in pairs(NavButtons) do
+		local selected = name == tab
+		button.BackgroundColor3 = selected and ACCENT_DIM or INPUT
+		button.TextColor3 = selected and ACCENT or TEXT
+	end
+end
+
+for name, button in pairs(NavButtons) do
+	button.MouseButton1Click:Connect(function() SetMainTab(name) end)
+end
+SetMainTab("EXP")
+
+--==================================================
+-- HERO EXP CARD (big numbers)
+--==================================================
+InfoCard = Instance.new("Frame")
+InfoCard.Size = UDim2.new(1, 0, 0, 208)
+InfoCard.LayoutOrder = 1
+InfoCard.BackgroundColor3 = CARD
+InfoCard.BorderSizePixel = 0
+InfoCard.Parent = ExpPage
+Instance.new("UICorner", InfoCard).CornerRadius = UDim.new(0, 12)
+local InfoStroke = Instance.new("UIStroke", InfoCard)
+InfoStroke.Color = BORDER
+InfoStroke.Thickness = 1
+InfoStroke.Transparency = 0.35
+
+-- Big EXP number (main focus)
+local ExpCaption = Instance.new("TextLabel")
+ExpCaption.Size = UDim2.new(1, -20, 0, 12)
+ExpCaption.Position = UDim2.fromOffset(10, 5)
+ExpCaption.BackgroundTransparency = 1
+ExpCaption.Text = "TOTAL EXP"
+ExpCaption.TextColor3 = ACCENT
+ExpCaption.TextSize = 9
+ExpCaption.Font = Enum.Font.GothamBold
+ExpCaption.TextXAlignment = Enum.TextXAlignment.Center
+ExpCaption.Parent = InfoCard
+
+local ExpLabel = Instance.new("TextLabel")
+ExpLabel.Size = UDim2.new(1, -20, 0, 48)
+ExpLabel.Position = UDim2.fromOffset(10, 18)
+ExpLabel.BackgroundTransparency = 1
+ExpLabel.Text = "0"
+ExpLabel.TextColor3 = GREEN
+ExpLabel.TextSize = 38
+ExpLabel.Font = Enum.Font.GothamBlack
+ExpLabel.TextXAlignment = Enum.TextXAlignment.Center
+ExpLabel.Parent = InfoCard
+
+local MaxLabel = Instance.new("TextLabel")
+MaxLabel.Size = UDim2.new(1, -20, 0, 16)
+MaxLabel.Position = UDim2.fromOffset(10, 66)
+MaxLabel.BackgroundTransparency = 1
+MaxLabel.Text = "/ " .. FormatNumber(ExpGoal)
+MaxLabel.TextColor3 = MUTED
+MaxLabel.TextSize = 12
+MaxLabel.Font = Enum.Font.Gotham
+MaxLabel.TextXAlignment = Enum.TextXAlignment.Center
+MaxLabel.Parent = InfoCard
+
+-- Progress bar
+local BarBg = Instance.new("Frame")
+BarBg.Size = UDim2.new(1, -28, 0, 8)
+BarBg.Position = UDim2.fromOffset(14, 88)
+BarBg.BackgroundColor3 = INPUT
+BarBg.BorderSizePixel = 0
+BarBg.Parent = InfoCard
+Instance.new("UICorner", BarBg).CornerRadius = UDim.new(1, 0)
+
+local Bar = Instance.new("Frame")
+Bar.Size = UDim2.fromScale(0, 1)
+Bar.BackgroundColor3 = ACCENT
+Bar.BorderSizePixel = 0
+Bar.Parent = BarBg
+Instance.new("UICorner", Bar).CornerRadius = UDim.new(1, 0)
+
+local PercentLabel = Instance.new("TextLabel")
+PercentLabel.Size = UDim2.new(1, 0, 0, 14)
+PercentLabel.Position = UDim2.fromOffset(0, 100)
+PercentLabel.BackgroundTransparency = 1
+PercentLabel.Text = "0%"
+PercentLabel.TextColor3 = MUTED
+PercentLabel.TextSize = 11
+PercentLabel.Font = Enum.Font.GothamBold
+PercentLabel.TextXAlignment = Enum.TextXAlignment.Center
+PercentLabel.Parent = InfoCard
+
+-- Meta row 1: Target + Dist
+local TargetLabel = Instance.new("TextLabel")
+TargetLabel.Size = UDim2.new(0.58, -8, 0, 16)
+TargetLabel.Position = UDim2.fromOffset(12, 120)
+TargetLabel.BackgroundTransparency = 1
+TargetLabel.Text = "No target"
+TargetLabel.TextColor3 = TEXT
+TargetLabel.TextSize = 12
+TargetLabel.Font = Enum.Font.GothamBold
+TargetLabel.TextXAlignment = Enum.TextXAlignment.Left
+TargetLabel.TextTruncate = Enum.TextTruncate.AtEnd
+TargetLabel.Parent = InfoCard
+
+local DistLabel = Instance.new("TextLabel")
+DistLabel.Size = UDim2.new(0.42, -12, 0, 16)
+DistLabel.Position = UDim2.new(0.58, 0, 0, 120)
+DistLabel.BackgroundTransparency = 1
+DistLabel.Text = "Dist  -"
+DistLabel.TextColor3 = MUTED
+DistLabel.TextSize = 11
+DistLabel.Font = Enum.Font.Gotham
+DistLabel.TextXAlignment = Enum.TextXAlignment.Right
+DistLabel.Parent = InfoCard
+
+-- Meta row 2: Time + Rate + State
+local TimeLabel = Instance.new("TextLabel")
+TimeLabel.Size = UDim2.new(0.38, -4, 0, 15)
+TimeLabel.Position = UDim2.fromOffset(12, 140)
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.Text = "00:00:00"
+TimeLabel.TextColor3 = YELLOW
+TimeLabel.TextSize = 11
+TimeLabel.Font = Enum.Font.GothamBold
+TimeLabel.TextXAlignment = Enum.TextXAlignment.Left
+TimeLabel.Parent = InfoCard
+
+local RateLabel = Instance.new("TextLabel")
+RateLabel.Size = UDim2.new(0.32, -4, 0, 15)
+RateLabel.Position = UDim2.new(0.36, 0, 0, 140)
+RateLabel.BackgroundTransparency = 1
+RateLabel.Text = "Rate -"
+RateLabel.TextColor3 = MUTED
+RateLabel.TextSize = 11
+RateLabel.Font = Enum.Font.Gotham
+RateLabel.TextXAlignment = Enum.TextXAlignment.Center
+RateLabel.Parent = InfoCard
+
+local StateLabel = Instance.new("TextLabel")
+StateLabel.Size = UDim2.new(0.32, -10, 0, 15)
+StateLabel.Position = UDim2.new(0.68, 0, 0, 140)
+StateLabel.BackgroundTransparency = 1
+StateLabel.Text = "Idle"
+StateLabel.TextColor3 = MUTED
+StateLabel.TextSize = 11
+StateLabel.Font = Enum.Font.Gotham
+StateLabel.TextXAlignment = Enum.TextXAlignment.Right
+StateLabel.Parent = InfoCard
+
+-- Session + recent
+local SessionLabel = Instance.new("TextLabel")
+SessionLabel.Size = UDim2.new(1, -24, 0, 14)
+SessionLabel.Position = UDim2.fromOffset(12, 162)
+SessionLabel.BackgroundTransparency = 1
+SessionLabel.Text = "Session: +0 EXP / 00:00:00 / 0 EXP/h"
+SessionLabel.TextColor3 = MUTED
+SessionLabel.TextSize = 10
+SessionLabel.Font = Enum.Font.Gotham
+SessionLabel.TextXAlignment = Enum.TextXAlignment.Left
+SessionLabel.Parent = InfoCard
+
+local RecentCycleLabel = Instance.new("TextLabel")
+RecentCycleLabel.Size = UDim2.new(1, -24, 0, 14)
+RecentCycleLabel.Position = UDim2.fromOffset(12, 182)
+RecentCycleLabel.BackgroundTransparency = 1
+RecentCycleLabel.Text = RecentCycle
+RecentCycleLabel.TextColor3 = MUTED
+RecentCycleLabel.TextSize = 10
+RecentCycleLabel.Font = Enum.Font.Gotham
+RecentCycleLabel.TextXAlignment = Enum.TextXAlignment.Left
+RecentCycleLabel.Parent = InfoCard
+
+--==================================================
+-- START BUTTON
+--==================================================
+StartBtn = Instance.new("TextButton")
+StartBtn.Size = UDim2.new(1, 0, 0, 42)
+StartBtn.LayoutOrder = 2
+StartBtn.BackgroundColor3 = ACCENT
+StartBtn.BorderSizePixel = 0
+StartBtn.Text = "Start"
+StartBtn.TextColor3 = Color3.new(1, 1, 1)
+StartBtn.TextSize = 15
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.Parent = ExpPage
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 10)
+
+--==================================================
+-- TOGGLE GRID (2 columns)
+--==================================================
+ToggleGrid = Instance.new("Frame")
+ToggleGrid.Size = UDim2.new(1, 0, 0, 80)
+ToggleGrid.LayoutOrder = 2
+ToggleGrid.BackgroundTransparency = 1
+ToggleGrid.Parent = ESPPage
+
+local GridLayout = Instance.new("UIGridLayout", ToggleGrid)
+GridLayout.CellSize = UDim2.new(0.5, -4, 0, 36)
+GridLayout.CellPadding = UDim2.fromOffset(8, 8)
+GridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+GridLayout.FillDirectionMaxCells = 2
+
+local function MakeToggleGrid(parent, order)
+	local grid = Instance.new("Frame")
+	grid.Size = UDim2.new(1, 0, 0, 40)
+	grid.LayoutOrder = order
+	grid.BackgroundTransparency = 1
+	grid.Parent = parent
+	local layout = Instance.new("UIGridLayout", grid)
+	layout.CellSize = UDim2.new(0.5, -4, 0, 36)
+	layout.CellPadding = UDim2.fromOffset(8, 4)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.FillDirectionMaxCells = 2
+	return grid
+end
+
+local AlertsGrid = MakeToggleGrid(AlertsPage, 2)
+AlertsGrid.Size = UDim2.new(1, 0, 0, 40)
+local PlayersGrid = MakeToggleGrid(PlayerPage, 2)
+PlayersGrid.Size = UDim2.new(1, 0, 0, 80)
+local CombatGrid = MakeToggleGrid(CombatPage, 2)
+local AttackModeGrid = MakeToggleGrid(CombatPage, 3)
+AttackModeGrid.Size = UDim2.new(1, 0, 0, 80)
+
+local AlertsDistanceCard = Instance.new("Frame")
+AlertsDistanceCard.Size = UDim2.new(1, 0, 0, 48)
+AlertsDistanceCard.LayoutOrder = 3
+AlertsDistanceCard.BackgroundColor3 = CARD
+AlertsDistanceCard.BorderSizePixel = 0
+AlertsDistanceCard.Parent = AlertsPage
+Instance.new("UICorner", AlertsDistanceCard).CornerRadius = UDim.new(0, 8)
+
+local AlertsDistanceLabel = Instance.new("TextLabel")
+AlertsDistanceLabel.Size = UDim2.new(0.58, -16, 1, 0)
+AlertsDistanceLabel.Position = UDim2.new(0, 10, 0, 0)
+AlertsDistanceLabel.BackgroundTransparency = 1
+AlertsDistanceLabel.Text = "Player alert range (studs)"
+AlertsDistanceLabel.TextColor3 = TEXT
+AlertsDistanceLabel.TextSize = 11
+AlertsDistanceLabel.Font = Enum.Font.Gotham
+AlertsDistanceLabel.TextXAlignment = Enum.TextXAlignment.Left
+AlertsDistanceLabel.Parent = AlertsDistanceCard
+
+local AlertsDistanceInput = Instance.new("TextBox")
+AlertsDistanceInput.Size = UDim2.new(0.36, -8, 0, 30)
+AlertsDistanceInput.Position = UDim2.new(0.62, 0, 0.5, -15)
+AlertsDistanceInput.BackgroundColor3 = INPUT
+AlertsDistanceInput.BorderSizePixel = 0
+AlertsDistanceInput.Text = tostring(AlertsDistance)
+AlertsDistanceInput.TextColor3 = TEXT
+AlertsDistanceInput.TextSize = 12
+AlertsDistanceInput.Font = Enum.Font.GothamBold
+AlertsDistanceInput.ClearTextOnFocus = false
+AlertsDistanceInput.Parent = AlertsDistanceCard
+Instance.new("UICorner", AlertsDistanceInput).CornerRadius = UDim.new(0, 6)
+AlertsDistanceInput.FocusLost:Connect(function()
+	local value = tonumber(AlertsDistanceInput.Text)
+	if value and value >= 0 then
+		AlertsDistance = math.clamp(math.floor(value), 0, 100000)
+	end
+	AlertsDistanceInput.Text = tostring(AlertsDistance)
+	SaveConfig()
+end)
+
+local function MakeToggle(text, isOn, onColor, onBg, order, parent)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.fromScale(1, 1)
+	btn.LayoutOrder = order
+	btn.BackgroundColor3 = isOn and onBg or CARD
+	btn.BorderSizePixel = 0
+	btn.Text = text
+	btn.TextColor3 = isOn and onColor or MUTED
+	btn.TextSize = 12
+	btn.Font = Enum.Font.GothamBold
+	btn.Parent = parent or ToggleGrid
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+	return btn
+end
+
+local function MakeNumberCard(parent, title, initialValue, order, minValue, maxValue, onChanged)
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 48)
+	card.LayoutOrder = order
+	card.BackgroundColor3 = CARD
+	card.BorderSizePixel = 0
+	card.Parent = parent
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0.58, -16, 1, 0)
+	label.Position = UDim2.new(0, 10, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = title
+	label.TextColor3 = TEXT
+	label.TextSize = 11
+	label.Font = Enum.Font.Gotham
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = card
+
+	local input = Instance.new("TextBox")
+	input.Size = UDim2.new(0.36, -8, 0, 30)
+	input.Position = UDim2.new(0.62, 0, 0.5, -15)
+	input.BackgroundColor3 = INPUT
+	input.BorderSizePixel = 0
+	input.Text = tostring(initialValue())
+	input.TextColor3 = TEXT
+	input.TextSize = 12
+	input.Font = Enum.Font.GothamBold
+	input.ClearTextOnFocus = false
+	input.Parent = card
+	Instance.new("UICorner", input).CornerRadius = UDim.new(0, 6)
+	input.FocusLost:Connect(function()
+		local value = tonumber(input.Text)
+		if value and value >= minValue then onChanged(math.clamp(math.floor(value), minValue, maxValue)) end
+		input.Text = tostring(initialValue())
+		SaveConfig()
+	end)
+	return card, input
+end
+
+local FollowDistanceCard, FollowDistanceInput = MakeNumberCard(
+	MovementPage, "Follow spacing (studs)", function() return FollowDistance end, 2, 2, 100,
+	function(value) FollowDistance = value end
+)
+
+local AutoAttackButton = MakeToggle(
+	AutoAttackEnabled and "Auto Attack: ON" or "Auto Attack: OFF",
+	AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid
+)
+CombatTargetButton = MakeToggle("Choose player target", false, TEXT, CARD, 2, CombatGrid)
+CombatTargetButton.TextColor3 = TEXT
+
+local AutoAttackModeButtons = {
+	Mob = MakeToggle("Mob", AutoAttackMode == "Mob", ACCENT, ACCENT_DIM, 1, AttackModeGrid),
+	Player = MakeToggle("Player", AutoAttackMode == "Player", ACCENT, ACCENT_DIM, 2, AttackModeGrid),
+	Nearby = MakeToggle("Nearest: Mob / Player", AutoAttackMode == "Nearby", ACCENT, ACCENT_DIM, 3, AttackModeGrid),
+}
+
+local AutoAttackRangeCard, AutoAttackRangeInput = MakeNumberCard(
+	CombatPage, "Attack target range (studs)", function() return AutoAttackRange end, 4, 5, 500,
+	function(value) AutoAttackRange = value end
+)
+
+local CombatInfo = Instance.new("TextLabel")
+CombatInfo.Size = UDim2.new(1, -8, 0, 34)
+CombatInfo.LayoutOrder = 5
+CombatInfo.BackgroundTransparency = 1
+CombatInfo.Text = "During EXP farming, auto attack waits. When EXP stops, it attacks the last farm target first."
+CombatInfo.TextColor3 = MUTED
+CombatInfo.TextSize = 10
+CombatInfo.Font = Enum.Font.Gotham
+CombatInfo.TextWrapped = true
+CombatInfo.TextXAlignment = Enum.TextXAlignment.Left
+CombatInfo.Parent = CombatPage
+
+local function UpdateAttackTargetButton()
+	local targetPlayer = AutoAttackTargetUserId and Players:GetPlayerByUserId(tonumber(AutoAttackTargetUserId))
+	CombatTargetButton.Text = targetPlayer and ("Target: @" .. targetPlayer.Name) or "Choose player target"
+	CombatTargetButton.TextColor3 = targetPlayer and YELLOW or TEXT
+	CombatTargetButton.BackgroundColor3 = targetPlayer and Color3.fromRGB(62, 52, 30) or CARD
+end
+UpdateAttackTargetButton()
+
+local function UpdateAutoAttackModeButtons()
+	for mode, button in pairs(AutoAttackModeButtons) do
+		local selected = AutoAttackMode == mode
+		button.TextColor3 = selected and ACCENT or MUTED
+		button.BackgroundColor3 = selected and ACCENT_DIM or CARD
+	end
+end
+UpdateAutoAttackModeButtons()
+
+AutoAttackButton.MouseButton1Click:Connect(function()
+	AutoAttackEnabled = not AutoAttackEnabled
+	AutoAttackButton.Text = AutoAttackEnabled and "Auto Attack: ON" or "Auto Attack: OFF"
+	AutoAttackButton.TextColor3 = AutoAttackEnabled and RED or MUTED
+	AutoAttackButton.BackgroundColor3 = AutoAttackEnabled and RED_DIM or CARD
+	if AutoAttackEnabled and not Farming and CurrentTarget and CurrentTarget:IsDescendantOf(MobsFolder) then
+		AutoAttackPinnedMob = CurrentTarget
+	end
+	SaveConfig()
+end)
+
+for mode, button in pairs(AutoAttackModeButtons) do
+	button.MouseButton1Click:Connect(function()
+		AutoAttackMode = mode
+		UpdateAutoAttackModeButtons()
+		SaveConfig()
+	end)
+end
+
+local AlertToggleButton = MakeToggle(AlertsEnabled and "Alerts: ON" or "Alerts: OFF", AlertsEnabled, GREEN, GREEN_DIM, 1, AlertsGrid)
+local ESPToggleButton = MakeToggle(ESPEnabled and "ESP: ON" or "ESP: OFF", ESPEnabled, ACCENT, ACCENT_DIM, 2)
+local ESPLineButton = MakeToggle(ESPLineEnabled and "Lines: ON" or "Lines: OFF", ESPLineEnabled, ACCENT, ACCENT_DIM, 3)
+local ESPBoxButton = MakeToggle(ESPBoxEnabled and "Boxes: ON" or "Boxes: OFF", ESPBoxEnabled, ACCENT, ACCENT_DIM, 4)
+local AutoBlockButton = MakeToggle(AutoBlockEnabled and "Auto Block: ON" or "Auto Block: OFF", AutoBlockEnabled, RED, RED_DIM, 2, AlertsGrid)
+local PlayerListButton = MakeToggle("Open player list", false, TEXT, CARD, 1, PlayersGrid)
+PlayerListButton.TextColor3 = TEXT
+local WhitelistButton = MakeToggle("Whitelist IDs", false, TEXT, CARD, 2, PlayersGrid)
+WhitelistButton.TextColor3 = TEXT
+FollowSelectButton = MakeToggle("Choose follow target", false, TEXT, CARD, 3, PlayersGrid)
+FollowSelectButton.TextColor3 = TEXT
+StopFollowButton = MakeToggle("Stop following", false, TEXT, CARD, 4, PlayersGrid)
+StopFollowButton.TextColor3 = TEXT
+
+local function UpdateFollowButtons()
+	local following = FollowPlayerUserId ~= nil
+	FollowSelectButton.Text = following and "Change follow target" or "Choose follow target"
+	FollowSelectButton.TextColor3 = following and ACCENT or TEXT
+	FollowSelectButton.BackgroundColor3 = following and ACCENT_DIM or CARD
+	StopFollowButton.TextColor3 = following and RED or MUTED
+	StopFollowButton.BackgroundColor3 = following and RED_DIM or CARD
+end
+UpdateFollowButtons()
+
+-- placeholder to keep grid even (empty)
+local SpacerToggle = Instance.new("Frame")
+SpacerToggle.LayoutOrder = 8
+SpacerToggle.BackgroundTransparency = 1
+SpacerToggle.Parent = ToggleGrid
+
+AlertToggleButton.MouseButton1Click:Connect(function()
+	AlertsEnabled = not AlertsEnabled
+	AlertToggleButton.Text = AlertsEnabled and "Alerts: ON" or "Alerts: OFF"
+	AlertToggleButton.TextColor3 = AlertsEnabled and GREEN or MUTED
+	AlertToggleButton.BackgroundColor3 = AlertsEnabled and GREEN_DIM or CARD
+	SaveConfig()
+	if not AlertsEnabled then
+		AlarmOverlay.Visible = false
+	end
+end)
+
+ESPToggleButton.MouseButton1Click:Connect(function()
+	ESPEnabled = not ESPEnabled
+	ESPToggleButton.Text = ESPEnabled and "ESP: ON" or "ESP: OFF"
+	ESPToggleButton.TextColor3 = ESPEnabled and ACCENT or MUTED
+	ESPToggleButton.BackgroundColor3 = ESPEnabled and ACCENT_DIM or CARD
+	SaveConfig()
+end)
+
+ESPLineButton.MouseButton1Click:Connect(function()
+	ESPLineEnabled = not ESPLineEnabled
+	ESPLineButton.Text = ESPLineEnabled and "Lines: ON" or "Lines: OFF"
+	ESPLineButton.TextColor3 = ESPLineEnabled and ACCENT or MUTED
+	ESPLineButton.BackgroundColor3 = ESPLineEnabled and ACCENT_DIM or CARD
+	SaveConfig()
+end)
+
+ESPBoxButton.MouseButton1Click:Connect(function()
+	ESPBoxEnabled = not ESPBoxEnabled
+	ESPBoxButton.Text = ESPBoxEnabled and "Boxes: ON" or "Boxes: OFF"
+	ESPBoxButton.TextColor3 = ESPBoxEnabled and ACCENT or MUTED
+	ESPBoxButton.BackgroundColor3 = ESPBoxEnabled and ACCENT_DIM or CARD
+	SaveConfig()
+end)
+
+AutoBlockButton.MouseButton1Click:Connect(function()
+	AutoBlockEnabled = not AutoBlockEnabled
+	AutoBlockButton.Text = AutoBlockEnabled and "Auto Block: ON" or "Auto Block: OFF"
+	AutoBlockButton.TextColor3 = AutoBlockEnabled and RED or MUTED
+	AutoBlockButton.BackgroundColor3 = AutoBlockEnabled and RED_DIM or CARD
+	SaveConfig()
+end)
+
+Player.Idled:Connect(function()
+	if not AntiAFKEnabled then return end
+	task.spawn(function()
+		pcall(function()
+			local camera = workspace.CurrentCamera
+			if not camera then return end
+			local position = Vector2.new(camera.ViewportSize.X * 0.5, camera.ViewportSize.Y * 0.5)
+			VirtualUser:CaptureController()
+			VirtualUser:Button2Down(position, camera.CFrame)
+			task.wait(0.1)
+			VirtualUser:Button2Up(position, camera.CFrame)
+		end)
+	end)
+end)
+
+task.spawn(function()
+	while task.wait(1) do
+		if not MovementBoostEnabled then continue end
+
+		local playerGui = Player:FindFirstChildOfClass("PlayerGui")
+		local gameGui = playerGui and playerGui:FindFirstChild("GameGui")
+		local stamina = gameGui and gameGui:FindFirstChild("Stamina")
+		if stamina and (stamina:IsA("NumberValue") or stamina:IsA("IntValue")) then
+			local ok = pcall(function()
+				stamina.Value = 999999999999999999
+			end)
+			if not ok and stamina:IsA("IntValue") then
+				pcall(function() stamina.Value = 2147483647 end)
+			end
+		end
+
+		local playerStats = Player:FindFirstChild("PlayerStats")
+		local level = playerStats and playerStats:FindFirstChild("Level")
+		local character = Player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if level and humanoid then
+			if level.Value >= 300 then
+				humanoid.WalkSpeed = 38
+			elseif humanoid.WalkSpeed < 28 then
+				humanoid.WalkSpeed = 28
+			end
+		end
+	end
+end)
+
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+	if FollowPlayerUserId == tostring(leavingPlayer.UserId) then
+		FollowPlayerUserId = nil
+		local character = Player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if humanoid and root then humanoid:MoveTo(root.Position) end
+		SaveConfig()
+		if UpdateFollowButtons then UpdateFollowButtons() end
+	end
+	if AutoAttackTargetUserId == tostring(leavingPlayer.UserId) then
+		AutoAttackTargetUserId = nil
+		SaveConfig()
+		if UpdateAttackTargetButton then UpdateAttackTargetButton() end
+	end
+end)
+
+--==================================================
+-- SETTINGS (compact 2x2)
+--==================================================
+SettingsCard = Instance.new("Frame")
+SettingsCard.Size = UDim2.new(1, 0, 0, 104)
+SettingsCard.LayoutOrder = 2
+SettingsCard.BackgroundColor3 = CARD
+SettingsCard.BorderSizePixel = 0
+SettingsCard.Parent = SettingsPage
+Instance.new("UICorner", SettingsCard).CornerRadius = UDim.new(0, 10)
+
+local SettingsTitle = Instance.new("TextLabel")
+SettingsTitle.Size = UDim2.new(1, -16, 0, 18)
+SettingsTitle.Position = UDim2.fromOffset(8, 4)
+SettingsTitle.BackgroundTransparency = 1
+SettingsTitle.Text = "Farming settings"
+SettingsTitle.TextColor3 = TEXT
+SettingsTitle.TextSize = 13
+SettingsTitle.Font = Enum.Font.GothamBold
+SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
+SettingsTitle.Parent = SettingsCard
+
+local function MakeCompactSetting(parent, name, default, xScale, yOffset)
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(0.5, -16, 0, 14)
+	lbl.Position = UDim2.new(xScale, 8, 0, yOffset)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = name
+	lbl.TextColor3 = MUTED
+	lbl.TextSize = 10
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Parent = parent
+
+	local box = Instance.new("TextBox")
+	box.Size = UDim2.new(0.5, -16, 0, 24)
+	box.Position = UDim2.new(xScale, 8, 0, yOffset + 14)
+	box.BackgroundColor3 = INPUT
+	box.BorderSizePixel = 0
+	box.Text = tostring(default)
+	box.TextColor3 = TEXT
+	box.TextSize = 12
+	box.Font = Enum.Font.GothamBold
+	box.ClearTextOnFocus = false
+	box.Parent = parent
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+	return box
+end
+
+local AmountBox = MakeCompactSetting(SettingsCard, "Amount / cycle", Amount, 0, 24)
+local DistBox = MakeCompactSetting(SettingsCard, "Max distance", MaxDistance, 0.5, 24)
+local IntervalBox = MakeCompactSetting(SettingsCard, "Interval (s)", Interval, 0, 62)
+local MaxBox = MakeCompactSetting(SettingsCard, "EXP Max", ExpGoal, 0.5, 62)
+
+AmountBox.FocusLost:Connect(function()
+	local v = tonumber(AmountBox.Text)
+	if v and v > 0 then Amount = math.floor(v) end
+	AmountBox.Text = tostring(Amount)
+	SaveConfig()
+end)
+DistBox.FocusLost:Connect(function()
+	local v = tonumber(DistBox.Text)
+	if v and v > 0 then MaxDistance = v end
+	DistBox.Text = tostring(MaxDistance)
+	SaveConfig()
+end)
+IntervalBox.FocusLost:Connect(function()
+	local v = tonumber(IntervalBox.Text)
+	if v and v >= 0 then Interval = v end
+	IntervalBox.Text = tostring(Interval)
+	SaveConfig()
+end)
+MaxBox.FocusLost:Connect(function()
+	local v = tonumber((MaxBox.Text:gsub(",", "")))
+	if v and v > 0 then
+		ExpGoal = v
+		MaxLabel.Text = "/ " .. FormatNumber(ExpGoal)
+	end
+	MaxBox.Text = tostring(ExpGoal)
+	SaveConfig()
+end)
+
+--==================================================
+-- PLAYER / WHITELIST PANELS (unchanged structure)
+--==================================================
+local PlayerPanel = Instance.new("Frame")
+PlayerPanel.Name = "PlayerListPanel"
+PlayerPanel.Size = UDim2.fromScale(PlayerPanelWidthScale, PlayerPanelHeightScale)
+PlayerPanel.Position = UDim2.fromScale(0.52, 0.19)
+PlayerPanel.ZIndex = 90
+PlayerPanel.BackgroundColor3 = BG
+PlayerPanel.BorderSizePixel = 0
+PlayerPanel.Visible = false
+PlayerPanel.Parent = ScreenGui
+Instance.new("UICorner", PlayerPanel).CornerRadius = UDim.new(0, 14)
+local PlayerPanelStroke = Instance.new("UIStroke", PlayerPanel)
+PlayerPanelStroke.Color = BORDER
+PlayerPanelStroke.Thickness = 1.2
+PlayerPanelStroke.Transparency = 0.15
+
+local PlayerPanelTitle = Instance.new("TextLabel")
+PlayerPanelTitle.Size = UDim2.new(1, -52, 0, 36)
+PlayerPanelTitle.Position = UDim2.fromOffset(12, 4)
+PlayerPanelTitle.ZIndex = 91
+PlayerPanelTitle.Active = true
+PlayerPanelTitle.BackgroundTransparency = 1
+PlayerPanelTitle.Text = "Players in server"
+PlayerPanelTitle.TextColor3 = TEXT
+PlayerPanelTitle.TextSize = 15
+PlayerPanelTitle.Font = Enum.Font.GothamBold
+PlayerPanelTitle.TextXAlignment = Enum.TextXAlignment.Left
+PlayerPanelTitle.Parent = PlayerPanel
+
+local PlayerPanelClose = Instance.new("TextButton")
+PlayerPanelClose.Size = UDim2.fromOffset(28, 28)
+PlayerPanelClose.Position = UDim2.new(1, -36, 0, 8)
+PlayerPanelClose.ZIndex = 91
+PlayerPanelClose.BackgroundColor3 = INPUT
+PlayerPanelClose.BorderSizePixel = 0
+PlayerPanelClose.Text = "×"
+PlayerPanelClose.TextColor3 = TEXT
+PlayerPanelClose.TextSize = 16
+PlayerPanelClose.Font = Enum.Font.GothamBold
+PlayerPanelClose.Parent = PlayerPanel
+Instance.new("UICorner", PlayerPanelClose).CornerRadius = UDim.new(0, 6)
+
+local PlayerScroll = Instance.new("ScrollingFrame")
+PlayerScroll.Size = UDim2.fromScale(0.94, 0.86)
+PlayerScroll.Position = UDim2.fromScale(0.03, 0.11)
+PlayerScroll.ZIndex = 91
+PlayerScroll.BackgroundColor3 = CARD
+PlayerScroll.BorderSizePixel = 0
+PlayerScroll.ScrollBarThickness = 4
+PlayerScroll.CanvasSize = UDim2.new()
+PlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerScroll.Parent = PlayerPanel
+Instance.new("UICorner", PlayerScroll).CornerRadius = UDim.new(0, 8)
+
+local PlayerScrollLayout = Instance.new("UIListLayout", PlayerScroll)
+PlayerScrollLayout.Padding = UDim.new(0, 4)
+PlayerScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+PlayerScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+PlayerListButton.MouseButton1Click:Connect(function()
+	PlayerPanelMode = "server"
+	PlayerPanelTitle.Text = "Players in server"
+	PlayerPanel.Visible = not PlayerPanel.Visible
+	PlayerListButton.Text = PlayerPanel.Visible and "Close player list" or "Open player list"
+	PlayerListButton.TextColor3 = PlayerPanel.Visible and ACCENT or TEXT
+end)
+PlayerPanelClose.MouseButton1Click:Connect(function()
+	PlayerPanel.Visible = false
+	PlayerPanelMode = "server"
+	PlayerListButton.Text = "Open player list"
+	PlayerListButton.TextColor3 = TEXT
+end)
+
+FollowSelectButton.MouseButton1Click:Connect(function()
+	PlayerPanelMode = "follow"
+	PlayerPanelTitle.Text = "Choose player to follow"
+	PlayerPanel.Visible = true
+	PlayerListButton.Text = "Open player list"
+	PlayerListButton.TextColor3 = TEXT
+end)
+
+CombatTargetButton.MouseButton1Click:Connect(function()
+	PlayerPanelMode = "attack"
+	PlayerPanelTitle.Text = "Choose player to attack"
+	PlayerPanel.Visible = true
+	AutoAttackMode = "Player"
+	UpdateAutoAttackModeButtons()
+	SaveConfig()
+end)
+
+StopFollowButton.MouseButton1Click:Connect(function()
+	FollowPlayerUserId = nil
+	local character = Player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if humanoid and root then humanoid:MoveTo(root.Position) end
+	SaveConfig()
+	UpdateFollowButtons()
+	if PlayerPanelMode == "follow" then PlayerPanel.Visible = true end
+end)
+
+local WhitelistPanel = Instance.new("Frame")
+WhitelistPanel.Name = "WhitelistPanel"
+WhitelistPanel.Size = UDim2.fromScale(WhitelistPanelWidthScale, WhitelistPanelHeightScale)
+WhitelistPanel.Position = UDim2.fromScale(0.04, 0.20)
+WhitelistPanel.ZIndex = 90
+WhitelistPanel.BackgroundColor3 = BG
+WhitelistPanel.BorderSizePixel = 0
+WhitelistPanel.Visible = false
+WhitelistPanel.Parent = ScreenGui
+Instance.new("UICorner", WhitelistPanel).CornerRadius = UDim.new(0, 14)
+local WhitelistPanelStroke = Instance.new("UIStroke", WhitelistPanel)
+WhitelistPanelStroke.Color = BORDER
+WhitelistPanelStroke.Thickness = 1.2
+WhitelistPanelStroke.Transparency = 0.15
+
+local WhitelistTitle = Instance.new("TextLabel")
+WhitelistTitle.Size = UDim2.new(1, -20, 0, 30)
+WhitelistTitle.Position = UDim2.fromOffset(12, 6)
+WhitelistTitle.ZIndex = 91
+WhitelistTitle.Active = true
+WhitelistTitle.BackgroundTransparency = 1
+WhitelistTitle.Text = "Whitelist by Player UserId"
+WhitelistTitle.TextColor3 = TEXT
+WhitelistTitle.TextSize = 15
+WhitelistTitle.Font = Enum.Font.GothamBold
+WhitelistTitle.TextXAlignment = Enum.TextXAlignment.Left
+WhitelistTitle.Parent = WhitelistPanel
+
+local WhitelistInput = Instance.new("TextBox")
+WhitelistInput.Size = UDim2.new(1, -112, 0, 32)
+WhitelistInput.Position = UDim2.fromOffset(10, 42)
+WhitelistInput.ZIndex = 91
+WhitelistInput.BackgroundColor3 = INPUT
+WhitelistInput.BorderSizePixel = 0
+WhitelistInput.PlaceholderText = "Enter Player UserId"
+WhitelistInput.Text = ""
+WhitelistInput.TextColor3 = TEXT
+WhitelistInput.PlaceholderColor3 = MUTED
+WhitelistInput.TextSize = 12
+WhitelistInput.Font = Enum.Font.Gotham
+WhitelistInput.ClearTextOnFocus = false
+WhitelistInput.Parent = WhitelistPanel
+Instance.new("UICorner", WhitelistInput).CornerRadius = UDim.new(0, 6)
+
+local AddWhitelistButton = Instance.new("TextButton")
+AddWhitelistButton.Size = UDim2.fromOffset(88, 32)
+AddWhitelistButton.Position = UDim2.new(1, -98, 0, 42)
+AddWhitelistButton.ZIndex = 91
+AddWhitelistButton.BackgroundColor3 = ACCENT
+AddWhitelistButton.BorderSizePixel = 0
+AddWhitelistButton.Text = "Add ID"
+AddWhitelistButton.TextColor3 = Color3.new(1, 1, 1)
+AddWhitelistButton.TextSize = 11
+AddWhitelistButton.Font = Enum.Font.GothamBold
+AddWhitelistButton.Parent = WhitelistPanel
+Instance.new("UICorner", AddWhitelistButton).CornerRadius = UDim.new(0, 6)
+
+local WhitelistScroll = Instance.new("ScrollingFrame")
+WhitelistScroll.Size = UDim2.fromScale(0.94, 0.74)
+WhitelistScroll.Position = UDim2.fromScale(0.03, 0.22)
+WhitelistScroll.ZIndex = 91
+WhitelistScroll.BackgroundColor3 = CARD
+WhitelistScroll.BorderSizePixel = 0
+WhitelistScroll.ScrollBarThickness = 4
+WhitelistScroll.CanvasSize = UDim2.new()
+WhitelistScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+WhitelistScroll.Parent = WhitelistPanel
+Instance.new("UICorner", WhitelistScroll).CornerRadius = UDim.new(0, 8)
+
+local WhitelistLayout = Instance.new("UIListLayout", WhitelistScroll)
+WhitelistLayout.Padding = UDim.new(0, 4)
+WhitelistLayout.SortOrder = Enum.SortOrder.LayoutOrder
+WhitelistLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local function MakeDraggable(panel, handle)
+	local dragging = false
+	local dragStart
+	local startPosition
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPosition = panel.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
+			if viewport then
+				panel.Position = UDim2.fromScale(
+					math.clamp(startPosition.X.Scale + delta.X / viewport.X, 0, 1 - panel.Size.X.Scale),
+					math.clamp(startPosition.Y.Scale + delta.Y / viewport.Y, 0, 1 - panel.Size.Y.Scale)
+				)
+			end
+		end
+	end)
+end
+
+MakeDraggable(PlayerPanel, PlayerPanelTitle)
+MakeDraggable(WhitelistPanel, WhitelistTitle)
+
+local function MakeResizable(panel, name, minWidth, minHeight, onReleased)
+	local handle = Instance.new("TextButton")
+	handle.Name = name .. "ResizeHandle"
+	handle.Size = UDim2.fromScale(0.07, 0.05)
+	handle.AnchorPoint = Vector2.new(1, 1)
+	handle.Position = UDim2.fromScale(1, 1)
+	handle.ZIndex = 95
+	handle.BackgroundColor3 = CARD
+	handle.BackgroundTransparency = 0.1
+	handle.BorderSizePixel = 0
+	handle.Text = "◢"
+	handle.TextColor3 = MUTED
+	handle.TextScaled = true
+	handle.Font = Enum.Font.GothamBold
+	handle.Parent = panel
+	Instance.new("UICorner", handle).CornerRadius = UDim.new(0, 5)
+
+	local resizing = false
+	local startPoint
+	local startWidth, startHeight
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+		resizing = true
+		startPoint = input.Position
+		startWidth, startHeight = panel.Size.X.Scale, panel.Size.Y.Scale
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				resizing = false
+				if onReleased then onReleased(panel.Size.X.Scale, panel.Size.Y.Scale) end
+			end
+		end)
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if not resizing or (input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch) then return end
+		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
+		if not viewport then return end
+		local delta = input.Position - startPoint
+		local maxWidth = math.max(minWidth, math.min(0.8, 1 - panel.Position.X.Scale))
+		local maxHeight = math.max(minHeight, math.min(0.9, 1 - panel.Position.Y.Scale))
+		panel.Size = UDim2.fromScale(
+			math.clamp(startWidth + delta.X / viewport.X, minWidth, maxWidth),
+			math.clamp(startHeight + delta.Y / viewport.Y, minHeight, maxHeight)
+		)
+	end)
+end
+
+MakeResizable(PlayerPanel, "PlayerPanel", 0.28, 0.35, function(width, height)
+	PlayerPanelWidthScale, PlayerPanelHeightScale = width, height
+	SaveConfig()
+end)
+MakeResizable(WhitelistPanel, "WhitelistPanel", 0.26, 0.32, function(width, height)
+	WhitelistPanelWidthScale, WhitelistPanelHeightScale = width, height
+	SaveConfig()
+end)
+
+local function RefreshWhitelist()
+	for _, child in ipairs(WhitelistScroll:GetChildren()) do
+		if child:IsA("Frame") then child:Destroy() end
+	end
+
+	local ids = {}
+	for userId in pairs(WhitelistIds) do table.insert(ids, userId) end
+	table.sort(ids, function(a, b) return tonumber(a) < tonumber(b) end)
+	for order, userId in ipairs(ids) do
+		local playerName = ""
+		for _, onlinePlayer in ipairs(Players:GetPlayers()) do
+			if tostring(onlinePlayer.UserId) == userId then
+				playerName = "  @" .. onlinePlayer.Name
+				break
+			end
+		end
+
+		local row = Instance.new("Frame")
+		row.Size = UDim2.new(1, -12, 0, 32)
+		row.LayoutOrder = order
+		row.ZIndex = 92
+		row.BackgroundTransparency = 1
+		row.Parent = WhitelistScroll
+
+		local idLabel = Instance.new("TextLabel")
+		idLabel.Size = UDim2.new(1, -48, 1, 0)
+		idLabel.ZIndex = 93
+		idLabel.BackgroundTransparency = 1
+		idLabel.Text = userId .. playerName
+		idLabel.TextColor3 = TEXT
+		idLabel.TextSize = 11
+		idLabel.Font = Enum.Font.Gotham
+		idLabel.TextXAlignment = Enum.TextXAlignment.Left
+		idLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		idLabel.Parent = row
+
+		local removeButton = Instance.new("TextButton")
+		removeButton.Size = UDim2.fromOffset(36, 26)
+		removeButton.Position = UDim2.new(1, -40, 0.5, -13)
+		removeButton.ZIndex = 93
+		removeButton.BackgroundColor3 = Color3.fromRGB(60, 30, 35)
+		removeButton.BorderSizePixel = 0
+		removeButton.Text = "×"
+		removeButton.TextColor3 = RED
+		removeButton.TextSize = 14
+		removeButton.Font = Enum.Font.GothamBold
+		removeButton.Parent = row
+		Instance.new("UICorner", removeButton).CornerRadius = UDim.new(0, 5)
+		removeButton.MouseButton1Click:Connect(function()
+			WhitelistIds[userId] = nil
+			SaveConfig()
+			RefreshWhitelist()
+		end)
+	end
+end
+
+WhitelistButton.MouseButton1Click:Connect(function()
+	WhitelistPanel.Visible = not WhitelistPanel.Visible
+	if WhitelistPanel.Visible then RefreshWhitelist() end
+end)
+
+local function AddWhitelistId()
+	local idText = WhitelistInput.Text:match("^%s*(%d+)%s*$")
+	if not idText then
+		WhitelistInput.Text = ""
+		WhitelistInput.PlaceholderText = "Enter a valid UserId"
+		return
+	end
+	local userId = idText:gsub("^0+", "")
+	if userId == "" then
+		WhitelistInput.Text = ""
+		WhitelistInput.PlaceholderText = "Enter a valid UserId"
+		return
+	end
+	WhitelistIds[userId] = true
+	WhitelistInput.Text = ""
+	WhitelistInput.PlaceholderText = "Enter Player UserId"
+	SaveConfig()
+	RefreshWhitelist()
+end
+
+AddWhitelistButton.MouseButton1Click:Connect(AddWhitelistId)
+WhitelistInput.FocusLost:Connect(function(enterPressed)
+	if enterPressed then AddWhitelistId() end
+end)
+
+AlarmOverlay = Instance.new("Frame")
+AlarmOverlay.Name = "FullScreenAlarm"
+AlarmOverlay.Size = UDim2.fromScale(1, 1)
+AlarmOverlay.BackgroundColor3 = RED
+AlarmOverlay.BackgroundTransparency = 0.35
+AlarmOverlay.BorderSizePixel = 0
+AlarmOverlay.Visible = false
+AlarmOverlay.Active = false
+AlarmOverlay.ZIndex = 100
+AlarmOverlay.Parent = ScreenGui
+
+local AlarmText = Instance.new("TextLabel")
+AlarmText.Size = UDim2.new(1, 0, 0, 72)
+AlarmText.Position = UDim2.new(0, 0, 0.5, -36)
+AlarmText.BackgroundTransparency = 1
+AlarmText.Text = ""
+AlarmText.TextColor3 = Color3.new(1, 1, 1)
+AlarmText.TextStrokeTransparency = 0.15
+AlarmText.TextSize = 30
+AlarmText.Font = Enum.Font.GothamBlack
+AlarmText.ZIndex = 101
+AlarmText.Parent = AlarmOverlay
+
+local PlayerEspLayer = Instance.new("Frame")
+PlayerEspLayer.Name = "PlayerESPLayer"
+PlayerEspLayer.Size = UDim2.fromScale(1, 1)
+PlayerEspLayer.BackgroundTransparency = 1
+PlayerEspLayer.Active = false
+PlayerEspLayer.ZIndex = 0
+PlayerEspLayer.Parent = ScreenGui
+
+local ResizeHandle = Instance.new("TextButton")
+ResizeHandle.Name = "ResizeHandle"
+ResizeHandle.Size = UDim2.fromScale(0.065, 0.032)
+ResizeHandle.AnchorPoint = Vector2.new(1, 1)
+ResizeHandle.Position = UDim2.fromScale(1, 1)
+ResizeHandle.ZIndex = 95
+ResizeHandle.BackgroundColor3 = INPUT
+ResizeHandle.BackgroundTransparency = 0.2
+ResizeHandle.BorderSizePixel = 0
+ResizeHandle.Text = "◢"
+ResizeHandle.TextColor3 = MUTED
+ResizeHandle.TextSize = 12
+ResizeHandle.Font = Enum.Font.GothamBold
+ResizeHandle.Parent = Main
+Instance.new("UICorner", ResizeHandle).CornerRadius = UDim.new(0, 6)
+
+local Resizing, ResizeStart, ResizeStartSize = false, nil, nil
+ResizeHandle.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		Resizing = true
+		ResizeStart = input.Position
+		ResizeStartSize = Vector2.new(MainWidthScale, MainHeightScale)
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				Resizing = false
+				SaveConfig()
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if not Resizing then return end
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+	local viewport = camera.ViewportSize
+	local delta = input.Position - ResizeStart
+	local maxWidth = math.max(0.2, math.min(0.75, 1 - Main.Position.X.Scale))
+	local maxHeight = math.max(0.4, math.min(0.95, 1 - Main.Position.Y.Scale))
+	MainWidthScale = math.clamp(ResizeStartSize.X + delta.X / viewport.X, 0.2, maxWidth)
+	if not IsMinimized then
+		MainHeightScale = math.clamp(ResizeStartSize.Y + delta.Y / viewport.Y, 0.4, maxHeight)
+	end
+	Main.Size = UDim2.fromScale(MainWidthScale, IsMinimized and 0.095 or MainHeightScale)
+end)
+
+--==================================================
+-- STATUS HELPERS
+--==================================================
+local function PauseTimer()
+	if not IsPaused and LastTarget then
+		AccumulatedTime = AccumulatedTime + (tick() - TargetStartTime)
+		IsPaused = true
+	end
+end
+
+local function SetIdle()
+	if Farming and AutoAttackEnabled and CurrentTarget and CurrentTarget:IsDescendantOf(MobsFolder) then
+		AutoAttackPinnedMob = CurrentTarget
+	end
+	Farming = false
+	PauseTimer()
+	StartBtn.Text = "Start"
+	StartBtn.BackgroundColor3 = ACCENT
+	Status.Text = "OFF"
+	Status.TextColor3 = RED
+	Status.BackgroundColor3 = RED_DIM
+	StateLabel.Text = "Stopped"
+	MiniState.Text = "Stopped"
+	TimeLabel.Text = FormatTime(AccumulatedTime)
+			MiniTime.Text = TimeLabel.Text
+end
+
+local function SetRunning()
+	Farming = true
+	AutoAttackPinnedMob = nil
+	IsPaused = false
+	SessionExpGained = 0
+	SessionFarmSeconds = 0
+	NoProgressCycles = 0
+	SessionLabel.Text = "Session: +0 EXP / 00:00:00 / 0 EXP/h"
+	RecentCycle = "รอบล่าสุด  -"
+	RecentCycleLabel.Text = RecentCycle
+	if LastTarget then
+		TargetStartTime = tick()
+	end
+	StartBtn.Text = "Stop"
+	StartBtn.BackgroundColor3 = RED
+	Status.Text = "ON"
+	Status.TextColor3 = GREEN
+	Status.BackgroundColor3 = GREEN_DIM
+	StateLabel.Text = "Searching..."
+	MiniState.Text = "Searching..."
+end
+
+StartBtn.MouseButton1Click:Connect(function()
+	if Farming then
+		SetIdle()
+	else
+		SetRunning()
+	end
+end)
+
+--==================================================
+-- FIND TARGET
+--==================================================
+local function FindTarget()
+	local char = Player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not root then return nil end
+
+	local best, bestDist = nil, math.huge
+	local mobs = MobsFolder:GetChildren()
+	for _, mob in ipairs(mobs) do
+		local cfg = mob:FindFirstChild("Config")
+		local exp = cfg and cfg:FindFirstChild("EXP")
+		local mroot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
+		if exp and (exp:IsA("IntValue") or exp:IsA("NumberValue"))
+			and mroot and mroot:IsA("BasePart")
+			and exp.Value < ExpGoal then
+			local d = (root.Position - mroot.Position).Magnitude
+			if d <= MaxDistance and d < bestDist then
+				bestDist = d
+				best = mob
+			end
+		end
+	end
+	return best
+end
+
+local function FindNearestCombatMob(localRoot)
+	local bestMob, bestRoot, bestDistance = nil, nil, AutoAttackRange
+	for _, mob in ipairs(MobsFolder:GetChildren()) do
+		local mobRoot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
+		if mobRoot and mobRoot:IsA("BasePart") then
+			local distance = (localRoot.Position - mobRoot.Position).Magnitude
+			if distance <= bestDistance then
+				bestMob, bestRoot, bestDistance = mob, mobRoot, distance
+			end
+		end
+	end
+	return bestMob, bestRoot, bestDistance
+end
+
+local function FindCombatPlayer(userId)
+	local targetPlayer = userId and Players:GetPlayerByUserId(tonumber(userId))
+	if not targetPlayer or targetPlayer == Player or IsWhitelisted(targetPlayer) then return nil, nil end
+	local character = targetPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local targetRoot = character and character:FindFirstChild("HumanoidRootPart")
+	if not targetRoot or (humanoid and humanoid.Health <= 0) then return nil, nil end
+	return targetPlayer, targetRoot
+end
+
+local function FindAutoAttackTarget(localRoot)
+	if AutoAttackPinnedMob then
+		if AutoAttackPinnedMob:IsDescendantOf(MobsFolder) then
+			local pinnedHumanoid = AutoAttackPinnedMob:FindFirstChildOfClass("Humanoid")
+			if not pinnedHumanoid or pinnedHumanoid.Health > 0 then
+				local targetRoot = AutoAttackPinnedMob.PrimaryPart or AutoAttackPinnedMob:FindFirstChild("HumanoidRootPart")
+				if targetRoot and targetRoot:IsA("BasePart") then
+					return "Mob", AutoAttackPinnedMob, targetRoot, (localRoot.Position - targetRoot.Position).Magnitude
+				end
+			end
+		end
+		AutoAttackPinnedMob = nil
+	end
+
+	if AutoAttackMode == "Player" then
+		local targetPlayer, targetRoot = FindCombatPlayer(AutoAttackTargetUserId)
+		if targetPlayer then
+			return "Player", targetPlayer, targetRoot, (localRoot.Position - targetRoot.Position).Magnitude
+		end
+		return nil
+	end
+
+	local mob, mobRoot, mobDistance = FindNearestCombatMob(localRoot)
+	if AutoAttackMode == "Mob" then
+		if mob then return "Mob", mob, mobRoot, mobDistance end
+		return nil
+	end
+
+	local nearestPlayer, nearestRoot, nearestDistance
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if otherPlayer ~= Player and not IsWhitelisted(otherPlayer) then
+			local character = otherPlayer.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local targetRoot = character and character:FindFirstChild("HumanoidRootPart")
+			if targetRoot and targetRoot:IsA("BasePart") and (not humanoid or humanoid.Health > 0) then
+				local distance = (localRoot.Position - targetRoot.Position).Magnitude
+				if distance <= AutoAttackRange and (not nearestDistance or distance < nearestDistance) then
+					nearestPlayer, nearestRoot, nearestDistance = otherPlayer, targetRoot, distance
+				end
+			end
+		end
+	end
+	if nearestPlayer and (not mob or nearestDistance < mobDistance) then
+		return "Player", nearestPlayer, nearestRoot, nearestDistance
+	end
+	if mob then return "Mob", mob, mobRoot, mobDistance end
+	return nil
+end
+
+local function RecordCycle(cycleStartExp, cycleStartTime, callsSent, currentExp)
+	local elapsed = math.max(os.clock() - cycleStartTime, 0.001)
+	local gained = currentExp - cycleStartExp
+	RecentCycle = string.format("Last: +%s EXP / %.2fs / %d calls", FormatNumber(gained), elapsed, callsSent)
+	RecentCycleLabel.Text = RecentCycle
+	SessionExpGained += math.max(gained, 0)
+	SessionFarmSeconds += elapsed
+	local sessionRate = SessionFarmSeconds > 0 and (SessionExpGained / SessionFarmSeconds) * 3600 or 0
+	SessionLabel.Text = string.format("Session: +%s EXP / %s / %s EXP/h", FormatNumber(SessionExpGained), FormatTime(SessionFarmSeconds), FormatNumber(sessionRate))
+	if callsSent > 0 and gained <= 0 then
+		NoProgressCycles += 1
+	else
+		NoProgressCycles = 0
+	end
+end
+
+--==================================================
+-- FARM LOOP (ยิงไม่เกิน Max)
+--==================================================
+task.spawn(function()
+	while true do
+		if not Farming then
+			task.wait(0.1)
+			continue
+		end
+
+		local target = CurrentTarget
+
+		if target and target:IsDescendantOf(MobsFolder) then
+			-- ยึดตัวเดิม
+		else
+			ClearBillboard()
+			CurrentTarget = nil
+			target = FindTarget()
+			CurrentTarget = target
+
+			if not target then
+				TargetLabel.Text = "No target"
+				ExpLabel.Text = "-"
+				MiniExp.Text = "-"
+				DistLabel.Text = "Dist  -"
+				StateLabel.Text = "Searching..."
+				MiniState.Text = "Searching..."
+				RateLabel.Text = "Rate -"
+				PauseTimer()
+				task.wait(0.2)
+				continue
+			end
+
+			local cfg = target:FindFirstChild("Config")
+			local exp = cfg and cfg:FindFirstChild("EXP")
+			AttachBillboard(target, exp and exp.Value or 0)
+
+			-- เริ่มจับเวลา rate ของมอนตัวนี้
+			SessionStartEXP = exp and exp.Value or 0
+			SessionStartTime = tick()
+		end
+
+		local cfg = target:FindFirstChild("Config")
+		local exp = cfg and cfg:FindFirstChild("EXP")
+		if not exp then
+			task.wait(0.1)
+			continue
+		end
+
+		local char = Player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		local mroot = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
+		local dist = (root and mroot) and (root.Position - mroot.Position).Magnitude or 0
+
+		TargetLabel.Text = target.Name
+		ExpLabel.Text = FormatNumber(exp.Value)
+		MaxLabel.Text = "/ " .. FormatNumber(ExpGoal)
+		DistLabel.Text = "Dist  " .. string.format("%.1f", dist)
+
+		-- ถึง Max แล้ว → หยุดยิง + หยุดนับเวลา
+		if exp.Value >= ExpGoal then
+			SetIdle()
+			StateLabel.Text = "Goal reached"
+			MiniState.Text = "Goal reached"
+			UpdateBillboardText(exp.Value, true)
+			Bar.Size = UDim2.fromScale(1, 1)
+			PercentLabel.Text = "100%"
+			PauseTimer()
+			task.wait(0.3)
+			continue
+		end
+
+		StateLabel.Text = NoProgressCycles >= 2 and ("No EXP progress (" .. NoProgressCycles .. ")") or "Farming..."
+		MiniState.Text = StateLabel.Text
+		UpdateBillboardText(exp.Value, false)
+
+		-- ยิงเฉพาะจำนวนที่เหลือถึง Max (กันยิงเกิน)
+		local remaining = ExpGoal - exp.Value
+		local toFire = math.min(Amount, math.max(0, remaining))
+		local cycleStartExp = exp.Value
+		local cycleStartTime = os.clock()
+		local callsSent = 0
+
+		for i = 1, toFire do
+			if not Farming then break end
+			if not target:IsDescendantOf(MobsFolder) then break end
+			if exp.Value >= ExpGoal then break end
+
+			InitClashing:FireServer(2, exp)
+			callsSent += 1
+
+			-- ใกล้ Max แล้ว → ยิงช้าลง + รอค่าอัปเดต
+			if exp.Value >= ExpGoal - 200 then
+				task.wait(0.02)
+			elseif i % 50 == 0 then
+				-- เว้นจังหวะเล็กน้อยทุก 50 ครั้ง ให้ Value มีโอกาส replicate
+				task.wait()
+			end
+		end
+
+		if not Farming then continue end
+
+		if not target:IsDescendantOf(MobsFolder) then
+			ClearBillboard()
+			CurrentTarget = nil
+			task.wait(0.05)
+			continue
+		end
+
+		if exp.Value >= ExpGoal then
+			RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
+			SetIdle()
+			StateLabel.Text = "Goal reached"
+			MiniState.Text = "Goal reached"
+			UpdateBillboardText(exp.Value, true)
+			PauseTimer()
+			continue
+		end
+
+		-- รอ EXP ขึ้น (timeout สั้นลงเมื่อใกล้ Max)
+		if target:IsDescendantOf(MobsFolder) then
+			StateLabel.Text = "Waiting..."
+			MiniState.Text = "Waiting..."
+			local expected = math.min(cycleStartExp + callsSent, ExpGoal)
+			local startWait = os.clock()
+			local maxWait = (exp.Value >= ExpGoal - 500) and 2 or 5
+
+			while Farming and exp.Parent and exp.Value < expected do
+				if not target:IsDescendantOf(MobsFolder) then break end
+				if exp.Value >= ExpGoal then break end
+				if os.clock() - startWait > maxWait then break end
+				task.wait(0.05)
+			end
+		end
+
+		RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
+
+		if Farming then
+			if not target:IsDescendantOf(MobsFolder) then
+				ClearBillboard()
+				CurrentTarget = nil
+				task.wait(0.05)
+				continue
+			end
+			if exp.Value >= ExpGoal then
+				PauseTimer()
+				continue
+			end
+			StateLabel.Text = NoProgressCycles >= 2 and ("No EXP progress (" .. NoProgressCycles .. ")") or "Cycle done"
+			MiniState.Text = StateLabel.Text
+			task.wait(Interval)
+		end
+	end
+end)
+
+--==================================================
+-- AUTO ATTACK (uses the game's input bindable)
+--==================================================
+task.spawn(function()
+	local lastAttackAt = 0
+	local equippedCharacter = nil
+	while true do
+		if AutoAttackEnabled and not Farming then
+			local character = Player.Character
+			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
+			local targetKind, target, targetRoot, distance
+			if localRoot then
+				targetKind, target, targetRoot, distance = FindAutoAttackTarget(localRoot)
+			end
+			if target and targetRoot and distance <= AutoAttackRange then
+				local playerGui = Player:FindFirstChildOfClass("PlayerGui")
+				local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
+				if inputFunction and inputFunction:IsA("BindableFunction") then
+					if equippedCharacter ~= character then
+						local equipped = pcall(function()
+							inputFunction:Invoke("EquipButton", Enum.UserInputState.Begin)
+						end)
+						if equipped then
+							equippedCharacter = character
+							lastAttackAt = os.clock()
+						end
+					elseif os.clock() - lastAttackAt >= 0.5 then
+						local ok, err = pcall(function()
+							inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
+							inputFunction:Invoke("SkillButton", Enum.UserInputState.Begin)
+						end)
+						if ok then
+							lastAttackAt = os.clock()
+						else
+							warn("Auto Attack failed:", err)
+						end
+					end
+				end
+			end
+		end
+		task.wait(0.1)
+	end
+end)
+
+--==================================================
+-- LIVE UI + TIMER + RATE
+--==================================================
+task.spawn(function()
+	while true do
+		if Farming and CurrentTarget and CurrentTarget:IsDescendantOf(MobsFolder) then
+			local cfg = CurrentTarget:FindFirstChild("Config")
+			local exp = cfg and cfg:FindFirstChild("EXP")
+			local reachedMax = exp and exp.Value >= ExpGoal
+
+			if CurrentTarget ~= LastTarget then
+				LastTarget = CurrentTarget
+				TargetStartTime = tick()
+				AccumulatedTime = 0
+				IsPaused = false
+				if exp then
+					SessionStartEXP = exp.Value
+					SessionStartTime = tick()
+				end
+			end
+
+			if not reachedMax then
+				if IsPaused then
+					TargetStartTime = tick()
+					IsPaused = false
+				end
+				TimeLabel.Text = FormatTime(AccumulatedTime + (tick() - TargetStartTime))
+				MiniTime.Text = TimeLabel.Text
+			else
+				PauseTimer()
+				TimeLabel.Text = FormatTime(AccumulatedTime)
+			MiniTime.Text = TimeLabel.Text
+			end
+
+			-- EXP / Hour
+			if exp and SessionStartTime > 0 then
+				local elapsed = tick() - SessionStartTime
+				if elapsed > 1 then
+					local gained = exp.Value - SessionStartEXP
+					local perHour = (gained / elapsed) * 3600
+					RateLabel.Text = FormatNumber(perHour) .. "/h"
+				end
+			end
+		else
+			if LastTarget then
+				TimeLabel.Text = FormatTime(AccumulatedTime)
+			MiniTime.Text = TimeLabel.Text
+			end
+		end
+
+		if CurrentTarget and CurrentTarget:IsDescendantOf(MobsFolder) then
+			local cfg = CurrentTarget:FindFirstChild("Config")
+			local exp = cfg and cfg:FindFirstChild("EXP")
+			if exp then
+				local ratio = math.clamp(exp.Value / ExpGoal, 0, 1)
+				if math.floor(ratio * 1000) ~= math.floor((Bar.Size.X.Scale or 0) * 1000) then
+					Bar.Size = UDim2.fromScale(ratio, 1)
+				end
+				local expText = FormatNumber(exp.Value)
+				if ExpLabel.Text ~= expText then ExpLabel.Text = expText end
+				if MiniExp.Text ~= expText then MiniExp.Text = expText end
+				local maxText = "/ " .. FormatNumber(ExpGoal)
+				if MaxLabel.Text ~= maxText then MaxLabel.Text = maxText end
+				if MiniMax.Text ~= maxText then MiniMax.Text = maxText end
+				local percentText = string.format("%.1f%%", ratio * 100)
+				if PercentLabel.Text ~= percentText then PercentLabel.Text = percentText end
+				UpdateBillboardText(exp.Value, exp.Value >= ExpGoal)
+			end
+
+			local char = Player.Character
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			local mroot = CurrentTarget.PrimaryPart or CurrentTarget:FindFirstChild("HumanoidRootPart")
+			if root and mroot then
+				local distText = "Dist  " .. string.format("%.1f", (root.Position - mroot.Position).Magnitude)
+				if DistLabel.Text ~= distText then DistLabel.Text = distText end
+			end
+		else
+			if CurrentTarget and not CurrentTarget:IsDescendantOf(MobsFolder) then
+				ClearBillboard()
+				CurrentTarget = nil
+			end
+		end
+
+		task.wait(0.1)
+	end
+end)
+
+--==================================================
+-- PLAYER LIST + FULL-SCREEN ALERTS
+--==================================================
+task.spawn(function()
+	local lastPlayerRefresh = 0
+	local lastFollowMove = 0
+	local lastAutoBlockCheck = 0
+	local nextAutoBlockPromptAt = 0
+	local autoBlockTeleporting = false
+	local flashOn = false
+	local lastFlashToggle = 0
+	local PlayerVisuals = {}
+	local ThumbnailCache = {}
+
+	while true do
+		local char = Player.Character
+		local localRoot = char and char:FindFirstChild("HumanoidRootPart")
+		local followedPlayer = FollowPlayerUserId and Players:GetPlayerByUserId(tonumber(FollowPlayerUserId))
+		if followedPlayer and char and os.clock() - lastFollowMove >= 0.6 then
+			local humanoid = char:FindFirstChildOfClass("Humanoid")
+			local followedCharacter = followedPlayer.Character
+			local followedRoot = followedCharacter and followedCharacter:FindFirstChild("HumanoidRootPart")
+			if humanoid and localRoot and followedRoot then
+				if (localRoot.Position - followedRoot.Position).Magnitude > FollowDistance + 2 then
+					humanoid:MoveTo(followedRoot.Position - followedRoot.CFrame.LookVector * FollowDistance)
+				else
+					humanoid:MoveTo(localRoot.Position)
+				end
+				lastFollowMove = os.clock()
+			end
+		end
+
+		if AutoBlockEnabled and os.clock() - lastAutoBlockCheck >= 1 then
+			lastAutoBlockCheck = os.clock()
+			local blockedUsers = GetBlockedUserSet()
+			local hasNonWhitelistedPlayer = false
+			local blockedNonWhitelistedPlayer = false
+			local nextPlayerToPrompt = nil
+
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= Player and not IsWhitelisted(otherPlayer) then
+					hasNonWhitelistedPlayer = true
+					if blockedUsers and blockedUsers[tostring(otherPlayer.UserId)] then
+						blockedNonWhitelistedPlayer = true
+						break
+					elseif not nextPlayerToPrompt then
+						nextPlayerToPrompt = otherPlayer
+					end
+				end
+			end
+
+			if not hasNonWhitelistedPlayer then
+				-- A server containing only whitelisted players never triggers block or teleport.
+				nextAutoBlockPromptAt = 0
+			elseif blockedNonWhitelistedPlayer and not autoBlockTeleporting then
+				autoBlockTeleporting = true
+				task.spawn(function()
+					local ok, err = pcall(function()
+						TeleportService:Teleport(game.PlaceId, Player)
+					end)
+					if not ok then
+						autoBlockTeleporting = false
+						warn("Auto Block teleport failed:", err)
+					else
+						task.delay(15, function() autoBlockTeleporting = false end)
+					end
+				end)
+			elseif nextPlayerToPrompt and os.clock() >= nextAutoBlockPromptAt then
+				nextAutoBlockPromptAt = os.clock() + 4
+				local ok, err = pcall(function()
+					StarterGui:SetCore("PromptBlockPlayer", nextPlayerToPrompt)
+				end)
+				if not ok then
+					warn("Auto Block prompt failed:", err)
+				end
+			end
+		elseif not AutoBlockEnabled then
+			nextAutoBlockPromptAt = 0
+		end
+
+		local nearbyPlayer = nil
+		local nearbyDistance = math.huge
+
+		if PlayerPanel.Visible and os.clock() - lastPlayerRefresh >= 0.5 then
+			lastPlayerRefresh = os.clock()
+			for _, child in ipairs(PlayerScroll:GetChildren()) do
+				if child:IsA("Frame") then
+					child:Destroy()
+				end
+			end
+
+			for order, otherPlayer in ipairs(Players:GetPlayers()) do
+				local otherCharacter = otherPlayer.Character
+				local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
+				local distanceText = otherPlayer == Player and "You" or "Distance unavailable"
+				if localRoot and otherRoot then
+					local distance = (localRoot.Position - otherRoot.Position).Magnitude
+					if otherPlayer ~= Player then
+						distanceText = string.format("%.0f studs away", distance)
+					end
+				end
+
+				local row = Instance.new("Frame")
+		row.Name = "PlayerRow_" .. otherPlayer.UserId
+				row.Size = UDim2.new(1, -12, 0, 126)
+				row.LayoutOrder = order
+				row.ZIndex = 92
+				row.BackgroundColor3 = INPUT
+				row.BorderSizePixel = 0
+				row.Parent = PlayerScroll
+				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
+
+				local avatar = Instance.new("ImageLabel")
+				avatar.Name = "Avatar"
+				avatar.Size = UDim2.fromOffset(44, 44)
+				avatar.Position = UDim2.fromOffset(8, 18)
+				avatar.ZIndex = 93
+				avatar.BackgroundColor3 = CARD
+				avatar.BorderSizePixel = 0
+				avatar.ScaleType = Enum.ScaleType.Crop
+				avatar.Parent = row
+				Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
+
+				if not ThumbnailCache[otherPlayer.UserId] then
+					local ok, imageUrl = pcall(function()
+						return Players:GetUserThumbnailAsync(otherPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+					end)
+					if ok then ThumbnailCache[otherPlayer.UserId] = imageUrl end
+				end
+				avatar.Image = ThumbnailCache[otherPlayer.UserId] or ""
+
+				local displayName = Instance.new("TextLabel")
+				displayName.Size = UDim2.new(1, -128, 0, 18)
+				displayName.Position = UDim2.fromOffset(58, 4)
+				displayName.ZIndex = 93
+				displayName.BackgroundTransparency = 1
+				displayName.Text = otherPlayer.DisplayName
+				displayName.TextColor3 = TEXT
+				displayName.TextSize = 14
+				displayName.Font = Enum.Font.GothamBold
+				displayName.TextXAlignment = Enum.TextXAlignment.Left
+				displayName.TextTruncate = Enum.TextTruncate.AtEnd
+				displayName.Parent = row
+
+				local usernameLabel = Instance.new("TextLabel")
+				usernameLabel.Size = UDim2.new(1, -128, 0, 16)
+				usernameLabel.Position = UDim2.fromOffset(58, 22)
+				usernameLabel.ZIndex = 93
+				usernameLabel.BackgroundTransparency = 1
+				usernameLabel.Text = "@" .. otherPlayer.Name
+				usernameLabel.TextColor3 = Color3.fromRGB(185, 190, 200)
+				usernameLabel.TextSize = 12
+				usernameLabel.Font = Enum.Font.Gotham
+				usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+				usernameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+				usernameLabel.Parent = row
+
+				local detail = Instance.new("TextLabel")
+				detail.Size = UDim2.new(1, -128, 0, 16)
+				detail.Position = UDim2.fromOffset(58, 40)
+				detail.ZIndex = 93
+				detail.BackgroundTransparency = 1
+				detail.Text = distanceText
+				detail.TextColor3 = Color3.fromRGB(185, 190, 200)
+				detail.TextSize = 12
+				detail.Font = Enum.Font.Gotham
+				detail.TextXAlignment = Enum.TextXAlignment.Left
+				detail.TextTruncate = Enum.TextTruncate.AtEnd
+				detail.Parent = row
+
+				local currentHP, maximumHP = GetPlayerHealth(otherPlayer)
+				local healthLabel = Instance.new("TextLabel")
+				healthLabel.Size = UDim2.new(1, -128, 0, 16)
+				healthLabel.Position = UDim2.fromOffset(58, 58)
+				healthLabel.ZIndex = 93
+				healthLabel.BackgroundTransparency = 1
+				healthLabel.Text = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
+				if IsWhitelisted(otherPlayer) then
+					healthLabel.Text ..= "  •  WHITELIST"
+				end
+				healthLabel.TextColor3 = GetHealthColor(currentHP, maximumHP)
+				healthLabel.TextSize = 12
+				healthLabel.Font = Enum.Font.Gotham
+				healthLabel.TextXAlignment = Enum.TextXAlignment.Left
+				healthLabel.TextTruncate = Enum.TextTruncate.AtEnd
+				healthLabel.Parent = row
+
+				local statsLabel = Instance.new("TextLabel")
+				statsLabel.Name = "PlayerStats"
+				statsLabel.Size = UDim2.new(1, -128, 0, 16)
+				statsLabel.Position = UDim2.fromOffset(58, 76)
+				statsLabel.ZIndex = 93
+				statsLabel.BackgroundTransparency = 1
+				statsLabel.Text = FormatPlayerStats(otherPlayer)
+				statsLabel.TextColor3 = Color3.fromRGB(185, 190, 200)
+				statsLabel.TextSize = 11
+				statsLabel.Font = Enum.Font.Gotham
+				statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+				statsLabel.TextTruncate = Enum.TextTruncate.AtEnd
+				statsLabel.Parent = row
+
+				if otherPlayer ~= Player then
+					local playerEspButton = Instance.new("TextButton")
+					playerEspButton.Name = "PlayerESPToggle"
+					playerEspButton.Size = UDim2.fromOffset(58, 24)
+					playerEspButton.Position = UDim2.new(1, -66, 0, 8)
+					playerEspButton.ZIndex = 93
+					playerEspButton.BackgroundColor3 = IsPlayerESPEnabled(otherPlayer) and Color3.fromRGB(34, 58, 48) or CARD
+					playerEspButton.BorderSizePixel = 0
+					playerEspButton.Text = IsPlayerESPEnabled(otherPlayer) and "ESP ON" or "ESP OFF"
+					playerEspButton.TextColor3 = IsPlayerESPEnabled(otherPlayer) and GREEN or MUTED
+					playerEspButton.TextSize = 10
+					playerEspButton.Font = Enum.Font.GothamBold
+					playerEspButton.Parent = row
+					Instance.new("UICorner", playerEspButton).CornerRadius = UDim.new(0, 6)
+					playerEspButton.MouseButton1Click:Connect(function()
+						local enabled = not IsPlayerESPEnabled(otherPlayer)
+						PlayerESPEnabled[tostring(otherPlayer.UserId)] = enabled
+						playerEspButton.Text = enabled and "ESP ON" or "ESP OFF"
+						playerEspButton.TextColor3 = enabled and GREEN or MUTED
+						playerEspButton.BackgroundColor3 = enabled and Color3.fromRGB(34, 58, 48) or CARD
+					end)
+
+					local whitelistToggle = Instance.new("TextButton")
+					whitelistToggle.Name = "WhitelistToggle"
+					whitelistToggle.Size = UDim2.fromOffset(58, 24)
+					whitelistToggle.Position = UDim2.new(1, -66, 0, 36)
+					whitelistToggle.ZIndex = 93
+					whitelistToggle.BackgroundColor3 = IsWhitelisted(otherPlayer) and Color3.fromRGB(62, 52, 30) or CARD
+					whitelistToggle.BorderSizePixel = 0
+					whitelistToggle.Text = IsWhitelisted(otherPlayer) and "WL ON" or "WL ADD"
+					whitelistToggle.TextColor3 = IsWhitelisted(otherPlayer) and YELLOW or MUTED
+					whitelistToggle.TextSize = 9
+					whitelistToggle.Font = Enum.Font.GothamBold
+					whitelistToggle.Parent = row
+					Instance.new("UICorner", whitelistToggle).CornerRadius = UDim.new(0, 6)
+					whitelistToggle.MouseButton1Click:Connect(function()
+						local userId = tostring(otherPlayer.UserId)
+						if IsWhitelisted(otherPlayer) then
+							WhitelistIds[userId] = nil
+						else
+							WhitelistIds[userId] = true
+						end
+						SaveConfig()
+						local enabled = IsWhitelisted(otherPlayer)
+						whitelistToggle.Text = enabled and "WL ON" or "WL ADD"
+						whitelistToggle.TextColor3 = enabled and YELLOW or MUTED
+						whitelistToggle.BackgroundColor3 = enabled and Color3.fromRGB(62, 52, 30) or CARD
+						if WhitelistPanel.Visible then RefreshWhitelist() end
+					end)
+
+					if PlayerPanelMode == "follow" or PlayerPanelMode == "attack" then
+						local followButton = Instance.new("TextButton")
+						local selectingAttackTarget = PlayerPanelMode == "attack"
+						followButton.Name = selectingAttackTarget and "AttackTargetSelect" or "FollowToggle"
+						followButton.Size = UDim2.fromOffset(58, 24)
+						followButton.Position = UDim2.new(1, -66, 0, 64)
+						followButton.ZIndex = 93
+						local isFollowing = FollowPlayerUserId == tostring(otherPlayer.UserId)
+						followButton.BackgroundColor3 = isFollowing and ACCENT_DIM or CARD
+						followButton.BorderSizePixel = 0
+						local isSelected = isFollowing
+						if selectingAttackTarget then
+							isSelected = AutoAttackTargetUserId == tostring(otherPlayer.UserId)
+						end
+						followButton.Text = selectingAttackTarget and (isSelected and "TARGET" or "SELECT") or (isSelected and "STOP" or "FOLLOW")
+						followButton.TextColor3 = isSelected and ACCENT or MUTED
+						followButton.TextSize = 9
+						followButton.Font = Enum.Font.GothamBold
+						followButton.Parent = row
+						Instance.new("UICorner", followButton).CornerRadius = UDim.new(0, 6)
+						followButton.MouseButton1Click:Connect(function()
+							if selectingAttackTarget then
+								if IsWhitelisted(otherPlayer) then
+									CombatInfo.Text = "Whitelisted players are skipped by Auto Attack."
+									return
+								end
+								AutoAttackTargetUserId = tostring(otherPlayer.UserId)
+								AutoAttackMode = "Player"
+								UpdateAutoAttackModeButtons()
+								UpdateAttackTargetButton()
+							elseif isFollowing then
+								FollowPlayerUserId = nil
+								if localRoot then
+									local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+									if humanoid then humanoid:MoveTo(localRoot.Position) end
+								end
+							else
+								FollowPlayerUserId = tostring(otherPlayer.UserId)
+							end
+							SaveConfig()
+							UpdateFollowButtons()
+							PlayerPanel.Visible = false
+							PlayerPanelMode = "server"
+							PlayerPanelTitle.Text = "Players in server"
+							lastPlayerRefresh = 0
+						end)
+					end
+
+					local blockButton = Instance.new("TextButton")
+					blockButton.Name = "BlockButton"
+					blockButton.Size = UDim2.fromOffset(58, 28)
+					blockButton.Position = UDim2.new(1, -66, 1, -34)
+					blockButton.ZIndex = 93
+					blockButton.BackgroundColor3 = Color3.fromRGB(62, 35, 40)
+					blockButton.BorderSizePixel = 0
+					blockButton.Text = "Block"
+					blockButton.TextColor3 = Color3.fromRGB(255, 155, 165)
+					blockButton.TextSize = 11
+					blockButton.Font = Enum.Font.GothamBold
+					blockButton.Parent = row
+					Instance.new("UICorner", blockButton).CornerRadius = UDim.new(0, 6)
+					blockButton.MouseButton1Click:Connect(function()
+						if BlockPromptCache[otherPlayer.UserId] then return end
+						BlockPromptCache[otherPlayer.UserId] = true
+						blockButton.Text = "..."
+						local ok, err = pcall(function()
+							StarterGui:SetCore("PromptBlockPlayer", otherPlayer)
+						end)
+						if not ok then
+							BlockPromptCache[otherPlayer.UserId] = nil
+							blockButton.Text = "Retry"
+							warn("PromptBlockPlayer failed:", err)
+							return
+						end
+						blockButton.Text = "Prompted"
+						task.delay(3, function()
+							BlockPromptCache[otherPlayer.UserId] = nil
+							if blockButton.Parent then blockButton.Text = "Block" end
+						end)
+						end)
+					end
+				end
+		end
+
+		-- Keep markers for every replicated player, regardless of distance.
+		local presentPlayers = {}
+		local camera = workspace.CurrentCamera
+		local viewport = camera and camera.ViewportSize
+		for _, otherPlayer in ipairs(Players:GetPlayers()) do
+			if otherPlayer ~= Player then
+				presentPlayers[otherPlayer] = true
+				local otherCharacter = otherPlayer.Character
+				local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
+				local visual = PlayerVisuals[otherPlayer]
+
+				if otherCharacter and otherRoot then
+					if not visual then
+						local highlight = Instance.new("Highlight")
+						highlight.Name = "PlayerESPOutline"
+						highlight.FillTransparency = 1
+						highlight.OutlineColor = RED
+						highlight.OutlineTransparency = 0
+						highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+						highlight.Parent = workspace
+
+						local nameTag = Instance.new("Frame")
+						nameTag.Name = "PlayerESPName"
+					nameTag.Size = UDim2.fromOffset(210, 86)
+						nameTag.AnchorPoint = Vector2.new(0.5, 1)
+						nameTag.BackgroundTransparency = 1
+						nameTag.BorderSizePixel = 0
+						nameTag.Visible = false
+						nameTag.ZIndex = 80
+						nameTag.Parent = PlayerEspLayer
+
+						local nameLabel = Instance.new("TextLabel")
+						nameLabel.Size = UDim2.new(1, 0, 0, 26)
+						nameLabel.ZIndex = 81
+						nameLabel.BackgroundTransparency = 1
+						nameLabel.TextColor3 = Color3.new(1, 1, 1)
+						nameLabel.TextStrokeTransparency = 0.2
+						nameLabel.TextSize = 13
+						nameLabel.Font = Enum.Font.GothamBold
+						nameLabel.TextWrapped = true
+						nameLabel.Parent = nameTag
+
+						local distanceLabel = Instance.new("TextLabel")
+						distanceLabel.Name = "Distance"
+						distanceLabel.Size = UDim2.new(1, 0, 0, 20)
+						distanceLabel.Position = UDim2.fromOffset(0, 27)
+						distanceLabel.ZIndex = 81
+						distanceLabel.BackgroundTransparency = 1
+						distanceLabel.TextColor3 = Color3.fromRGB(225, 230, 240)
+						distanceLabel.TextStrokeTransparency = 0.25
+						distanceLabel.TextSize = 12
+						distanceLabel.Font = Enum.Font.Gotham
+						distanceLabel.Parent = nameTag
+
+						local healthLabel = Instance.new("TextLabel")
+						healthLabel.Name = "Health"
+						healthLabel.Size = UDim2.new(1, 0, 0, 18)
+						healthLabel.Position = UDim2.fromOffset(0, 48)
+						healthLabel.ZIndex = 81
+						healthLabel.BackgroundTransparency = 1
+						healthLabel.TextColor3 = Color3.fromRGB(225, 230, 240)
+						healthLabel.TextStrokeTransparency = 0.25
+						healthLabel.TextSize = 12
+						healthLabel.Font = Enum.Font.Gotham
+						healthLabel.Parent = nameTag
+
+						local statsLabel = Instance.new("TextLabel")
+						statsLabel.Name = "Stats"
+						statsLabel.Size = UDim2.new(1, 0, 0, 18)
+						statsLabel.Position = UDim2.fromOffset(0, 66)
+						statsLabel.ZIndex = 81
+						statsLabel.BackgroundTransparency = 1
+						statsLabel.TextColor3 = Color3.fromRGB(225, 230, 240)
+						statsLabel.TextStrokeTransparency = 0.25
+						statsLabel.TextSize = 12
+						statsLabel.Font = Enum.Font.Gotham
+						statsLabel.Parent = nameTag
+
+						local tracer = Instance.new("Frame")
+						tracer.Name = "PlayerESPLine"
+						tracer.AnchorPoint = Vector2.new(0.5, 0.5)
+						tracer.Size = UDim2.fromScale(0, 0)
+						tracer.BackgroundColor3 = RED
+						tracer.BorderSizePixel = 0
+						tracer.Visible = false
+						tracer.ZIndex = 0
+						tracer.Parent = PlayerEspLayer
+						visual = { Highlight = highlight, NameTag = nameTag, NameLabel = nameLabel, DistanceLabel = distanceLabel, HealthLabel = healthLabel, StatsLabel = statsLabel, Tracer = tracer }
+						PlayerVisuals[otherPlayer] = visual
+					end
+
+					visual.Highlight.Adornee = otherCharacter
+					visual.NameLabel.Text = otherPlayer.DisplayName .. "  (@" .. otherPlayer.Name .. ")"
+					if localRoot then
+						local distance = (localRoot.Position - otherRoot.Position).Magnitude
+						visual.DistanceLabel.Text = string.format("%.0f studs", distance)
+					else
+						visual.DistanceLabel.Text = "Distance unavailable"
+					end
+					local currentHP, maximumHP = GetPlayerHealth(otherPlayer)
+					visual.HealthLabel.Text = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
+					visual.HealthLabel.TextColor3 = GetHealthColor(currentHP, maximumHP)
+					visual.StatsLabel.Text = FormatPlayerStats(otherPlayer)
+					local visible = ESPEnabled and IsPlayerESPEnabled(otherPlayer) and not IsWhitelisted(otherPlayer)
+					visual.Highlight.Enabled = visible and ESPBoxEnabled
+					visual.NameTag.Visible = false
+					visual.Tracer.Visible = false
+
+					if visible and camera and viewport then
+						local point, onScreen = camera:WorldToViewportPoint(otherRoot.Position)
+						if point.Z > 0 and onScreen then
+							visual.NameTag.Position = UDim2.fromScale(point.X / viewport.X, (point.Y - 8) / viewport.Y)
+							visual.NameTag.Visible = true
+							if ESPLineEnabled then
+								local startPoint = Vector2.new(viewport.X * 0.5, viewport.Y - 8)
+								local endPoint = Vector2.new(point.X, point.Y)
+								local delta = endPoint - startPoint
+								local midpoint = (startPoint + endPoint) * 0.5
+								visual.Tracer.Position = UDim2.fromScale(midpoint.X / viewport.X, midpoint.Y / viewport.Y)
+								visual.Tracer.Size = UDim2.fromScale(delta.Magnitude / viewport.X, 2 / viewport.Y)
+								visual.Tracer.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+								visual.Tracer.Visible = true
+							end
+						end
+					end
+
+					if localRoot then
+						local distance = (localRoot.Position - otherRoot.Position).Magnitude
+						if not IsWhitelisted(otherPlayer) and distance <= AlertsDistance and distance < nearbyDistance then
+							nearbyDistance = distance
+							nearbyPlayer = otherPlayer
+						end
+					end
+				else
+					if visual then
+						visual.Highlight.Enabled = false
+						visual.NameTag.Visible = false
+						visual.Tracer.Visible = false
+					end
+				end
+			end
+		end
+
+		for otherPlayer, visual in pairs(PlayerVisuals) do
+			if not presentPlayers[otherPlayer] then
+				visual.Highlight:Destroy()
+				visual.NameTag:Destroy()
+				visual.Tracer:Destroy()
+				PlayerVisuals[otherPlayer] = nil
+			end
+		end
+
+		local reachedMax = false
+		if CurrentTarget and CurrentTarget:IsDescendantOf(MobsFolder) then
+			local cfg = CurrentTarget:FindFirstChild("Config")
+			local exp = cfg and cfg:FindFirstChild("EXP")
+			reachedMax = exp ~= nil and exp.Value >= ExpGoal
+		end
+
+		if AlertsEnabled and nearbyPlayer then
+			AlarmOverlay.BackgroundColor3 = RED
+			AlarmText.Text = string.format("PLAYER NEARBY  •  %s  •  %.0f studs", nearbyPlayer.Name, nearbyDistance)
+			AlarmOverlay.Visible = true
+		elseif AlertsEnabled and reachedMax then
+			AlarmOverlay.BackgroundColor3 = GREEN
+			AlarmText.Text = "EXP MAX REACHED"
+			AlarmOverlay.Visible = true
+		else
+			AlarmOverlay.Visible = false
+		end
+
+		if AlarmOverlay.Visible then
+			if os.clock() - lastFlashToggle >= 0.25 then
+				lastFlashToggle = os.clock()
+				flashOn = not flashOn
+				AlarmOverlay.BackgroundTransparency = flashOn and 0.32 or 0.72
+			end
+		else
+			flashOn = false
+		end
+
+		task.wait(0.05)
+	end
+end)
