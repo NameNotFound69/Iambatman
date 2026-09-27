@@ -1394,6 +1394,7 @@ CombatMobListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 CombatMobListLayout.Parent = CombatMobScroll
 
 configuration.CombatMobRows = {}
+local CombatMobRefreshQueued = false
 function configuration.RefreshCombatMobs()
 	for _, row in ipairs(configuration.CombatMobRows) do
 		row:Destroy()
@@ -1499,9 +1500,20 @@ function configuration.RefreshCombatMobs()
 	end
 end
 
+function configuration.RequestCombatMobRefresh()
+	if CombatMobRefreshQueued then return end
+	CombatMobRefreshQueued = true
+	task.delay(0.12, function()
+		CombatMobRefreshQueued = false
+		if CombatMobScroll.Parent then
+			configuration.RefreshCombatMobs()
+		end
+	end)
+end
+
 CombatMobRefresh.MouseButton1Click:Connect(configuration.RefreshCombatMobs)
-MobsFolder.ChildAdded:Connect(configuration.RefreshCombatMobs)
-MobsFolder.ChildRemoved:Connect(configuration.RefreshCombatMobs)
+MobsFolder.ChildAdded:Connect(configuration.RequestCombatMobRefresh)
+MobsFolder.ChildRemoved:Connect(configuration.RequestCombatMobRefresh)
 configuration.RefreshCombatMobs()
 
 local CombatInfo = Instance.new("TextLabel")
@@ -3116,6 +3128,7 @@ task.spawn(function()
 	local lastFlashToggle = 0
 	local PlayerVisuals = {}
 	local ThumbnailCache = {}
+	local PlayerPanelBuildSignature = nil
 
 	while true do
 		local char = Player.Character
@@ -3306,13 +3319,30 @@ task.spawn(function()
 
 		if PlayerPanel.Visible and os.clock() - lastPlayerRefresh >= 0.5 then
 			lastPlayerRefresh = os.clock()
-			for _, child in ipairs(PlayerScroll:GetChildren()) do
-				if child.Name:match("^PlayerRow_") then
-					child:Destroy()
+			local panelPlayers = Players:GetPlayers()
+			local signatureParts = { configuration.PlayerPanelMode }
+			for _, listedPlayer in ipairs(panelPlayers) do
+				table.insert(signatureParts, table.concat({
+					tostring(listedPlayer.UserId),
+					configuration.IsWhitelisted(listedPlayer) and "w" or "-",
+					configuration.IsPlayerESPEnabled(listedPlayer) and "e" or "-",
+					configuration.FollowPlayerUserId == tostring(listedPlayer.UserId) and "f" or "-",
+					configuration.AutoAttackTargetUserId == tostring(listedPlayer.UserId) and "a" or "-",
+				}, ":"))
+			end
+			local panelSignature = table.concat(signatureParts, "|")
+			local rebuildPlayerRows = panelSignature ~= PlayerPanelBuildSignature
+			if rebuildPlayerRows then
+				PlayerPanelBuildSignature = panelSignature
+				for _, child in ipairs(PlayerScroll:GetChildren()) do
+					if child.Name:match("^PlayerRow_") then
+						child:Destroy()
+					end
 				end
 			end
 
-			for order, otherPlayer in ipairs(Players:GetPlayers()) do
+			if rebuildPlayerRows then
+			for order, otherPlayer in ipairs(panelPlayers) do
 				if configuration.PlayerPanelMode == "follow" then
 					if otherPlayer == Player then continue end
 					local selectedPlayer = otherPlayer
@@ -3389,6 +3419,7 @@ task.spawn(function()
 
 				local textLeft = otherPlayer == Player and 1 or 72
 				local displayName = Instance.new("TextLabel")
+				displayName.Name = "DisplayName"
 				displayName.Size = UDim2.new(1, -(textLeft + 12), 0, 18)
 				displayName.Position = UDim2.fromOffset(66, 10)
 				displayName.ZIndex = 93
@@ -3415,6 +3446,7 @@ task.spawn(function()
 				usernameLabel.Parent = row
 
 				local detail = Instance.new("TextLabel")
+				detail.Name = "Distance"
 				detail.Size = UDim2.new(1, -78, 0, 15)
 				detail.Position = UDim2.fromOffset(66, 48)
 				detail.ZIndex = 93
@@ -3429,6 +3461,7 @@ task.spawn(function()
 
 				local currentHP, maximumHP = configuration.GetPlayerHealth(otherPlayer)
 				local healthLabel = Instance.new("TextLabel")
+				healthLabel.Name = "Health"
 				healthLabel.Size = UDim2.new(1, -78, 0, 15)
 				healthLabel.Position = UDim2.fromOffset(66, 66)
 				healthLabel.ZIndex = 93
@@ -3590,6 +3623,41 @@ task.spawn(function()
 						end)
 					end
 				end
+			end
+			end
+
+			-- Refresh changing player data in-place; keep cards and their callbacks alive.
+			if configuration.PlayerPanelMode == "server" then
+				for _, listedPlayer in ipairs(panelPlayers) do
+					local row = PlayerScroll:FindFirstChild("PlayerRow_" .. listedPlayer.UserId)
+					if row and row:IsA("Frame") then
+						local character = listedPlayer.Character
+						local otherRoot = character and character:FindFirstChild("HumanoidRootPart")
+						local distanceLabel = row:FindFirstChild("Distance")
+						if distanceLabel then
+							local distanceText = listedPlayer == Player and "You" or "Distance unavailable"
+							if listedPlayer ~= Player and localRoot and otherRoot then
+								distanceText = string.format("%.0f studs away", (localRoot.Position - otherRoot.Position).Magnitude)
+							end
+							if distanceLabel.Text ~= distanceText then distanceLabel.Text = distanceText end
+						end
+						local healthLabel = row:FindFirstChild("Health")
+						if healthLabel then
+							local currentHP, maximumHP = configuration.GetPlayerHealth(listedPlayer)
+							local healthText = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
+							if configuration.IsWhitelisted(listedPlayer) then healthText ..= "  •  WHITELIST" end
+							if healthLabel.Text ~= healthText then healthLabel.Text = healthText end
+							local healthColor = configuration.GetHealthColor(currentHP, maximumHP)
+							if healthLabel.TextColor3 ~= healthColor then healthLabel.TextColor3 = healthColor end
+						end
+						local statsLabel = row:FindFirstChild("PlayerStats")
+						if statsLabel then
+							local statsText = configuration.FormatPlayerStats(listedPlayer)
+							if statsLabel.Text ~= statsText then statsLabel.Text = statsText end
+						end
+				end
+			end
+		end
 		end
 
 		-- Keep markers for every replicated player, regardless of distance.
