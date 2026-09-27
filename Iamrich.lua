@@ -2314,6 +2314,28 @@ function configuration.Combat.IsLivingMob(mob)
 	return not humanoid or humanoid.Health > 0
 end
 
+function configuration.Combat.GetWeaponEquipState(character)
+	if not character then return false, false end
+	-- F8's character layout stores the weapon as Character.Sword/MainWeld
+	-- and waits for PlayerStats before using this state.
+	local playerStats = Player:FindFirstChild("PlayerStats")	
+	if not playerStats then return false, false end
+	-- UpperTorso means the sword is stowed; another Part1 means it is in hand.
+	local sword = character:FindFirstChild("Sword")
+	local mainWeld = sword and sword:FindFirstChild("MainWeld", true)
+	if not sword or not mainWeld then return false, false end
+	if mainWeld then
+		local ok, part1 = pcall(function() return mainWeld.Part1 end)
+		if ok then
+			if part1 and part1.Name == "UpperTorso" then return false, true end
+			if part1 then return true, false end
+			return false, true
+		end
+	end
+
+	return false, false
+end
+
 function configuration.Combat.FindNearestCombatMob(localRoot, maxDistance)
 	local bestMob, bestRoot, bestDistance = nil, nil, maxDistance or configuration.AutoAttackSearchRange
 	for _, mob in ipairs(MobsFolder:GetChildren()) do
@@ -2605,7 +2627,7 @@ task.spawn(function()
 	local lastAttackAt = 0
 	local lastSkillAt = 0
 	local lastMoveAt = 0
-	local equippedCharacter = nil
+	local lastEquipAt = 0
 	local chasingMob = false
 	while true do
 		local canCombatWhileExpMaxed = configuration.Farming and configuration.ExpMaxCombatTarget ~= nil
@@ -2651,17 +2673,20 @@ task.spawn(function()
 					local playerGui = Player:FindFirstChildOfClass("PlayerGui")
 					local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
 					if inputFunction and inputFunction:IsA("BindableFunction") then
-						if equippedCharacter ~= character then
-							local equipped = pcall(function()
-								inputFunction:Invoke("EquipButton", Enum.UserInputState.Begin)
-							end)
-							if equipped then
-								equippedCharacter = character
-								lastAttackAt = os.clock() - configuration.AutoAttackInterval
-								lastSkillAt = os.clock() - configuration.AutoSkillInterval
+						local now = os.clock()
+						local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+						local hasWeapon, needsEquip = configuration.Combat.GetWeaponEquipState(character)
+						local canAttack = humanoid and humanoid.Health > 0 and hasWeapon
+						if not canAttack then
+							-- Match F8: an un-equipped or UpperTorso-stowed weapon needs EquipButton.
+							if needsEquip and now - lastEquipAt >= 1 then
+								local ok, err = pcall(function()
+									inputFunction:Invoke("EquipButton", Enum.UserInputState.Begin)
+								end)
+								lastEquipAt = now
+								if not ok then warn("Auto Equip failed:", err) end
 							end
 						else
-							local now = os.clock()
 							if (configuration.AutoAttackEnabled or configuration.AlertCombatPending) and now - lastAttackAt >= configuration.AutoAttackInterval then
 								local ok, err = pcall(function()
 									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
