@@ -27,6 +27,7 @@ local configuration = {
 	AutoAttackPinnedMob = nil,
 	MovementBoostEnabled = true,
 	AutoAttackEnabled = false,
+	AutoAttackUseExpTarget = false,
 	AutoSkillEnabled = false,
 	AutoAttackMode = "Mob",
 	AutoAttackRange = 25,
@@ -129,6 +130,7 @@ function configuration.LoadConfig()
 	if type(config.AutoBlockEnabled) == "boolean" then configuration.AutoBlockEnabled = config.AutoBlockEnabled end
 	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
 	if type(config.AutoAttackEnabled) == "boolean" then configuration.AutoAttackEnabled = config.AutoAttackEnabled end
+	if type(config.AutoAttackUseExpTarget) == "boolean" then configuration.AutoAttackUseExpTarget = config.AutoAttackUseExpTarget end
 	if type(config.AutoSkillEnabled) == "boolean" then configuration.AutoSkillEnabled = config.AutoSkillEnabled end
 	if type(config.ESPEnabled) == "boolean" then configuration.ESPEnabled = config.ESPEnabled end
 	if type(config.ESPLineEnabled) == "boolean" then configuration.ESPLineEnabled = config.ESPLineEnabled end
@@ -163,6 +165,7 @@ function configuration.SaveConfig()
 		FollowPlayerUserId = configuration.FollowPlayerUserId,
 		AutoAttackTargetUserId = configuration.AutoAttackTargetUserId,
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
+		AutoAttackUseExpTarget = configuration.AutoAttackUseExpTarget,
 		AutoAttackMode = configuration.AutoAttackMode,
 		AutoAttackRange = configuration.AutoAttackRange,
 		AutoAttackInterval = configuration.AutoAttackInterval,
@@ -191,6 +194,9 @@ function configuration.SaveConfig()
 end
 
 configuration.LoadConfig()
+if configuration.AutoAttackUseExpTarget then
+	configuration.AutoAttackMode = "Mob"
+end
 
 function configuration.IsWhitelisted(otherPlayer)
 	return configuration.WhitelistIds[tostring(otherPlayer.UserId)] == true
@@ -561,17 +567,6 @@ MiniBarFill.BackgroundColor3 = GREEN
 MiniBarFill.BorderSizePixel = 0
 MiniBarFill.Parent = MiniBarBg
 Instance.new("UICorner", MiniBarFill).CornerRadius = UDim.new(1, 0)
-
-local MiniHint = Instance.new("TextLabel")
-MiniHint.Size = UDim2.new(1, -20, 0, 14)
-MiniHint.Position = UDim2.fromOffset(10, 106)
-MiniHint.BackgroundTransparency = 1
-MiniHint.Text = "คลิก + เพื่อขยาย"
-MiniHint.TextColor3 = MUTED
-MiniHint.TextSize = 10
-MiniHint.Font = Enum.Font.Gotham
-MiniHint.TextXAlignment = Enum.TextXAlignment.Left
-MiniHint.Parent = MiniBar
 
 function configuration.ApplyMinimized(state)
 	configuration.IsMinimized = state
@@ -1204,7 +1199,10 @@ local AutoSkillButton = configuration.MakeToggle(
 )
 CombatTargetButton = configuration.MakeToggle("Choose player target", false, TEXT, CARD, 3, CombatGrid)
 CombatTargetButton.TextColor3 = TEXT
-local ExpMobTargetButton = configuration.MakeToggle("Lock EXP mob", false, ACCENT, ACCENT_DIM, 4, CombatGrid)
+local ExpMobTargetButton = configuration.MakeToggle(
+	configuration.AutoAttackUseExpTarget and "Mob EXP: ON" or "Mob EXP: OFF",
+	configuration.AutoAttackUseExpTarget, ACCENT, ACCENT_DIM, 4, CombatGrid
+)
 
 local AutoAttackModeButtons = {
 	Mob = configuration.MakeToggle("Mob", configuration.AutoAttackMode == "Mob", ACCENT, ACCENT_DIM, 1, AttackModeGrid),
@@ -1310,6 +1308,8 @@ function configuration.RefreshCombatMobs()
 					configuration.RefreshCombatMobs()
 					return
 				end
+				configuration.AutoAttackUseExpTarget = false
+				configuration.UpdateExpMobTargetButton()
 				configuration.AutoAttackPinnedMob = selectedMob
 				configuration.CombatTargetMob = selectedMob
 				configuration.AutoAttackMode = "Mob"
@@ -1369,26 +1369,27 @@ end
 configuration.UpdateAutoAttackModeButtons()
 
 function configuration.UpdateExpMobTargetButton()
-	local target = configuration.AutoAttackPinnedMob or configuration.CombatTargetMob
-	if configuration.AutoAttackMode == "Mob" and configuration.Combat.IsLivingMob(target) then
-		ExpMobTargetButton.Text = "Locked: " .. target.Name
-	elseif configuration.Combat.IsLivingMob(configuration.CurrentTarget) then
-		ExpMobTargetButton.Text = "Lock EXP mob"
-	else
-		ExpMobTargetButton.Text = "No EXP target"
-	end
+	ExpMobTargetButton.Text = configuration.AutoAttackUseExpTarget and "Mob EXP: ON" or "Mob EXP: OFF"
+	ExpMobTargetButton.TextColor3 = configuration.AutoAttackUseExpTarget and ACCENT or MUTED
+	ExpMobTargetButton.BackgroundColor3 = configuration.AutoAttackUseExpTarget and ACCENT_DIM or CARD
 end
 
 ExpMobTargetButton.MouseButton1Click:Connect(function()
-	local target = configuration.CurrentTarget
-	if not configuration.Combat.IsLivingMob(target) then
-		configuration.UpdateExpMobTargetButton()
-		return
+	configuration.AutoAttackUseExpTarget = not configuration.AutoAttackUseExpTarget
+	if configuration.AutoAttackUseExpTarget then
+		configuration.AutoAttackMode = "Mob"
+		local target = configuration.CurrentTarget
+		if configuration.Combat.IsLivingMob(target) then
+			configuration.AutoAttackPinnedMob = target
+			configuration.CombatTargetMob = target
+		else
+			configuration.AutoAttackPinnedMob = nil
+			configuration.CombatTargetMob = nil
+		end
+	else
+		configuration.AutoAttackPinnedMob = nil
+		configuration.CombatTargetMob = nil
 	end
-
-	configuration.AutoAttackMode = "Mob"
-	configuration.AutoAttackPinnedMob = target
-	configuration.CombatTargetMob = target
 	configuration.UpdateAutoAttackModeButtons()
 	configuration.UpdateExpMobTargetButton()
 	configuration.SaveConfig()
@@ -1399,9 +1400,6 @@ AutoAttackButton.MouseButton1Click:Connect(function()
 	AutoAttackButton.Text = configuration.AutoAttackEnabled and "Auto Attack: ON" or "Auto Attack: OFF"
 	AutoAttackButton.TextColor3 = configuration.AutoAttackEnabled and RED or MUTED
 	AutoAttackButton.BackgroundColor3 = configuration.AutoAttackEnabled and RED_DIM or CARD
-	if configuration.AutoAttackEnabled and not configuration.Farming and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
-		configuration.AutoAttackPinnedMob = configuration.CurrentTarget
-	end
 	configuration.SaveConfig()
 end)
 
@@ -1421,6 +1419,14 @@ end)
 for mode, button in pairs(AutoAttackModeButtons) do
 	button.MouseButton1Click:Connect(function()
 		configuration.AutoAttackMode = mode
+		if mode ~= "Mob" then
+			if configuration.AutoAttackUseExpTarget then
+				configuration.AutoAttackUseExpTarget = false
+				configuration.AutoAttackPinnedMob = nil
+				configuration.CombatTargetMob = nil
+				configuration.UpdateExpMobTargetButton()
+			end
+		end
 		configuration.UpdateAutoAttackModeButtons()
 		configuration.SaveConfig()
 	end)
@@ -1734,6 +1740,8 @@ CombatTargetButton.MouseButton1Click:Connect(function()
 	configuration.PlayerPanelMode = "attack"
 	PlayerPanelTitle.Text = "Choose player to attack"
 	PlayerPanel.Visible = true
+	configuration.AutoAttackUseExpTarget = false
+	configuration.UpdateExpMobTargetButton()
 	configuration.AutoAttackMode = "Player"
 	configuration.UpdateAutoAttackModeButtons()
 	configuration.SaveConfig()
@@ -2092,7 +2100,8 @@ function configuration.PauseTimer()
 end
 
 function configuration.SetIdle()
-	if configuration.Farming and (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled) and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
+	if configuration.Farming and not configuration.AlertCombatPending and configuration.AutoSkillEnabled
+		and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
 		configuration.AutoAttackPinnedMob = configuration.CurrentTarget
 		configuration.CombatTargetMob = configuration.CurrentTarget
 	end
@@ -2217,7 +2226,13 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 	end
 
 	if configuration.AutoAttackMode == "Mob" then
-		local lockedMob = configuration.AutoAttackPinnedMob or configuration.CombatTargetMob
+		local lockedMob
+		if configuration.AutoAttackUseExpTarget then
+			lockedMob = configuration.CurrentTarget
+			if not configuration.Combat.IsLivingMob(lockedMob) then return nil end
+		else
+			lockedMob = configuration.AutoAttackPinnedMob or configuration.CombatTargetMob
+		end
 		if lockedMob then
 			local lockedHumanoid = lockedMob:FindFirstChildOfClass("Humanoid")
 			local lockedRoot = lockedMob.PrimaryPart or lockedMob:FindFirstChild("HumanoidRootPart")
@@ -2366,8 +2381,8 @@ task.spawn(function()
 			if not target:IsDescendantOf(MobsFolder) then break end
 			if exp.Value >= configuration.ExpGoal then break end
 
-			-- Keep Auto Attack on the same mob EXP is targeting.
-			if configuration.AutoAttackEnabled then
+			-- Sync Auto Attack's mob target to EXP when the target toggle is enabled.
+			if configuration.AutoAttackUseExpTarget then
 				configuration.AutoAttackPinnedMob = target
 				configuration.CombatTargetMob = target
 			end
