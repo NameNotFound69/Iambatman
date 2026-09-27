@@ -234,21 +234,25 @@ function configuration.FormatPlayerStats(otherPlayer)
 end
 
 --==================================================
--- COLORS (minimal graphite + ice blue)
+-- COLORS (Slayers2-style dark + soft cyan)
 --==================================================
-local BG      = Color3.fromRGB(8, 8, 9)
-local CARD    = Color3.fromRGB(17, 17, 18)
-local INPUT   = Color3.fromRGB(27, 27, 29)
-local BORDER  = Color3.fromRGB(48, 48, 51)
-local TEXT    = Color3.fromRGB(235, 235, 238)
-local MUTED   = Color3.fromRGB(145, 145, 151)
-local ACCENT  = Color3.fromRGB(113, 211, 245)
-local GREEN   = Color3.fromRGB(76, 218, 164)
-local RED     = Color3.fromRGB(255, 92, 112)
-local YELLOW  = Color3.fromRGB(255, 196, 92)
-local ACCENT_DIM = Color3.fromRGB(39, 116, 145)
+local BG         = Color3.fromRGB(18, 18, 20)      -- main window
+local SIDEBAR_BG = Color3.fromRGB(22, 22, 24)      -- left sidebar
+local CARD       = Color3.fromRGB(28, 28, 30)      -- content cards
+local INPUT      = Color3.fromRGB(36, 36, 39)      -- inputs / rows
+local BORDER     = Color3.fromRGB(45, 45, 48)
+local TEXT       = Color3.fromRGB(240, 240, 243)
+local MUTED      = Color3.fromRGB(140, 140, 148)
+local ACCENT     = Color3.fromRGB(130, 210, 245)   -- soft cyan
+local ACCENT_SEL = Color3.fromRGB(160, 220, 245)  -- selected nav (like image)
+local GREEN      = Color3.fromRGB(76, 218, 164)
+local RED        = Color3.fromRGB(255, 92, 112)
+local YELLOW     = Color3.fromRGB(255, 196, 92)
+local ACCENT_DIM = Color3.fromRGB(40, 90, 110)
 local GREEN_DIM  = Color3.fromRGB(24, 53, 45)
 local RED_DIM    = Color3.fromRGB(56, 30, 37)
+local SEL_BG     = Color3.fromRGB(160, 220, 245)  -- light blue selected button
+local SEL_TEXT   = Color3.fromRGB(20, 30, 40)     -- dark text on selected
 
 function configuration.GetHealthColor(current, maximum)
 	if not current or not maximum or maximum <= 0 then return MUTED end
@@ -361,52 +365,47 @@ Main.ZIndex = 90
 Main.BackgroundColor3 = BG
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 13)
-local MainGradient = Instance.new("UIGradient", Main)
-MainGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(12, 12, 13)),
-	ColorSequenceKeypoint.new(1, BG),
-})
-MainGradient.Rotation = 90
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
 local MainStroke = Instance.new("UIStroke", Main)
 MainStroke.Color = BORDER
 MainStroke.Thickness = 1
-MainStroke.Transparency = 0.3
+MainStroke.Transparency = 0.4
 
 --==================================================
 -- HEADER (compact)
 --==================================================
 local Content
+local ContentPanel
 local Sidebar
 local InfoCard, StartBtn, ToggleGrid, SettingsCard
 local AlarmOverlay
 local Header = Instance.new("Frame")
-Header.Size = UDim2.fromScale(1, 0.11)
+Header.Size = UDim2.fromScale(1, 0.09)
 Header.Active = true
-Header.BackgroundColor3 = Color3.fromRGB(22, 22, 23)
+Header.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
 Header.BorderSizePixel = 0
 Header.Parent = Main
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 13)
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
 
 local HeaderFix = Instance.new("Frame")
-HeaderFix.Size = UDim2.fromScale(1, 0.4)
-HeaderFix.Position = UDim2.fromScale(0, 0.6)
-HeaderFix.BackgroundColor3 = Color3.fromRGB(22, 22, 23)
+HeaderFix.Size = UDim2.fromScale(1, 0.45)
+HeaderFix.Position = UDim2.fromScale(0, 0.55)
+HeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
 HeaderFix.BorderSizePixel = 0
 HeaderFix.Parent = Header
 
 local HeaderRule = Instance.new("Frame")
-HeaderRule.Size = UDim2.new(1, -24, 0, 1)
-HeaderRule.Position = UDim2.new(0, 12, 1, -1)
+HeaderRule.Size = UDim2.new(1, -20, 0, 1)
+HeaderRule.Position = UDim2.new(0, 10, 1, -1)
 HeaderRule.BackgroundColor3 = BORDER
-HeaderRule.BackgroundTransparency = 0.35
+HeaderRule.BackgroundTransparency = 0.4
 HeaderRule.BorderSizePixel = 0
 HeaderRule.Parent = Header
 
 function configuration.MakeWindowDot(x, color)
 	local dot = Instance.new("Frame")
-	dot.Size = UDim2.fromScale(0.022, 0.20)
-	dot.Position = UDim2.fromScale(x, 0.40)
+	dot.Size = UDim2.fromScale(0.018, 0.28)
+	dot.Position = UDim2.fromScale(x, 0.36)
 	dot.BackgroundColor3 = color
 	dot.BorderSizePixel = 0
 	dot.Parent = Header
@@ -417,30 +416,30 @@ configuration.MakeWindowDot(0.075, Color3.fromRGB(255, 190, 46))
 configuration.MakeWindowDot(0.115, Color3.fromRGB(40, 201, 64))
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.fromScale(0.72, 0.32)
-Title.Position = UDim2.fromScale(0.16, 0.12)
+Title.Size = UDim2.fromScale(0.50, 0.42)
+Title.Position = UDim2.fromScale(0.155, 0.28)
 Title.BackgroundTransparency = 1
 Title.Text = "EXP+"
 Title.TextColor3 = TEXT
-Title.TextSize = 15
+Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
 local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.fromScale(0.72, 0.24)
-Subtitle.Position = UDim2.fromScale(0.16, 0.52)
+Subtitle.Size = UDim2.fromScale(0.30, 0.30)
+Subtitle.Position = UDim2.fromScale(0.42, 0.35)
 Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "Experience tracker"
+Subtitle.Text = "Primary"
 Subtitle.TextColor3 = MUTED
-Subtitle.TextSize = 10
+Subtitle.TextSize = 12
 Subtitle.Font = Enum.Font.Gotham
 Subtitle.TextXAlignment = Enum.TextXAlignment.Left
 Subtitle.Parent = Header
 
 local Status = Instance.new("TextLabel")
 Status.Size = UDim2.fromOffset(48, 20)
-Status.Position = UDim2.new(1, -62, 0, 12)
+Status.Position = UDim2.new(1, -62, 0, 10)
 Status.BackgroundColor3 = RED_DIM
 Status.Text = "OFF"
 Status.TextColor3 = RED
@@ -451,7 +450,7 @@ Instance.new("UICorner", Status).CornerRadius = UDim.new(1, 0)
 
 local MinimizeBtn = Instance.new("TextButton")
 MinimizeBtn.Size = UDim2.fromOffset(24, 24)
-MinimizeBtn.Position = UDim2.new(1, -92, 0, 10)
+MinimizeBtn.Position = UDim2.new(1, -92, 0, 8)
 MinimizeBtn.BackgroundColor3 = INPUT
 MinimizeBtn.BorderSizePixel = 0
 MinimizeBtn.Text = "−"
@@ -522,19 +521,20 @@ MiniState.Parent = MiniBar
 function configuration.ApplyMinimized(state)
 	configuration.IsMinimized = state
 	if Content then Content.Visible = not state end
+	if ContentPanel then ContentPanel.Visible = not state end
 	if Sidebar then Sidebar.Visible = not state end
 	MiniBar.Visible = state
 	Title.Visible = not state
 	Subtitle.Visible = not state
-	Main.Size = UDim2.fromScale(configuration.MainWidthScale, state and 0.095 or configuration.MainHeightScale)
-	Header.Size = UDim2.fromScale(1, state and 1 or 0.11)
+	Main.Size = UDim2.fromScale(configuration.MainWidthScale, state and 0.085 or configuration.MainHeightScale)
+	Header.Size = UDim2.fromScale(1, state and 1 or 0.09)
 	MinimizeBtn.Text = state and "+" or "−"
 	if state then
 		Status.Position = UDim2.new(1, -62, 0.5, -10)
 		MinimizeBtn.Position = UDim2.new(1, -92, 0.5, -12)
 	else
-		Status.Position = UDim2.new(1, -62, 0, 12)
-		MinimizeBtn.Position = UDim2.new(1, -92, 0, 10)
+		Status.Position = UDim2.new(1, -62, 0, 10)
+		MinimizeBtn.Position = UDim2.new(1, -92, 0, 8)
 	end
 end
 
@@ -565,7 +565,7 @@ UserInputService.InputChanged:Connect(function(input)
 		if viewport then
 			Main.Position = UDim2.fromScale(
 				math.clamp(StartPos.X.Scale + d.X / viewport.X, 0, 1 - configuration.MainWidthScale),
-				math.clamp(StartPos.Y.Scale + d.Y / viewport.Y, 0, 1 - (configuration.IsMinimized and 0.095 or configuration.MainHeightScale))
+				math.clamp(StartPos.Y.Scale + d.Y / viewport.Y, 0, 1 - (configuration.IsMinimized and 0.085 or configuration.MainHeightScale))
 			)
 		end
 	end
@@ -574,13 +574,31 @@ end)
 --==================================================
 -- CONTENT
 --==================================================
+-- Right content panel (dark like the image)
+ContentPanel = Instance.new("Frame")
+ContentPanel.Name = "ContentPanel"
+ContentPanel.Size = UDim2.fromScale(0.70, 0.88)
+ContentPanel.Position = UDim2.fromScale(0.285, 0.10)
+ContentPanel.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
+ContentPanel.BorderSizePixel = 0
+ContentPanel.Parent = Main
+Instance.new("UICorner", ContentPanel).CornerRadius = UDim.new(0, 10)
+
 Content = Instance.new("Frame")
 Content.Name = "MainContent"
-Content.Size = UDim2.fromScale(0.67, 0.83)
-Content.Position = UDim2.fromScale(0.30, 0.13)
+Content.Size = UDim2.fromScale(1, 1)
+Content.Position = UDim2.fromScale(0, 0)
 Content.BackgroundTransparency = 1
 Content.BorderSizePixel = 0
-Content.Parent = Main
+Content.Parent = ContentPanel
+
+local ContentPad = Instance.new("UIPadding")
+ContentPad.PaddingTop = UDim.new(0, 8)
+ContentPad.PaddingLeft = UDim.new(0, 12)
+ContentPad.PaddingRight = UDim.new(0, 12)
+ContentPad.PaddingBottom = UDim.new(0, 8)
+ContentPad.Parent = Content
+
 configuration.ApplyMinimized(configuration.IsMinimized)
 
 local Pages = {}
@@ -616,13 +634,13 @@ local CombatPage = configuration.CreatePage("Combat", false)
 
 function configuration.AddPageHeading(page, title, description)
 	local heading = Instance.new("Frame")
-	heading.Size = UDim2.new(1, 0, 0, 48)
+	heading.Size = UDim2.new(1, 0, 0, 52)
 	heading.LayoutOrder = 1
 	heading.BackgroundTransparency = 1
 	heading.Parent = page
 	local titleLabel = Instance.new("TextLabel")
-	titleLabel.Size = UDim2.new(1, -8, 0, 24)
-	titleLabel.Position = UDim2.fromOffset(4, 0)
+	titleLabel.Size = UDim2.new(1, -8, 0, 26)
+	titleLabel.Position = UDim2.fromOffset(6, 2)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = title
 	titleLabel.TextColor3 = TEXT
@@ -631,12 +649,12 @@ function configuration.AddPageHeading(page, title, description)
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	titleLabel.Parent = heading
 	local descriptionLabel = Instance.new("TextLabel")
-	descriptionLabel.Size = UDim2.new(1, -8, 0, 16)
-	descriptionLabel.Position = UDim2.fromOffset(4, 26)
+	descriptionLabel.Size = UDim2.new(1, -8, 0, 18)
+	descriptionLabel.Position = UDim2.fromOffset(6, 28)
 	descriptionLabel.BackgroundTransparency = 1
 	descriptionLabel.Text = description
 	descriptionLabel.TextColor3 = MUTED
-	descriptionLabel.TextSize = 11
+	descriptionLabel.TextSize = 12
 	descriptionLabel.Font = Enum.Font.Gotham
 	descriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
 	descriptionLabel.Parent = heading
@@ -644,86 +662,111 @@ function configuration.AddPageHeading(page, title, description)
 end
 
 configuration.AddPageHeading(ExpPage, "Experience", "Track your EXP progress and current farming session")
-configuration.AddPageHeading(ESPPage, "ESP", "Choose which player markers to show")
+configuration.AddPageHeading(ESPPage, "Player ESP", "Choose which player markers to show")
 configuration.AddPageHeading(PlayerPage, "Players", "Follow target, spacing, server players and whitelist")
 configuration.AddPageHeading(AlertsPage, "Alerts", "Notifications and idle behavior")
-configuration.AddPageHeading(FarmPage, "EXP Farm", "Set the EXP cycle amount, target range, interval and goal")
-configuration.AddPageHeading(CombatPage, "Auto Farm", "Choose a target and control attack, skill and timing")
+configuration.AddPageHeading(FarmPage, "Farming", "Set the EXP cycle amount, target range, interval and goal")
+configuration.AddPageHeading(CombatPage, "Auto Attack", "Choose a target and control attack, skill and timing")
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
-Sidebar.Size = UDim2.fromScale(0.25, 0.83)
-Sidebar.Position = UDim2.fromScale(0.03, 0.13)
-Sidebar.BackgroundColor3 = Color3.fromRGB(20, 20, 21)
+Sidebar.Size = UDim2.fromScale(0.26, 0.88)
+Sidebar.Position = UDim2.fromScale(0.015, 0.10)
+Sidebar.BackgroundColor3 = SIDEBAR_BG
 Sidebar.BorderSizePixel = 0
 Sidebar.Visible = not configuration.IsMinimized
 Sidebar.Parent = Main
 Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
 
-local SidebarTitle = Instance.new("TextLabel")
-SidebarTitle.Size = UDim2.new(1, -16, 0, 24)
-SidebarTitle.Position = UDim2.fromOffset(8, 10)
-SidebarTitle.BackgroundTransparency = 1
-SidebarTitle.Text = "NAVIGATION"
-SidebarTitle.TextColor3 = MUTED
-SidebarTitle.TextSize = 10
-SidebarTitle.Font = Enum.Font.GothamBold
-SidebarTitle.TextXAlignment = Enum.TextXAlignment.Left
-SidebarTitle.Parent = Sidebar
+-- Sidebar scroll for many items
+local SidebarScroll = Instance.new("ScrollingFrame")
+SidebarScroll.Name = "SidebarScroll"
+SidebarScroll.Size = UDim2.fromScale(1, 1)
+SidebarScroll.BackgroundTransparency = 1
+SidebarScroll.BorderSizePixel = 0
+SidebarScroll.ScrollBarThickness = 3
+SidebarScroll.ScrollBarImageColor3 = MUTED
+SidebarScroll.CanvasSize = UDim2.new()
+SidebarScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+SidebarScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+SidebarScroll.Parent = Sidebar
 
-function configuration.MakeNavButton(text, yScale)
-	local button = Instance.new("TextButton")
-	button.Size = UDim2.fromScale(0.92, 0.09)
-	button.Position = UDim2.fromScale(0.04, yScale)
-	button.BackgroundColor3 = text == "EXP" and ACCENT_DIM or CARD
-	button.BackgroundTransparency = text == "EXP" and 0 or 1
-	button.BorderSizePixel = 0
-	button.Text = text
-	button.TextColor3 = text == "EXP" and ACCENT or TEXT
-	button.TextSize = 12
-	button.Font = Enum.Font.GothamBold
-	button.Parent = Sidebar
-	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 7)
-	local marker = Instance.new("Frame")
-	marker.Name = "ActiveMark"
-	marker.Size = UDim2.new(0, 3, 0.52, 0)
-	marker.Position = UDim2.new(0, 0, 0.24, 0)
-	marker.BackgroundColor3 = ACCENT
-	marker.BorderSizePixel = 0
-	marker.Visible = text == "EXP"
-	marker.Parent = button
-	Instance.new("UICorner", marker).CornerRadius = UDim.new(1, 0)
-	return button
-end
+local SidebarLayout = Instance.new("UIListLayout")
+SidebarLayout.Padding = UDim.new(0, 2)
+SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SidebarLayout.Parent = SidebarScroll
 
-function configuration.MakeNavSection(text, yScale)
+local SidebarPad = Instance.new("UIPadding")
+SidebarPad.PaddingTop = UDim.new(0, 10)
+SidebarPad.PaddingLeft = UDim.new(0, 8)
+SidebarPad.PaddingRight = UDim.new(0, 8)
+SidebarPad.PaddingBottom = UDim.new(0, 12)
+SidebarPad.Parent = SidebarScroll
+
+function configuration.MakeNavSection(text, order)
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(0.90, 0.04)
-	label.Position = UDim2.fromScale(0.05, yScale)
+	label.Size = UDim2.new(1, 0, 0, 22)
+	label.LayoutOrder = order
 	label.BackgroundTransparency = 1
-	label.Text = string.upper(text)
+	label.Text = "  " .. string.upper(text)
 	label.TextColor3 = MUTED
-	label.TextSize = 8
+	label.TextSize = 10
 	label.Font = Enum.Font.GothamBold
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = Sidebar
+	label.Parent = SidebarScroll
 	return label
 end
 
-configuration.MakeNavSection("Experience", 0.12)
-configuration.MakeNavSection("Automation", 0.37)
-configuration.MakeNavSection("Monitoring", 0.54)
-configuration.MakeNavSection("Players", 0.71)
-configuration.MakeNavSection("Visuals", 0.85)
+function configuration.MakeNavButton(text, icon, order)
+	local button = Instance.new("TextButton")
+	button.Name = "Nav_" .. text
+	button.Size = UDim2.new(1, 0, 0, 36)
+	button.LayoutOrder = order
+	button.BackgroundColor3 = SEL_BG
+	button.BackgroundTransparency = 1
+	button.BorderSizePixel = 0
+	button.Text = ""
+	button.AutoButtonColor = false
+	button.Parent = SidebarScroll
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
 
+	local iconLabel = Instance.new("TextLabel")
+	iconLabel.Name = "Icon"
+	iconLabel.Size = UDim2.fromOffset(22, 22)
+	iconLabel.Position = UDim2.fromOffset(8, 7)
+	iconLabel.BackgroundTransparency = 1
+	iconLabel.Text = icon or "•"
+	iconLabel.TextColor3 = MUTED
+	iconLabel.TextSize = 14
+	iconLabel.Font = Enum.Font.GothamBold
+	iconLabel.Parent = button
+
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Name = "Label"
+	textLabel.Size = UDim2.new(1, -40, 1, 0)
+	textLabel.Position = UDim2.fromOffset(34, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.Text = text
+	textLabel.TextColor3 = TEXT
+	textLabel.TextSize = 13
+	textLabel.Font = Enum.Font.Gotham
+	textLabel.TextXAlignment = Enum.TextXAlignment.Left
+	textLabel.Parent = button
+
+	return button
+end
+
+configuration.MakeNavSection("Auto Farm", 1)
 local NavButtons = {
-	EXP = configuration.MakeNavButton("EXP", 0.16),
-	Farm = configuration.MakeNavButton("EXP Setting", 0.27),
-	Combat = configuration.MakeNavButton("Auto Farm", 0.41),
-	Alerts = configuration.MakeNavButton("Alerts", 0.58),
-	Player = configuration.MakeNavButton("Player", 0.75),
-	ESP = configuration.MakeNavButton("Player ESP", 0.88),
+	EXP    = configuration.MakeNavButton("Experience", "◆", 2),
+	Farm   = configuration.MakeNavButton("Farming", "▣", 3),
+	Combat = configuration.MakeNavButton("Auto Attack", "⚔", 4),
 }
+configuration.MakeNavSection("Monitoring", 5)
+NavButtons.Alerts = configuration.MakeNavButton("Alerts", "⚠", 6)
+NavButtons.Player = configuration.MakeNavButton("Players", "◎", 7)
+configuration.MakeNavSection("Visuals", 8)
+NavButtons.ESP = configuration.MakeNavButton("Player ESP", "◇", 9)
 
 function configuration.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -732,11 +775,17 @@ function configuration.SetMainTab(tab)
 	end
 	for name, button in pairs(NavButtons) do
 		local selected = name == tab
-		button.BackgroundColor3 = selected and ACCENT_DIM or Color3.fromRGB(20, 20, 21)
 		button.BackgroundTransparency = selected and 0 or 1
-		button.TextColor3 = selected and ACCENT or TEXT
-		local marker = button:FindFirstChild("ActiveMark")
-		if marker then marker.Visible = selected end
+		button.BackgroundColor3 = SEL_BG
+		local label = button:FindFirstChild("Label")
+		local icon = button:FindFirstChild("Icon")
+		if label then
+			label.TextColor3 = selected and SEL_TEXT or TEXT
+			label.Font = selected and Enum.Font.GothamBold or Enum.Font.Gotham
+		end
+		if icon then
+			icon.TextColor3 = selected and SEL_TEXT or MUTED
+		end
 	end
 end
 
@@ -1909,7 +1958,7 @@ UserInputService.InputChanged:Connect(function(input)
 	if not configuration.IsMinimized then
 		configuration.MainHeightScale = math.clamp(ResizeStartSize.Y + delta.Y / viewport.Y, 0.4, maxHeight)
 	end
-	Main.Size = UDim2.fromScale(configuration.MainWidthScale, configuration.IsMinimized and 0.095 or configuration.MainHeightScale)
+	Main.Size = UDim2.fromScale(configuration.MainWidthScale, configuration.IsMinimized and 0.085 or configuration.MainHeightScale)
 end)
 
 --==================================================
