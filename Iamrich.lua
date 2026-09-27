@@ -61,6 +61,7 @@ local WhitelistPanelWidthScale = 0.40
 local WhitelistPanelHeightScale = 0.58
 local ConfigFileName = "EXPPlus_Config.json"
 local IsMinimized = false
+local Combat = {}
 
 local function LoadConfig()
 	if type(readfile) ~= "function" then return end
@@ -99,11 +100,13 @@ local function LoadConfig()
 	MainHeightScale = math.clamp(ReadNumber("MainHeightScale", MainHeightScale, 0.4, false), 0.4, 0.95)
 	local camera = workspace.CurrentCamera
 	local viewport = camera and camera.ViewportSize or Vector2.new(1000, 800)
-	if config.MainWidthScale == nil and tonumber(config.MainWidth) then
-		MainWidthScale = math.clamp(tonumber(config.MainWidth) / math.max(1, viewport.X), 0.2, 0.75)
+	local legacyWidth = tonumber(config.MainWidth)
+	if config.MainWidthScale == nil and legacyWidth then
+		MainWidthScale = math.clamp(legacyWidth / math.max(1, viewport.X), 0.2, 0.75)
 	end
-	if config.MainHeightScale == nil and tonumber(config.MainHeight) then
-		MainHeightScale = math.clamp(tonumber(config.MainHeight) / math.max(1, viewport.Y), 0.4, 0.95)
+	local legacyHeight = tonumber(config.MainHeight)
+	if config.MainHeightScale == nil and legacyHeight then
+		MainHeightScale = math.clamp(legacyHeight / math.max(1, viewport.Y), 0.4, 0.95)
 	end
 	PlayerPanelWidthScale = math.clamp(ReadNumber("PlayerPanelWidthScale", PlayerPanelWidthScale, 0.28, false), 0.28, 0.8)
 	PlayerPanelHeightScale = math.clamp(ReadNumber("PlayerPanelHeightScale", PlayerPanelHeightScale, 0.35, false), 0.35, 0.9)
@@ -1140,7 +1143,7 @@ task.spawn(function()
 		local stamina = gameGui and gameGui:FindFirstChild("Stamina")
 		if stamina and (stamina:IsA("NumberValue") or stamina:IsA("IntValue")) then
 			local ok = pcall(function()
-				stamina.Value = 999999999999999999
+				stamina.Value = 1e18
 			end)
 			if not ok and stamina:IsA("IntValue") then
 				pcall(function() stamina.Value = 2147483647 end)
@@ -1774,7 +1777,7 @@ local function FindTarget()
 	return best
 end
 
-local function FindNearestCombatMob(localRoot)
+function Combat.FindNearestCombatMob(localRoot)
 	local bestMob, bestRoot, bestDistance = nil, nil, AutoAttackRange
 	for _, mob in ipairs(MobsFolder:GetChildren()) do
 		local mobRoot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
@@ -1788,7 +1791,7 @@ local function FindNearestCombatMob(localRoot)
 	return bestMob, bestRoot, bestDistance
 end
 
-local function FindCombatPlayer(userId)
+function Combat.FindCombatPlayer(userId)
 	local targetPlayer = userId and Players:GetPlayerByUserId(tonumber(userId))
 	if not targetPlayer or targetPlayer == Player or IsWhitelisted(targetPlayer) then return nil, nil end
 	local character = targetPlayer.Character
@@ -1798,7 +1801,7 @@ local function FindCombatPlayer(userId)
 	return targetPlayer, targetRoot
 end
 
-local function FindAutoAttackTarget(localRoot)
+function Combat.FindAutoAttackTarget(localRoot)
 	if AutoAttackPinnedMob then
 		if AutoAttackPinnedMob:IsDescendantOf(MobsFolder) then
 			local pinnedHumanoid = AutoAttackPinnedMob:FindFirstChildOfClass("Humanoid")
@@ -1813,14 +1816,14 @@ local function FindAutoAttackTarget(localRoot)
 	end
 
 	if AutoAttackMode == "Player" then
-		local targetPlayer, targetRoot = FindCombatPlayer(AutoAttackTargetUserId)
+		local targetPlayer, targetRoot = Combat.FindCombatPlayer(AutoAttackTargetUserId)
 		if targetPlayer then
 			return "Player", targetPlayer, targetRoot, (localRoot.Position - targetRoot.Position).Magnitude
 		end
 		return nil
 	end
 
-	local mob, mobRoot, mobDistance = FindNearestCombatMob(localRoot)
+	local mob, mobRoot, mobDistance = Combat.FindNearestCombatMob(localRoot)
 	if AutoAttackMode == "Mob" then
 		if mob then return "Mob", mob, mobRoot, mobDistance end
 		return nil
@@ -1847,7 +1850,7 @@ local function FindAutoAttackTarget(localRoot)
 	return nil
 end
 
-local function RecordCycle(cycleStartExp, cycleStartTime, callsSent, currentExp)
+function Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, currentExp)
 	local elapsed = math.max(os.clock() - cycleStartTime, 0.001)
 	local gained = currentExp - cycleStartExp
 	RecentCycle = string.format("Last: +%s EXP / %.2fs / %d calls", FormatNumber(gained), elapsed, callsSent)
@@ -1973,7 +1976,7 @@ task.spawn(function()
 		end
 
 		if exp.Value >= ExpGoal then
-			RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
+			Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
 			SetIdle()
 			StateLabel.Text = "Goal reached"
 			MiniState.Text = "Goal reached"
@@ -1998,7 +2001,7 @@ task.spawn(function()
 			end
 		end
 
-		RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
+		Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
 
 		if Farming then
 			if not target:IsDescendantOf(MobsFolder) then
@@ -2030,7 +2033,7 @@ task.spawn(function()
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			local targetKind, target, targetRoot, distance
 			if localRoot then
-				targetKind, target, targetRoot, distance = FindAutoAttackTarget(localRoot)
+				targetKind, target, targetRoot, distance = Combat.FindAutoAttackTarget(localRoot)
 			end
 			if target and targetRoot and distance <= AutoAttackRange then
 				local playerGui = Player:FindFirstChildOfClass("PlayerGui")
