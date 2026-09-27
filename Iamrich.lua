@@ -645,11 +645,11 @@ function configuration.MakeNavButton(text, yScale)
 	local button = Instance.new("TextButton")
 	button.Size = UDim2.fromScale(0.92, 0.09)
 	button.Position = UDim2.fromScale(0.04, yScale)
-	button.BackgroundColor3 = text == "Home" and ACCENT_DIM or CARD
-	button.BackgroundTransparency = text == "Home" and 0 or 1
+	button.BackgroundColor3 = text == "EXP" and ACCENT_DIM or CARD
+	button.BackgroundTransparency = text == "EXP" and 0 or 1
 	button.BorderSizePixel = 0
 	button.Text = text
-	button.TextColor3 = text == "Home" and ACCENT or TEXT
+	button.TextColor3 = text == "EXP" and ACCENT or TEXT
 	button.TextSize = 12
 	button.Font = Enum.Font.GothamBold
 	button.Parent = Sidebar
@@ -660,19 +660,19 @@ function configuration.MakeNavButton(text, yScale)
 	marker.Position = UDim2.new(0, 0, 0.24, 0)
 	marker.BackgroundColor3 = ACCENT
 	marker.BorderSizePixel = 0
-	marker.Visible = text == "Home"
+	marker.Visible = text == "EXP"
 	marker.Parent = button
 	Instance.new("UICorner", marker).CornerRadius = UDim.new(1, 0)
 	return button
 end
 
 local NavButtons = {
-	EXP = configuration.MakeNavButton("Home", 0.14),
-	ESP = configuration.MakeNavButton("Player ESP", 0.27),
-	Player = configuration.MakeNavButton("Players", 0.40),
+	EXP = configuration.MakeNavButton("EXP", 0.14),
+	Farm = configuration.MakeNavButton("EXP Setting", 0.27),
+	Combat = configuration.MakeNavButton("Auto Attack", 0.40),
 	Alerts = configuration.MakeNavButton("Alerts", 0.53),
-	Farm = configuration.MakeNavButton("EXP Farm", 0.66),
-	Combat = configuration.MakeNavButton("Auto Attack", 0.79),
+	Player = configuration.MakeNavButton("Player", 0.66),
+	ESP = configuration.MakeNavButton("Player ESP", 0.79),
 }
 
 function configuration.SetMainTab(tab)
@@ -899,7 +899,7 @@ end
 local AlertsGrid = configuration.MakeToggleGrid(AlertsPage, 2)
 AlertsGrid.Size = UDim2.new(1, 0, 0, 40)
 local PlayersGrid = configuration.MakeToggleGrid(PlayerPage, 2)
-PlayersGrid.Size = UDim2.new(1, 0, 0, 80)
+PlayersGrid.Size = UDim2.new(1, 0, 0, 120)
 local CombatGrid = configuration.MakeToggleGrid(CombatPage, 2)
 local AttackModeGrid = configuration.MakeToggleGrid(CombatPage, 3)
 AttackModeGrid.Size = UDim2.new(1, 0, 0, 80)
@@ -1181,7 +1181,7 @@ local AlertToggleButton = configuration.MakeToggle(configuration.AlertsEnabled a
 local ESPToggleButton = configuration.MakeToggle(configuration.ESPEnabled and "ESP: ON" or "ESP: OFF", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2)
 local ESPLineButton = configuration.MakeToggle(configuration.ESPLineEnabled and "Lines: ON" or "Lines: OFF", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3)
 local ESPBoxButton = configuration.MakeToggle(configuration.ESPBoxEnabled and "Boxes: ON" or "Boxes: OFF", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4)
-local AutoBlockButton = configuration.MakeToggle(configuration.AutoBlockEnabled and "Auto Block: ON" or "Auto Block: OFF", configuration.AutoBlockEnabled, RED, RED_DIM, 2, AlertsGrid)
+local AutoBlockButton = configuration.MakeToggle(configuration.AutoBlockEnabled and "Auto Block: ON" or "Auto Block: OFF", configuration.AutoBlockEnabled, RED, RED_DIM, 5, PlayersGrid)
 local PlayerListButton = configuration.MakeToggle("Open player list", false, TEXT, CARD, 1, PlayersGrid)
 PlayerListButton.TextColor3 = TEXT
 local WhitelistButton = configuration.MakeToggle("Whitelist IDs", false, TEXT, CARD, 2, PlayersGrid)
@@ -2369,12 +2369,41 @@ task.spawn(function()
 		if PlayerPanel.Visible and os.clock() - lastPlayerRefresh >= 0.5 then
 			lastPlayerRefresh = os.clock()
 			for _, child in ipairs(PlayerScroll:GetChildren()) do
-				if child:IsA("Frame") then
+				if child.Name:match("^PlayerRow_") then
 					child:Destroy()
 				end
 			end
 
 			for order, otherPlayer in ipairs(Players:GetPlayers()) do
+				if configuration.PlayerPanelMode == "follow" then
+					if otherPlayer == Player then continue end
+					local selectedPlayer = otherPlayer
+					local row = Instance.new("TextButton")
+					row.Name = "PlayerRow_" .. selectedPlayer.UserId
+					row.Size = UDim2.new(1, -12, 0, 44)
+					row.LayoutOrder = order
+					row.ZIndex = 92
+					row.BackgroundColor3 = configuration.FollowPlayerUserId == tostring(selectedPlayer.UserId) and ACCENT_DIM or INPUT
+					row.BorderSizePixel = 0
+					row.Text = selectedPlayer.DisplayName
+					row.TextColor3 = configuration.FollowPlayerUserId == tostring(selectedPlayer.UserId) and ACCENT or TEXT
+					row.TextSize = 13
+					row.Font = Enum.Font.GothamBold
+					row.TextTruncate = Enum.TextTruncate.AtEnd
+					row.Parent = PlayerScroll
+					Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
+					row.MouseButton1Click:Connect(function()
+						configuration.FollowPlayerUserId = tostring(selectedPlayer.UserId)
+						configuration.SaveConfig()
+						configuration.UpdateFollowButtons()
+						PlayerPanel.Visible = false
+						configuration.PlayerPanelMode = "server"
+						PlayerPanelTitle.Text = "Players in server"
+						lastPlayerRefresh = 0
+					end)
+					continue
+				end
+
 				local otherCharacter = otherPlayer.Character
 				local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
 				local distanceText = otherPlayer == Player and "You" or "Distance unavailable"
