@@ -50,13 +50,13 @@ local MobCache = {
 	Dirty = true,
 	LastRebuild = 0,
 }
-local CombatSearchCaches = {
+MobCache.SearchCaches = {
 	Boss = { LastSearchAt = 0, Range = nil, Mob = nil },
 	Mob = { LastSearchAt = 0, Range = nil, Mob = nil },
 }
 
-local function InvalidateBossSearchCache()
-	for _, cache in pairs(CombatSearchCaches) do
+function MobCache.InvalidateSearchCaches()
+	for _, cache in pairs(MobCache.SearchCaches) do
 		cache.LastSearchAt = 0
 		cache.Range = nil
 		cache.Mob = nil
@@ -105,7 +105,7 @@ local function IsBossMob(mob, config)
 end
 
 local function MobCache_ClearEntry(mob)
-	InvalidateBossSearchCache()
+	MobCache.InvalidateSearchCaches()
 	local entry = MobCache.ByInstance[mob]
 	if not entry then return end
 	MobCache.ByInstance[mob] = nil
@@ -140,7 +140,7 @@ local function MobCache_Upsert(mob)
 		MobCache_ClearEntry(mob)
 		return
 	end
-	InvalidateBossSearchCache()
+	MobCache.InvalidateSearchCaches()
 	local fresh = MobCache_ReadEntry(mob)
 	if not fresh then
 		MobCache_ClearEntry(mob)
@@ -2238,9 +2238,9 @@ CombatMobListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 CombatMobListLayout.Parent = CombatMobScroll
 
 configuration.CombatMobRows = {}
-local CombatMobUI = { RowByMob = {}, RefreshQueued = false, LastRefreshAt = 0, ListDirty = true }
+configuration.CombatMobUI = { RowByMob = {}, RefreshQueued = false, LastRefreshAt = 0, ListDirty = true }
 function configuration.SyncCombatMobRowSelection()
-	for mob, row in pairs(CombatMobUI.RowByMob) do
+	for mob, row in pairs(configuration.CombatMobUI.RowByMob) do
 		if row.Parent then
 			local selected = configuration.AutoAttackPinnedMob == mob or configuration.CombatTargetMob == mob
 			row.BackgroundColor3 = selected and ACCENT_DIM or INPUT
@@ -2252,16 +2252,16 @@ end
 
 function configuration.RefreshCombatMobs()
 	if not CombatPage.Visible then return end
-	if not CombatMobUI.ListDirty then
+	if not configuration.CombatMobUI.ListDirty then
 		configuration.SyncCombatMobRowSelection()
 		return
 	end
-	CombatMobUI.ListDirty = false
+	configuration.CombatMobUI.ListDirty = false
 	for _, row in ipairs(configuration.CombatMobRows) do
 		row:Destroy()
 	end
 	table.clear(configuration.CombatMobRows)
-	table.clear(CombatMobUI.RowByMob)
+	table.clear(configuration.CombatMobUI.RowByMob)
 
 	local entries = {}
 	local groupCounts = {}
@@ -2339,11 +2339,11 @@ function configuration.RefreshCombatMobs()
 		row.Font = Enum.Font.Gotham
 		row.TextXAlignment = Enum.TextXAlignment.Left
 		row.Parent = CombatMobScroll
-		CombatMobUI.RowByMob[selectedMob] = row
+		configuration.CombatMobUI.RowByMob[selectedMob] = row
 		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
 		row.MouseButton1Click:Connect(function()
 			if not selectedMob:IsDescendantOf(MobsFolder) then
-				CombatMobUI.ListDirty = true
+				configuration.CombatMobUI.ListDirty = true
 				configuration.RefreshCombatMobs()
 				return
 			end
@@ -2372,21 +2372,21 @@ function configuration.RefreshCombatMobs()
 end
 
 function configuration.RequestCombatMobRefresh()
-	CombatMobUI.ListDirty = true
-	if CombatMobUI.RefreshQueued or not CombatPage.Visible then return end
-	CombatMobUI.RefreshQueued = true
-	local delay = math.max(0.12, 0.45 - (os.clock() - CombatMobUI.LastRefreshAt))
+	configuration.CombatMobUI.ListDirty = true
+	if configuration.CombatMobUI.RefreshQueued or not CombatPage.Visible then return end
+	configuration.CombatMobUI.RefreshQueued = true
+	local delay = math.max(0.12, 0.45 - (os.clock() - configuration.CombatMobUI.LastRefreshAt))
 	task.delay(delay, function()
-		CombatMobUI.RefreshQueued = false
+		configuration.CombatMobUI.RefreshQueued = false
 		if CombatMobScroll.Parent and CombatPage.Visible then
-			CombatMobUI.LastRefreshAt = os.clock()
+			configuration.CombatMobUI.LastRefreshAt = os.clock()
 			configuration.RefreshCombatMobs()
 		end
 	end)
 end
 
 CombatMobRefresh.MouseButton1Click:Connect(function()
-	CombatMobUI.ListDirty = true
+	configuration.CombatMobUI.ListDirty = true
 	configuration.RefreshCombatMobs()
 end)
 MobsFolder.ChildAdded:Connect(configuration.RequestCombatMobRefresh)
@@ -3466,7 +3466,7 @@ function configuration.Combat.FindNearestCombatMob(localRoot, maxDistance, bosse
 	MobCache_Rebuild(false)
 	local searchDistance = maxDistance or configuration.AutoAttackSearchRange
 	local now = os.clock()
-	local searchCache = bossesOnly and CombatSearchCaches.Boss or CombatSearchCaches.Mob
+	local searchCache = bossesOnly and MobCache.SearchCaches.Boss or MobCache.SearchCaches.Mob
 	if searchCache.Range == searchDistance and now - searchCache.LastSearchAt < 0.25 then
 		local cachedMob = searchCache.Mob
 		if not cachedMob then return nil, nil, nil end
