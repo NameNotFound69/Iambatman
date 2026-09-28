@@ -628,12 +628,24 @@ local function FindHudExpLabel(force)
 	return LevelProgressCache.ExpLabel
 end
 
+-- Game formula: total EXP required for the given level bar.
+function configuration.NeededExp(lvl)
+	lvl = tonumber(lvl)
+	if not lvl or lvl < 1 then return 9 end
+	lvl = math.floor(lvl) - 1
+	local total = 9
+	for i = 1, lvl do
+		total = total + (6 * (i + 2))
+	end
+	return total
+end
+
 function configuration.GetLocalLevelProgress()
 	local stats = Player:FindFirstChild("PlayerStats")
 	local function numFromStats(...)
 		if not stats then return nil end
 		for _, name in ipairs({...}) do
-			local v = stats:FindFirstChild(name, true)
+			local v = stats:FindFirstChild(name) or stats:FindFirstChild(name, true)
 			local n = ReadNumberValue(v)
 			if n then return n end
 			local attr = stats:GetAttribute(name)
@@ -645,32 +657,51 @@ function configuration.GetLocalLevelProgress()
 		return nil
 	end
 
+	-- Primary source: Players.LocalPlayer.PlayerStats.Level / .EXP
 	local level = numFromStats("Level", "LV", "Lvl")
 	local exp = numFromStats("EXP", "Exp", "Experience", "CurrentEXP", "CurrentExp")
 	local maxExp = numFromStats("MaxEXP", "MaxExp", "EXPMax", "ExpToLevel", "RequiredEXP", "NextEXP", "EXPRequired")
 
-	-- Prefer live HUD values (same numbers the game shows, e.g. EXP:58354/59211).
-	local hud = FindHudExpLabel(false)
-	if hud and hud.Parent then
-		local cur, maxv = ParseExpPair(hud.Text)
-		if cur and maxv then
-			exp, maxExp = cur, maxv
-			LevelProgressCache.LastExp, LevelProgressCache.LastMax = cur, maxv
-		end
-	elseif LevelProgressCache.LastExp and LevelProgressCache.LastMax then
-		exp, maxExp = LevelProgressCache.LastExp, LevelProgressCache.LastMax
+	-- Max EXP is not stored on PlayerStats — compute from Level using the game formula.
+	if level and (not maxExp or maxExp <= 0) then
+		maxExp = configuration.NeededExp(level)
 	end
 
-	-- If HUD lost, force rescan occasionally.
+	-- Optional HUD fallback if PlayerStats EXP is missing.
 	if not exp or not maxExp then
-		hud = FindHudExpLabel(true)
+		local hud = FindHudExpLabel(false)
+		if hud and hud.Parent then
+			local cur, maxv = ParseExpPair(hud.Text)
+			if cur and maxv then
+				exp = exp or cur
+				maxExp = maxExp or maxv
+				LevelProgressCache.LastExp, LevelProgressCache.LastMax = exp, maxExp
+			end
+		elseif LevelProgressCache.LastExp and LevelProgressCache.LastMax then
+			exp = exp or LevelProgressCache.LastExp
+			maxExp = maxExp or LevelProgressCache.LastMax
+		end
+	end
+
+	if not exp or not maxExp then
+		local hud = FindHudExpLabel(true)
 		if hud then
 			local cur, maxv = ParseExpPair(hud.Text)
 			if cur and maxv then
-				exp, maxExp = cur, maxv
-				LevelProgressCache.LastExp, LevelProgressCache.LastMax = cur, maxv
+				exp = exp or cur
+				maxExp = maxExp or maxv
+				LevelProgressCache.LastExp, LevelProgressCache.LastMax = exp, maxExp
 			end
 		end
+	end
+
+	-- Recompute max from level if still missing / level changed.
+	if level then
+		maxExp = configuration.NeededExp(level)
+	end
+
+	if exp and maxExp then
+		LevelProgressCache.LastExp, LevelProgressCache.LastMax = exp, maxExp
 	end
 
 	local ratio = nil
