@@ -4524,7 +4524,7 @@ task.spawn(function()
 				)
 				local attackRange = targetKind == "Mob" and mobEngageRange or configuration.AutoAttackRange
 				local evadingEnemySkill = targetKind == "Mob"
-					and configuration.CombatSystem.ShouldEvadeTarget(target)
+					and configuration.CombatSystem.ShouldEvadeTarget(target, localRoot and localRoot.Position)
 				if attackMoveState.Target ~= target then
 					if attackMoveState.Target ~= nil and attackMoveState.Active then
 						local humanoid = character and character:FindFirstChildOfClass("Humanoid")

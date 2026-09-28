@@ -64,8 +64,10 @@ return {
 			return true
 		end
 
-		function combat.ShouldEvadeTarget(mob)
-			return combat.IsEnemyUsingSkill(mob) and #combat.GetBladeParts(mob) > 0
+		function combat.ShouldEvadeTarget(mob, position)
+			if not position or not combat.IsEnemyUsingSkill(mob) then return false end
+			local blades = combat.GetBladeParts(mob)
+			return #blades > 0 and not combat.IsPositionSafeFromBlades(position, mob)
 		end
 
 		function combat.ResetNavigationState(state)
@@ -202,7 +204,7 @@ return {
 
 			-- AIC detects an active enemy skill before using BladePart geometry. This
 			-- keeps ordinary in-range combat stationary and only repositions for a threat.
-			if combat.ShouldEvadeTarget(targetModel) then
+			if combat.ShouldEvadeTarget(targetModel, localRoot.Position) then
 				local safeRadius = radius
 				for _, blade in ipairs(combat.GetBladeParts(targetModel)) do
 					local offset = blade.Position - targetRoot.Position
