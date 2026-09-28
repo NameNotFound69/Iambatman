@@ -973,7 +973,7 @@ Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 6)
 -- MINI CARD (compact EXP box when minimized)
 --==================================================
 local MINI_WIDTH = 300
-local MINI_HEIGHT = 148
+local MINI_HEIGHT = 128
 local SavedMainPosition = nil
 
 local MiniBar = Instance.new("Frame")
@@ -1063,28 +1063,23 @@ MiniState.Font = Enum.Font.Gotham
 MiniState.TextXAlignment = Enum.TextXAlignment.Right
 MiniState.Parent = MiniBar
 
--- Player level EXP bar
-local MiniLevelBarBg = Instance.new("Frame")
-MiniLevelBarBg.Name = "MiniLevelBarBg"
-MiniLevelBarBg.Size = UDim2.new(1, -20, 0, 4)
-MiniLevelBarBg.Position = UDim2.fromOffset(10, 92)
-MiniLevelBarBg.BackgroundColor3 = INPUT
-MiniLevelBarBg.BorderSizePixel = 0
-MiniLevelBarBg.Parent = MiniBar
-Instance.new("UICorner", MiniLevelBarBg).CornerRadius = UDim.new(1, 0)
+-- Player EXP text (current/max) beside level
+local MiniLevelExpLabel = Instance.new("TextLabel")
+MiniLevelExpLabel.Name = "MiniLevelExpLabel"
+MiniLevelExpLabel.Size = UDim2.new(0.55, 0, 0, 14)
+MiniLevelExpLabel.Position = UDim2.fromOffset(70, 30)
+MiniLevelExpLabel.BackgroundTransparency = 1
+MiniLevelExpLabel.Text = "Exp —/—"
+MiniLevelExpLabel.TextColor3 = MUTED
+MiniLevelExpLabel.TextSize = 10
+MiniLevelExpLabel.Font = Enum.Font.Gotham
+MiniLevelExpLabel.TextXAlignment = Enum.TextXAlignment.Left
+MiniLevelExpLabel.Parent = MiniBar
 
-local MiniLevelBarFill = Instance.new("Frame")
-MiniLevelBarFill.Name = "MiniLevelBarFill"
-MiniLevelBarFill.Size = UDim2.fromScale(0, 1)
-MiniLevelBarFill.BackgroundColor3 = ACCENT
-MiniLevelBarFill.BorderSizePixel = 0
-MiniLevelBarFill.Parent = MiniLevelBarBg
-Instance.new("UICorner", MiniLevelBarFill).CornerRadius = UDim.new(1, 0)
-
--- Farm target EXP progress bar
+-- Farm target EXP progress bar only
 local MiniBarBg = Instance.new("Frame")
 MiniBarBg.Size = UDim2.new(1, -20, 0, 5)
-MiniBarBg.Position = UDim2.fromOffset(10, 104)
+MiniBarBg.Position = UDim2.fromOffset(10, 96)
 MiniBarBg.BackgroundColor3 = INPUT
 MiniBarBg.BorderSizePixel = 0
 MiniBarBg.Parent = MiniBar
@@ -1097,18 +1092,6 @@ MiniBarFill.BackgroundColor3 = GREEN
 MiniBarFill.BorderSizePixel = 0
 MiniBarFill.Parent = MiniBarBg
 Instance.new("UICorner", MiniBarFill).CornerRadius = UDim.new(1, 0)
-
-local MiniLevelExpLabel = Instance.new("TextLabel")
-MiniLevelExpLabel.Name = "MiniLevelExpLabel"
-MiniLevelExpLabel.Size = UDim2.new(1, -20, 0, 12)
-MiniLevelExpLabel.Position = UDim2.fromOffset(10, 112)
-MiniLevelExpLabel.BackgroundTransparency = 1
-MiniLevelExpLabel.Text = "Level EXP  —"
-MiniLevelExpLabel.TextColor3 = MUTED
-MiniLevelExpLabel.TextSize = 9
-MiniLevelExpLabel.Font = Enum.Font.Gotham
-MiniLevelExpLabel.TextXAlignment = Enum.TextXAlignment.Left
-MiniLevelExpLabel.Parent = MiniBar
 
 function configuration.ApplyMinimized(state)
 	configuration.IsMinimized = state
@@ -1424,7 +1407,7 @@ configuration.SetMainTab("EXP")
 -- HERO EXP CARD (big numbers)
 --==================================================
 InfoCard = Instance.new("Frame")
-InfoCard.Size = UDim2.new(1, 0, 0, 248)
+InfoCard.Size = UDim2.new(1, 0, 0, 228)
 InfoCard.LayoutOrder = 2
 InfoCard.BackgroundColor3 = CARD
 InfoCard.BorderSizePixel = 0
@@ -1435,7 +1418,7 @@ InfoStroke.Color = BORDER
 InfoStroke.Thickness = 1
 InfoStroke.Transparency = 0.35
 
--- Player level header
+-- Player level + Exp current/max (no separate level progress bar)
 local LevelCaption = Instance.new("TextLabel")
 LevelCaption.Size = UDim2.new(0.5, -12, 0, 12)
 LevelCaption.Position = UDim2.fromOffset(12, 6)
@@ -1449,7 +1432,7 @@ LevelCaption.Parent = InfoCard
 
 local LevelLabel = Instance.new("TextLabel")
 LevelLabel.Name = "LevelLabel"
-LevelLabel.Size = UDim2.new(0.5, -12, 0, 22)
+LevelLabel.Size = UDim2.new(0.45, -8, 0, 22)
 LevelLabel.Position = UDim2.fromOffset(12, 18)
 LevelLabel.BackgroundTransparency = 1
 LevelLabel.Text = "Lv —"
@@ -1461,37 +1444,20 @@ LevelLabel.Parent = InfoCard
 
 local LevelExpText = Instance.new("TextLabel")
 LevelExpText.Name = "LevelExpText"
-LevelExpText.Size = UDim2.new(0.5, -12, 0, 14)
-LevelExpText.Position = UDim2.new(0.5, 0, 0, 22)
+LevelExpText.Size = UDim2.new(0.55, -12, 0, 22)
+LevelExpText.Position = UDim2.new(0.45, 0, 0, 18)
 LevelExpText.BackgroundTransparency = 1
-LevelExpText.Text = "Level EXP  —"
+LevelExpText.Text = "Exp —/—"
 LevelExpText.TextColor3 = MUTED
-LevelExpText.TextSize = 11
-LevelExpText.Font = Enum.Font.Gotham
+LevelExpText.TextSize = 13
+LevelExpText.Font = Enum.Font.GothamBold
 LevelExpText.TextXAlignment = Enum.TextXAlignment.Right
 LevelExpText.Parent = InfoCard
-
-local LevelBarBg = Instance.new("Frame")
-LevelBarBg.Name = "LevelBarBg"
-LevelBarBg.Size = UDim2.new(1, -28, 0, 6)
-LevelBarBg.Position = UDim2.fromOffset(14, 44)
-LevelBarBg.BackgroundColor3 = INPUT
-LevelBarBg.BorderSizePixel = 0
-LevelBarBg.Parent = InfoCard
-Instance.new("UICorner", LevelBarBg).CornerRadius = UDim.new(1, 0)
-
-local LevelBarFill = Instance.new("Frame")
-LevelBarFill.Name = "LevelBarFill"
-LevelBarFill.Size = UDim2.fromScale(0, 1)
-LevelBarFill.BackgroundColor3 = ACCENT
-LevelBarFill.BorderSizePixel = 0
-LevelBarFill.Parent = LevelBarBg
-Instance.new("UICorner", LevelBarFill).CornerRadius = UDim.new(1, 0)
 
 -- Big farm EXP number (target mob EXP toward goal)
 local ExpCaption = Instance.new("TextLabel")
 ExpCaption.Size = UDim2.new(1, -20, 0, 12)
-ExpCaption.Position = UDim2.fromOffset(10, 56)
+ExpCaption.Position = UDim2.fromOffset(10, 44)
 ExpCaption.BackgroundTransparency = 1
 ExpCaption.Text = "TARGET EXP  (FARM)"
 ExpCaption.TextColor3 = ACCENT
@@ -1502,7 +1468,7 @@ ExpCaption.Parent = InfoCard
 
 local ExpLabel = Instance.new("TextLabel")
 ExpLabel.Size = UDim2.new(1, -20, 0, 40)
-ExpLabel.Position = UDim2.fromOffset(10, 68)
+ExpLabel.Position = UDim2.fromOffset(10, 56)
 ExpLabel.BackgroundTransparency = 1
 ExpLabel.Text = "0"
 ExpLabel.TextColor3 = GREEN
@@ -1513,7 +1479,7 @@ ExpLabel.Parent = InfoCard
 
 local MaxLabel = Instance.new("TextLabel")
 MaxLabel.Size = UDim2.new(1, -20, 0, 14)
-MaxLabel.Position = UDim2.fromOffset(10, 108)
+MaxLabel.Position = UDim2.fromOffset(10, 96)
 MaxLabel.BackgroundTransparency = 1
 MaxLabel.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
 MaxLabel.TextColor3 = MUTED
@@ -1522,10 +1488,10 @@ MaxLabel.Font = Enum.Font.Gotham
 MaxLabel.TextXAlignment = Enum.TextXAlignment.Center
 MaxLabel.Parent = InfoCard
 
--- Farm target progress bar
+-- Farm target progress bar only
 local BarBg = Instance.new("Frame")
 BarBg.Size = UDim2.new(1, -28, 0, 8)
-BarBg.Position = UDim2.fromOffset(14, 126)
+BarBg.Position = UDim2.fromOffset(14, 114)
 BarBg.BackgroundColor3 = INPUT
 BarBg.BorderSizePixel = 0
 BarBg.Parent = InfoCard
@@ -1540,7 +1506,7 @@ Instance.new("UICorner", Bar).CornerRadius = UDim.new(1, 0)
 
 local PercentLabel = Instance.new("TextLabel")
 PercentLabel.Size = UDim2.new(1, 0, 0, 14)
-PercentLabel.Position = UDim2.fromOffset(0, 138)
+PercentLabel.Position = UDim2.fromOffset(0, 126)
 PercentLabel.BackgroundTransparency = 1
 PercentLabel.Text = "0%"
 PercentLabel.TextColor3 = MUTED
@@ -1552,7 +1518,7 @@ PercentLabel.Parent = InfoCard
 -- Meta row 1: Target + Dist
 local TargetLabel = Instance.new("TextLabel")
 TargetLabel.Size = UDim2.new(0.58, -8, 0, 16)
-TargetLabel.Position = UDim2.fromOffset(12, 158)
+TargetLabel.Position = UDim2.fromOffset(12, 146)
 TargetLabel.BackgroundTransparency = 1
 TargetLabel.Text = "No target"
 TargetLabel.TextColor3 = TEXT
@@ -1564,7 +1530,7 @@ TargetLabel.Parent = InfoCard
 
 local DistLabel = Instance.new("TextLabel")
 DistLabel.Size = UDim2.new(0.42, -12, 0, 16)
-DistLabel.Position = UDim2.new(0.58, 0, 0, 158)
+DistLabel.Position = UDim2.new(0.58, 0, 0, 146)
 DistLabel.BackgroundTransparency = 1
 DistLabel.Text = "Dist  -"
 DistLabel.TextColor3 = MUTED
@@ -1576,7 +1542,7 @@ DistLabel.Parent = InfoCard
 -- Meta row 2: Time + Rate + State
 local TimeLabel = Instance.new("TextLabel")
 TimeLabel.Size = UDim2.new(0.38, -4, 0, 15)
-TimeLabel.Position = UDim2.fromOffset(12, 178)
+TimeLabel.Position = UDim2.fromOffset(12, 166)
 TimeLabel.BackgroundTransparency = 1
 TimeLabel.Text = "00:00:00"
 TimeLabel.TextColor3 = YELLOW
@@ -1587,7 +1553,7 @@ TimeLabel.Parent = InfoCard
 
 local RateLabel = Instance.new("TextLabel")
 RateLabel.Size = UDim2.new(0.32, -4, 0, 15)
-RateLabel.Position = UDim2.new(0.36, 0, 0, 178)
+RateLabel.Position = UDim2.new(0.36, 0, 0, 166)
 RateLabel.BackgroundTransparency = 1
 RateLabel.Text = "Rate -"
 RateLabel.TextColor3 = MUTED
@@ -1598,7 +1564,7 @@ RateLabel.Parent = InfoCard
 
 local StateLabel = Instance.new("TextLabel")
 StateLabel.Size = UDim2.new(0.32, -10, 0, 15)
-StateLabel.Position = UDim2.new(0.68, 0, 0, 178)
+StateLabel.Position = UDim2.new(0.68, 0, 0, 166)
 StateLabel.BackgroundTransparency = 1
 StateLabel.Text = "Idle"
 StateLabel.TextColor3 = MUTED
@@ -1610,7 +1576,7 @@ StateLabel.Parent = InfoCard
 -- Session + recent
 local SessionLabel = Instance.new("TextLabel")
 SessionLabel.Size = UDim2.new(1, -24, 0, 14)
-SessionLabel.Position = UDim2.fromOffset(12, 200)
+SessionLabel.Position = UDim2.fromOffset(12, 188)
 SessionLabel.BackgroundTransparency = 1
 SessionLabel.Text = "Session: +0 EXP / 00:00:00 / 0 EXP/h"
 SessionLabel.TextColor3 = MUTED
@@ -1621,7 +1587,7 @@ SessionLabel.Parent = InfoCard
 
 local RecentCycleLabel = Instance.new("TextLabel")
 RecentCycleLabel.Size = UDim2.new(1, -24, 0, 14)
-RecentCycleLabel.Position = UDim2.fromOffset(12, 220)
+RecentCycleLabel.Position = UDim2.fromOffset(12, 208)
 RecentCycleLabel.BackgroundTransparency = 1
 RecentCycleLabel.Text = configuration.RecentCycle
 RecentCycleLabel.TextColor3 = MUTED
@@ -3255,6 +3221,8 @@ task.spawn(function()
 	local adaptiveYield = 0
 	local lastCycleGain = 0
 	local lastCycleCalls = 0
+	-- Must close in once per target before the first shot; after that, keep firing while walking back.
+	local engagedFireTarget = nil
 	local function StartExpRetaliation(mob, currentHealth)
 		configuration.ExpRetaliationTarget = mob
 		configuration.AutoAttackPinnedMob = mob
@@ -3325,6 +3293,7 @@ task.spawn(function()
 			end
 			configuration.ClearBillboard()
 			configuration.CurrentTarget = nil
+			engagedFireTarget = nil
 			target = configuration.FindTarget()
 			configuration.CurrentTarget = target
 
@@ -3518,17 +3487,45 @@ task.spawn(function()
 			local firingMobRoot = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
 			local firingDistance = firingRoot and firingMobRoot
 				and (firingRoot.Position - firingMobRoot.Position).Magnitude or math.huge
-			if firingDistance > configuration.ExpApproachDistance + 0.75 then
-				StateLabel.Text = "Moving"
-				MiniState.Text = string.format("Walking into %.0f-stud EXP range", configuration.ExpApproachDistance)
+			local inApproach = firingDistance <= configuration.ExpApproachDistance + 0.75
+			local hasEngaged = engagedFireTarget == target
+
+			-- Always path back to standoff when outside preferred range.
+			if firingRoot and firingMobRoot and not inApproach then
 				local moveHumanoid = firingCharacter and firingCharacter:FindFirstChildOfClass("Humanoid")
-				if firingRoot and firingMobRoot and moveHumanoid then
+				if moveHumanoid then
 					local goal = OrbitApproachPoint(firingRoot, firingMobRoot, configuration.ExpApproachDistance)
 					SmoothMoveTo(moveHumanoid, firingRoot, goal, expMoveState, 0.22, 1.6)
 					chasingExpTarget = target
 				end
+			end
+
+			-- First contact: must enter approach range once before any shots on this target.
+			if not hasEngaged then
+				if not inApproach then
+					StateLabel.Text = "Moving"
+					MiniState.Text = string.format("Approach target once (%.0f / %.0f studs)", firingDistance, configuration.ExpApproachDistance)
+					task.wait(0.08)
+					continue
+				end
+				engagedFireTarget = target
+				hasEngaged = true
+			end
+
+			-- After engaged: keep firing even if range is briefly lost; only bail if way outside search radius.
+			if firingDistance > configuration.MaxDistance + 25 then
+				StateLabel.Text = "Moving"
+				MiniState.Text = string.format("Too far (%.0f); walking back into %.0f studs", firingDistance, configuration.MaxDistance)
 				task.wait(0.08)
 				continue
+			end
+
+			if inApproach then
+				StateLabel.Text = "Firing"
+				MiniState.Text = "Sending EXP to locked target"
+			else
+				StateLabel.Text = "Moving + Firing"
+				MiniState.Text = string.format("Out of standoff (%.0f); firing while closing in", firingDistance)
 			end
 
 			-- Sync Auto Attack's mob target to EXP when the target toggle is enabled.
@@ -3869,27 +3866,22 @@ task.spawn(function()
 			end
 		end
 
-		-- Player level + level EXP bar (both mini + full Experience page).
+		-- Player level + Exp current/max (no level progress bar).
 		do
-			local level, pExp, pMax, pRatio = configuration.GetLocalLevelProgress()
+			local level, pExp, pMax = configuration.GetLocalLevelProgress()
 			local levelText = level ~= nil and ("Lv " .. tostring(math.floor(level))) or "Lv —"
 			if LevelLabel.Text ~= levelText then LevelLabel.Text = levelText end
 			if MiniLevel.Text ~= levelText then MiniLevel.Text = levelText end
-			local levelExpLine
+			local expLine
 			if pExp ~= nil and pMax ~= nil then
-				levelExpLine = string.format("Level EXP  %s / %s", configuration.FormatNumber(pExp), configuration.FormatNumber(pMax))
+				expLine = string.format("Exp %s/%s", configuration.FormatNumber(pExp), configuration.FormatNumber(pMax))
 			elseif pExp ~= nil then
-				levelExpLine = "Level EXP  " .. configuration.FormatNumber(pExp)
+				expLine = "Exp " .. configuration.FormatNumber(pExp)
 			else
-				levelExpLine = "Level EXP  —"
+				expLine = "Exp —/—"
 			end
-			if LevelExpText.Text ~= levelExpLine then LevelExpText.Text = levelExpLine end
-			if MiniLevelExpLabel.Text ~= levelExpLine then MiniLevelExpLabel.Text = levelExpLine end
-			local fill = pRatio or 0
-			if math.floor(fill * 1000) ~= math.floor((LevelBarFill.Size.X.Scale or 0) * 1000) then
-				LevelBarFill.Size = UDim2.fromScale(fill, 1)
-				MiniLevelBarFill.Size = UDim2.fromScale(fill, 1)
-			end
+			if LevelExpText.Text ~= expLine then LevelExpText.Text = expLine end
+			if MiniLevelExpLabel.Text ~= expLine then MiniLevelExpLabel.Text = expLine end
 		end
 
 		-- Faster while farming/combat feedback matters; slower when idle to cut CPU.
