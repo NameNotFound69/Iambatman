@@ -50,16 +50,17 @@ local MobCache = {
 	Dirty = true,
 	LastRebuild = 0,
 }
-local BossSearchCache = { LastSearchAt = 0, Range = nil, Mob = nil }
-local MobSearchCache = { LastSearchAt = 0, Range = nil, Mob = nil }
+local CombatSearchCaches = {
+	Boss = { LastSearchAt = 0, Range = nil, Mob = nil },
+	Mob = { LastSearchAt = 0, Range = nil, Mob = nil },
+}
 
 local function InvalidateBossSearchCache()
-	BossSearchCache.LastSearchAt = 0
-	BossSearchCache.Range = nil
-	BossSearchCache.Mob = nil
-	MobSearchCache.LastSearchAt = 0
-	MobSearchCache.Range = nil
-	MobSearchCache.Mob = nil
+	for _, cache in pairs(CombatSearchCaches) do
+		cache.LastSearchAt = 0
+		cache.Range = nil
+		cache.Mob = nil
+	end
 end
 
 local CollectionService = game:GetService("CollectionService")
@@ -2161,7 +2162,7 @@ local ExpMobTargetButton = configuration.MakeToggle("Attack EXP target", configu
 local ExpTargetRetaliationButton = configuration.MakeToggle("Fight back if EXP mob is hit", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM, 5, CombatGrid, "If your EXP mob takes damage, kill it first.")
 local BossPriorityButton = configuration.MakeToggle("Prioritize bosses", configuration.AutoAttackBossPriority, ACCENT, ACCENT_DIM, 6, CombatGrid,
 	"Choose a nearby boss before ordinary mobs. Manual and EXP targets stay locked.")
-local BossesOnlyButton = configuration.MakeToggle("Bosses only", configuration.AutoAttackBossesOnly, ACCENT, ACCENT_DIM, 7, CombatGrid,
+configuration.BossesOnlyButton = configuration.MakeToggle("Bosses only", configuration.AutoAttackBossesOnly, ACCENT, ACCENT_DIM, 7, CombatGrid,
 	"Only select bosses for normal Auto Attack. Alert and active EXP safety targets may still take priority.")
 
 local AutoAttackModeButtons = {
@@ -2237,12 +2238,9 @@ CombatMobListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 CombatMobListLayout.Parent = CombatMobScroll
 
 configuration.CombatMobRows = {}
-local CombatMobRowByMob = {}
-local CombatMobRefreshQueued = false
-local LastCombatMobRefreshAt = 0
-local CombatMobListDirty = true
-local function SyncCombatMobRowSelection()
-	for mob, row in pairs(CombatMobRowByMob) do
+local CombatMobUI = { RowByMob = {}, RefreshQueued = false, LastRefreshAt = 0, ListDirty = true }
+function configuration.SyncCombatMobRowSelection()
+	for mob, row in pairs(CombatMobUI.RowByMob) do
 		if row.Parent then
 			local selected = configuration.AutoAttackPinnedMob == mob or configuration.CombatTargetMob == mob
 			row.BackgroundColor3 = selected and ACCENT_DIM or INPUT
@@ -2254,16 +2252,16 @@ end
 
 function configuration.RefreshCombatMobs()
 	if not CombatPage.Visible then return end
-	if not CombatMobListDirty then
-		SyncCombatMobRowSelection()
+	if not CombatMobUI.ListDirty then
+		configuration.SyncCombatMobRowSelection()
 		return
 	end
-	CombatMobListDirty = false
+	CombatMobUI.ListDirty = false
 	for _, row in ipairs(configuration.CombatMobRows) do
 		row:Destroy()
 	end
 	table.clear(configuration.CombatMobRows)
-	table.clear(CombatMobRowByMob)
+	table.clear(CombatMobUI.RowByMob)
 
 	local entries = {}
 	local groupCounts = {}
@@ -2341,11 +2339,11 @@ function configuration.RefreshCombatMobs()
 		row.Font = Enum.Font.Gotham
 		row.TextXAlignment = Enum.TextXAlignment.Left
 		row.Parent = CombatMobScroll
-		CombatMobRowByMob[selectedMob] = row
+		CombatMobUI.RowByMob[selectedMob] = row
 		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
 		row.MouseButton1Click:Connect(function()
 			if not selectedMob:IsDescendantOf(MobsFolder) then
-				CombatMobListDirty = true
+				CombatMobUI.ListDirty = true
 				configuration.RefreshCombatMobs()
 				return
 			end
@@ -2374,21 +2372,21 @@ function configuration.RefreshCombatMobs()
 end
 
 function configuration.RequestCombatMobRefresh()
-	CombatMobListDirty = true
-	if CombatMobRefreshQueued or not CombatPage.Visible then return end
-	CombatMobRefreshQueued = true
-	local delay = math.max(0.12, 0.45 - (os.clock() - LastCombatMobRefreshAt))
+	CombatMobUI.ListDirty = true
+	if CombatMobUI.RefreshQueued or not CombatPage.Visible then return end
+	CombatMobUI.RefreshQueued = true
+	local delay = math.max(0.12, 0.45 - (os.clock() - CombatMobUI.LastRefreshAt))
 	task.delay(delay, function()
-		CombatMobRefreshQueued = false
+		CombatMobUI.RefreshQueued = false
 		if CombatMobScroll.Parent and CombatPage.Visible then
-			LastCombatMobRefreshAt = os.clock()
+			CombatMobUI.LastRefreshAt = os.clock()
 			configuration.RefreshCombatMobs()
 		end
 	end)
 end
 
 CombatMobRefresh.MouseButton1Click:Connect(function()
-	CombatMobListDirty = true
+	CombatMobUI.ListDirty = true
 	configuration.RefreshCombatMobs()
 end)
 MobsFolder.ChildAdded:Connect(configuration.RequestCombatMobRefresh)
@@ -2473,9 +2471,9 @@ BossPriorityButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
-BossesOnlyButton.MouseButton1Click:Connect(function()
+configuration.BossesOnlyButton.MouseButton1Click:Connect(function()
 	configuration.AutoAttackBossesOnly = not configuration.AutoAttackBossesOnly
-	configuration.SetToggleVisual(BossesOnlyButton, "Bosses only", configuration.AutoAttackBossesOnly, ACCENT, ACCENT_DIM)
+	configuration.SetToggleVisual(configuration.BossesOnlyButton, "Bosses only", configuration.AutoAttackBossesOnly, ACCENT, ACCENT_DIM)
 	if configuration.AutoAttackBossesOnly then
 		configuration.AutoAttackMode = "Mob"
 		configuration.AutoAttackUseExpTarget = false
@@ -3468,7 +3466,7 @@ function configuration.Combat.FindNearestCombatMob(localRoot, maxDistance, bosse
 	MobCache_Rebuild(false)
 	local searchDistance = maxDistance or configuration.AutoAttackSearchRange
 	local now = os.clock()
-	local searchCache = bossesOnly and BossSearchCache or MobSearchCache
+	local searchCache = bossesOnly and CombatSearchCaches.Boss or CombatSearchCaches.Mob
 	if searchCache.Range == searchDistance and now - searchCache.LastSearchAt < 0.25 then
 		local cachedMob = searchCache.Mob
 		if not cachedMob then return nil, nil, nil end
