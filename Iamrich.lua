@@ -57,6 +57,8 @@ local configuration: {[string]: any} = {
 	MovementBoostEnabled = true,
 	AutoAttackEnabled = false,
 	AutoAttackUseExpTarget = false,
+	ExpTargetRetaliationEnabled = false,
+	ExpRetaliationTarget = nil,
 	AutoSkillEnabled = false,
 	AutoAttackMode = "Mob",
 	AutoAttackRange = 25,
@@ -234,6 +236,7 @@ function configuration.LoadConfig()
 	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
 	if type(config.AutoAttackEnabled) == "boolean" then configuration.AutoAttackEnabled = config.AutoAttackEnabled end
 	if type(config.AutoAttackUseExpTarget) == "boolean" then configuration.AutoAttackUseExpTarget = config.AutoAttackUseExpTarget end
+	if type(config.ExpTargetRetaliationEnabled) == "boolean" then configuration.ExpTargetRetaliationEnabled = config.ExpTargetRetaliationEnabled end
 	if type(config.AutoSkillEnabled) == "boolean" then configuration.AutoSkillEnabled = config.AutoSkillEnabled end
 	if type(config.ESPEnabled) == "boolean" then configuration.ESPEnabled = config.ESPEnabled end
 	if type(config.ESPLineEnabled) == "boolean" then configuration.ESPLineEnabled = config.ESPLineEnabled end
@@ -277,6 +280,7 @@ function configuration.SaveConfig()
 		AutoAttackTargetUserId = configuration.AutoAttackTargetUserId,
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
 		AutoAttackUseExpTarget = configuration.AutoAttackUseExpTarget,
+		ExpTargetRetaliationEnabled = configuration.ExpTargetRetaliationEnabled,
 		AutoAttackMode = configuration.AutoAttackMode,
 		AutoAttackRange = configuration.AutoAttackRange,
 		AutoAttackSearchRange = configuration.AutoAttackSearchRange,
@@ -1219,7 +1223,7 @@ AlertsGrid.Size = UDim2.new(1, 0, 0, 80)
 local PlayersGrid = configuration.MakeToggleGrid(PlayerPage, 2)
 PlayersGrid.Size = UDim2.new(1, 0, 0, 120)
 local CombatGrid = configuration.MakeToggleGrid(CombatPage, 2)
-CombatGrid.Size = UDim2.new(1, 0, 0, 80)
+CombatGrid.Size = UDim2.new(1, 0, 0, 120)
 local AttackModeGrid = configuration.MakeToggleGrid(CombatPage, 3)
 AttackModeGrid.Size = UDim2.new(1, 0, 0, 80)
 
@@ -1337,6 +1341,10 @@ CombatTargetButton.TextColor3 = TEXT
 local ExpMobTargetButton = configuration.MakeToggle(
 	configuration.AutoAttackUseExpTarget and "Mob EXP: ON" or "Mob EXP: OFF",
 	configuration.AutoAttackUseExpTarget, ACCENT, ACCENT_DIM, 4, CombatGrid
+)
+local ExpTargetRetaliationButton = configuration.MakeToggle(
+	configuration.ExpTargetRetaliationEnabled and "EXP hit reaction: ON" or "EXP hit reaction: OFF",
+	configuration.ExpTargetRetaliationEnabled, RED, RED_DIM, 5, CombatGrid
 )
 
 local AutoAttackModeButtons = {
@@ -1696,6 +1704,23 @@ AutoResumeButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
+ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
+	configuration.ExpTargetRetaliationEnabled = not configuration.ExpTargetRetaliationEnabled
+	ExpTargetRetaliationButton.Text = configuration.ExpTargetRetaliationEnabled
+		and "EXP hit reaction: ON" or "EXP hit reaction: OFF"
+	ExpTargetRetaliationButton.TextColor3 = configuration.ExpTargetRetaliationEnabled and RED or MUTED
+	ExpTargetRetaliationButton.BackgroundColor3 = configuration.ExpTargetRetaliationEnabled and RED_DIM or CARD
+	if not configuration.ExpTargetRetaliationEnabled then
+		local previousTarget = configuration.ExpRetaliationTarget
+		configuration.ExpRetaliationTarget = nil
+		if configuration.AutoAttackPinnedMob == previousTarget then
+			configuration.AutoAttackPinnedMob = nil
+		end
+		if configuration.CombatTargetMob == previousTarget then configuration.CombatTargetMob = nil end
+	end
+	configuration.SaveConfig()
+end)
+
 ESPToggleButton.MouseButton1Click:Connect(function()
 	configuration.ESPEnabled = not configuration.ESPEnabled
 	ESPToggleButton.Text = configuration.ESPEnabled and "ESP: ON" or "ESP: OFF"
@@ -1750,6 +1775,7 @@ EmergencyStopButton.MouseButton1Click:Connect(function()
 		configuration.AlertCombatBlockReady = false
 		configuration.AlertBlockTarget = nil
 		configuration.LastAlertCombatUserId = nil
+		configuration.ExpRetaliationTarget = nil
 		StartBtn.Text = "Start"
 		StartBtn.BackgroundColor3 = ACCENT
 		Status.Text = "OFF"
@@ -2451,6 +2477,9 @@ function configuration.PauseTimer()
 end
 
 function configuration.SetIdle()
+	if not configuration.AlertCombatPending then
+		configuration.ExpRetaliationTarget = nil
+	end
 	if configuration.Farming and not configuration.AlertCombatPending and configuration.AutoSkillEnabled
 		and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
 		configuration.AutoAttackPinnedMob = configuration.CurrentTarget
@@ -2601,6 +2630,16 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 		return nil
 	end
 
+	local hitExpMob = configuration.ExpRetaliationTarget
+	if hitExpMob then
+		local hitExpRoot = hitExpMob.PrimaryPart or hitExpMob:FindFirstChild("HumanoidRootPart")
+		if configuration.ExpTargetRetaliationEnabled and configuration.Combat.IsLivingMob(hitExpMob)
+			and hitExpRoot and hitExpRoot:IsA("BasePart") then
+			return "Mob", hitExpMob, hitExpRoot, (localRoot.Position - hitExpRoot.Position).Magnitude
+		end
+		configuration.ExpRetaliationTarget = nil
+	end
+
 	local maxedExpMob = configuration.ExpMaxCombatTarget
 	if maxedExpMob then
 		local maxedRoot = maxedExpMob.PrimaryPart or maxedExpMob:FindFirstChild("HumanoidRootPart")
@@ -2695,6 +2734,17 @@ task.spawn(function()
 	local watchedTarget = nil
 	local lastObservedExp = nil
 	local lastExpProgressAt = 0
+	local watchedHealthTarget = nil
+	local lastObservedTargetHealth = nil
+	local healthChangedConnection = nil
+	local function StartExpRetaliation(mob, currentHealth)
+		configuration.ExpRetaliationTarget = mob
+		configuration.AutoAttackPinnedMob = mob
+		configuration.CombatTargetMob = mob
+		lastObservedTargetHealth = currentHealth
+		StateLabel.Text = "EXP target hit"
+		MiniState.Text = "Attacking the damaged EXP target until it dies"
+	end
 	while true do
 		if not configuration.Farming or configuration.EmergencyStopActive then
 			if watchedTarget then
@@ -2715,6 +2765,28 @@ task.spawn(function()
 		end
 
 		local target = configuration.CurrentTarget
+		local retaliationTarget = configuration.ExpRetaliationTarget
+		if retaliationTarget then
+			if configuration.Combat.IsLivingMob(retaliationTarget) then
+				StateLabel.Text = "EXP target hit"
+				MiniState.Text = "Attacking the damaged EXP target until it dies"
+				task.wait(0.1)
+				continue
+			end
+			configuration.ExpRetaliationTarget = nil
+			if configuration.AutoAttackPinnedMob == retaliationTarget then
+				configuration.AutoAttackPinnedMob = nil
+			end
+			if configuration.CombatTargetMob == retaliationTarget then
+				configuration.CombatTargetMob = nil
+			end
+			watchedHealthTarget = nil
+			lastObservedTargetHealth = nil
+			if healthChangedConnection then
+				healthChangedConnection:Disconnect()
+				healthChangedConnection = nil
+			end
+		end
 
 		if target and configuration.Combat.IsLivingMob(target) then
 			-- ยึดตัวเดิม
@@ -2763,6 +2835,35 @@ task.spawn(function()
 			MiniState.Text = "Waiting for target EXP data"
 			task.wait(0.25)
 			continue
+		end
+
+		local targetHumanoid = target:FindFirstChildOfClass("Humanoid")
+		if watchedHealthTarget ~= target then
+			if healthChangedConnection then healthChangedConnection:Disconnect() end
+			watchedHealthTarget = target
+			lastObservedTargetHealth = targetHumanoid and targetHumanoid.Health or nil
+			healthChangedConnection = nil
+			if targetHumanoid then
+				healthChangedConnection = targetHumanoid.HealthChanged:Connect(function(currentHealth)
+					if configuration.Farming and not configuration.EmergencyStopActive
+						and configuration.ExpTargetRetaliationEnabled and lastObservedTargetHealth
+						and currentHealth < lastObservedTargetHealth then
+						StartExpRetaliation(target, currentHealth)
+					end
+					lastObservedTargetHealth = currentHealth
+				end)
+			end
+		elseif targetHumanoid then
+			if configuration.ExpTargetRetaliationEnabled
+				and lastObservedTargetHealth and targetHumanoid.Health < lastObservedTargetHealth then
+				StartExpRetaliation(target, targetHumanoid.Health)
+				task.wait(0.05)
+				continue
+			else
+				lastObservedTargetHealth = targetHumanoid.Health
+			end
+		else
+			lastObservedTargetHealth = nil
 		end
 
 		local now = os.clock()
@@ -2869,7 +2970,17 @@ task.spawn(function()
 		while callsSent < toFire do
 			if not configuration.Farming or configuration.EmergencyStopActive then break end
 			if not target:IsDescendantOf(MobsFolder) then break end
+			if configuration.ExpRetaliationTarget == target then break end
 			if exp.Value >= configuration.ExpGoal then break end
+			local firingHumanoid = target:FindFirstChildOfClass("Humanoid")
+			if configuration.ExpTargetRetaliationEnabled and watchedHealthTarget == target
+				and firingHumanoid and lastObservedTargetHealth
+				and firingHumanoid.Health < lastObservedTargetHealth then
+				StartExpRetaliation(target, firingHumanoid.Health)
+				break
+			elseif firingHumanoid then
+				lastObservedTargetHealth = firingHumanoid.Health
+			end
 
 			local firingCharacter = Player.Character
 			local firingRoot = firingCharacter and firingCharacter:FindFirstChild("HumanoidRootPart")
@@ -2986,12 +3097,15 @@ task.spawn(function()
 	local lastMoveAt = 0
 	local lastEquipAt = 0
 	local chasingMob = false
+	local lastRetaliationAttackTarget = nil
 	while true do
-		local canCombatWhileExpMaxed = configuration.Farming and configuration.ExpMaxCombatTarget ~= nil
+		local canCombatDuringExp = configuration.Farming
+			and (configuration.ExpMaxCombatTarget ~= nil or configuration.ExpRetaliationTarget ~= nil)
 		if not configuration.EmergencyStopActive
-			and (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or configuration.AlertCombatPending)
+			and (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or configuration.AlertCombatPending
+				or configuration.ExpRetaliationTarget ~= nil)
 			and not configuration.AlertCombatHold
-			and (not configuration.Farming or canCombatWhileExpMaxed) and not configuration.AlertCombatBlockReady then
+			and (not configuration.Farming or canCombatDuringExp) and not configuration.AlertCombatBlockReady then
 			local character = Player.Character
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			local targetKind, target, targetRoot, distance
@@ -3001,8 +3115,18 @@ task.spawn(function()
 				targetKind, target, targetRoot, distance = configuration.Combat.FindAutoAttackTarget(localRoot)
 				atRearPosition = targetKind ~= "Mob"
 			end
+			if target == configuration.ExpRetaliationTarget and target then
+				if lastRetaliationAttackTarget ~= target then
+					lastAttackAt = os.clock() - configuration.AutoAttackInterval
+					lastRetaliationAttackTarget = target
+				end
+			else
+				lastRetaliationAttackTarget = nil
+			end
 			if target and targetRoot then
-				if targetKind == "Mob" and localRoot and (configuration.AutoAttackEnabled or configuration.AlertCombatPending) then
+				if targetKind == "Mob" and localRoot
+					and (configuration.AutoAttackEnabled or configuration.AlertCombatPending
+						or configuration.ExpRetaliationTarget == target) then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					local now = os.clock()
 					local flatForward = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
@@ -3069,7 +3193,9 @@ task.spawn(function()
 							end
 						else
 							CombatInfo.Text = configuration.AlertCombatPending and "Alert response: attacking only the locked EXP target." or "Weapon ready; Auto Attack can engage the selected target."
-							if (configuration.AutoAttackEnabled or configuration.AlertCombatPending) and now - lastAttackAt >= configuration.AutoAttackInterval then
+							if (configuration.AutoAttackEnabled or configuration.AlertCombatPending
+								or configuration.ExpRetaliationTarget == target)
+								and now - lastAttackAt >= configuration.AutoAttackInterval then
 								local ok, err = pcall(function()
 									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
 								end)
