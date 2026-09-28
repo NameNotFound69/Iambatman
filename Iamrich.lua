@@ -235,6 +235,8 @@ local configuration: {[string]: any} = {
 	AutoSkillInterval = 3,
 	AutoAttackStandoff = 4,
 	CombatTargetMob = nil,
+	NearbyLockKind = nil,
+	NearbyLockTarget = nil,
 	Farming = false,
 	CurrentTarget = nil,
 	ExpMaxCombatTarget = nil,
@@ -2105,6 +2107,8 @@ end)
 for mode, button in pairs(AutoAttackModeButtons) do
 	button.MouseButton1Click:Connect(function()
 		configuration.AutoAttackMode = mode
+		configuration.NearbyLockKind = nil
+		configuration.NearbyLockTarget = nil
 		if mode ~= "Mob" then
 			if configuration.AutoAttackUseExpTarget then
 				configuration.AutoAttackUseExpTarget = false
@@ -2112,6 +2116,10 @@ for mode, button in pairs(AutoAttackModeButtons) do
 				configuration.CombatTargetMob = nil
 				configuration.UpdateExpMobTargetButton()
 			end
+		end
+		if mode == "Player" then
+			configuration.AutoAttackPinnedMob = nil
+			configuration.CombatTargetMob = nil
 		end
 		configuration.UpdateAutoAttackModeButtons()
 		configuration.SaveConfig()
@@ -3204,35 +3212,83 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 			configuration.CombatTargetMob = nil
 		end
 
-		local nearestMob, nearestRoot, nearestDistance = configuration.Combat.FindNearestCombatMob(localRoot)
+		local searchCap = configuration.AutoAttackSearchRange
+		-- While following a player, only peel off for mobs inside attack range, then return to follow.
+		if configuration.FollowPlayerUserId then
+			searchCap = configuration.AutoAttackRange or 12
+		end
+		local nearestMob, nearestRoot, nearestDistance = configuration.Combat.FindNearestCombatMob(localRoot, searchCap)
 		if nearestMob then
 			configuration.CombatTargetMob = nearestMob
 			if configuration.RefreshCombatMobs then configuration.RefreshCombatMobs() end
 			return "Mob", nearestMob, nearestRoot, nearestDistance
 		end
+		configuration.CombatTargetMob = nil
 		return nil
 	end
 
-	local mob, mobRoot, mobDistance = configuration.Combat.FindNearestCombatMob(localRoot)
+	-- Nearby: lock ONE target (Mob OR Player) until dead / out of range — never mix mid-fight.
+	local searchRange = configuration.AutoAttackSearchRange or configuration.AutoAttackRange or 60
+	local function livingPlayerRoot(otherPlayer)
+		if not otherPlayer or otherPlayer == Player or configuration.IsWhitelisted(otherPlayer) then return nil, nil end
+		local character = otherPlayer.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local targetRoot = character and character:FindFirstChild("HumanoidRootPart")
+		if not targetRoot or not targetRoot:IsA("BasePart") then return nil, nil end
+		if humanoid and humanoid.Health <= 0 then return nil, nil end
+		return otherPlayer, targetRoot
+	end
 
-	local nearestPlayer, nearestRoot, nearestDistance
+	local lockKind = configuration.NearbyLockKind
+	local lockTarget = configuration.NearbyLockTarget
+	if lockKind == "Mob" and lockTarget then
+		local lockRoot = lockTarget.PrimaryPart or lockTarget:FindFirstChild("HumanoidRootPart")
+		if configuration.Combat.IsLivingMob(lockTarget) and lockRoot and lockRoot:IsA("BasePart") then
+			local dist = (localRoot.Position - lockRoot.Position).Magnitude
+			if dist <= searchRange + 15 then
+				configuration.CombatTargetMob = lockTarget
+				return "Mob", lockTarget, lockRoot, dist
+			end
+		end
+		configuration.NearbyLockKind, configuration.NearbyLockTarget = nil, nil
+		configuration.CombatTargetMob = nil
+	elseif lockKind == "Player" and lockTarget then
+		local plr, root = livingPlayerRoot(lockTarget)
+		if plr and root then
+			local dist = (localRoot.Position - root.Position).Magnitude
+			if dist <= searchRange + 15 then
+				return "Player", plr, root, dist
+			end
+		end
+		configuration.NearbyLockKind, configuration.NearbyLockTarget = nil, nil
+	end
+
+	local mob, mobRoot, mobDistance = configuration.Combat.FindNearestCombatMob(localRoot, searchRange)
+	local nearestPlayer, nearestRoot, nearestDistance = nil, nil, nil
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
-		if otherPlayer ~= Player and not configuration.IsWhitelisted(otherPlayer) then
-			local character = otherPlayer.Character
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			local targetRoot = character and character:FindFirstChild("HumanoidRootPart")
-			if targetRoot and targetRoot:IsA("BasePart") and (not humanoid or humanoid.Health > 0) then
-				local distance = (localRoot.Position - targetRoot.Position).Magnitude
-				if distance <= configuration.AutoAttackRange and (not nearestDistance or distance < nearestDistance) then
-					nearestPlayer, nearestRoot, nearestDistance = otherPlayer, targetRoot, distance
-				end
+		local plr, root = livingPlayerRoot(otherPlayer)
+		if plr and root then
+			local distance = (localRoot.Position - root.Position).Magnitude
+			if distance <= searchRange and (not nearestDistance or distance < nearestDistance) then
+				nearestPlayer, nearestRoot, nearestDistance = plr, root, distance
 			end
 		end
 	end
-	if nearestPlayer and (not mob or nearestDistance < mobDistance) then
+
+	if nearestPlayer and (not mob or nearestDistance < (mobDistance or math.huge)) then
+		configuration.NearbyLockKind = "Player"
+		configuration.NearbyLockTarget = nearestPlayer
+		configuration.CombatTargetMob = nil
 		return "Player", nearestPlayer, nearestRoot, nearestDistance
 	end
-	if mob then return "Mob", mob, mobRoot, mobDistance end
+	if mob then
+		configuration.NearbyLockKind = "Mob"
+		configuration.NearbyLockTarget = mob
+		configuration.CombatTargetMob = mob
+		return "Mob", mob, mobRoot, mobDistance
+	end
+	configuration.NearbyLockKind, configuration.NearbyLockTarget = nil, nil
+	configuration.CombatTargetMob = nil
 	return nil
 end
 
@@ -4054,17 +4110,52 @@ task.spawn(function()
 		end
 
 		local followedPlayer = configuration.FollowPlayerUserId and Players:GetPlayerByUserId(tonumber(configuration.FollowPlayerUserId))
-		local autoAttackHasMobTarget = configuration.AlertCombatPending
-			or (configuration.AutoAttackEnabled and not configuration.Farming
-				and configuration.AutoAttackMode == "Mob"
-				and (configuration.AutoAttackPinnedMob ~= nil or configuration.CombatTargetMob ~= nil))
-		if not configuration.EmergencyStopActive and followedPlayer and char and not autoAttackHasMobTarget and os.clock() - lastFollowMove >= 0.6 then
+		-- Pause Follow only while actively fighting (alive target inside fight range).
+		-- When the fight ends, soft locks clear and Follow resumes automatically.
+		local interruptFollow = configuration.AlertCombatPending == true
+		if not interruptFollow and configuration.AutoAttackEnabled and not configuration.Farming and localRoot then
+			local kind, tgt, tgtRoot, dist = configuration.Combat.FindAutoAttackTarget(localRoot)
+			local fightRange = (configuration.AutoAttackRange or 12) + 8
+			if kind and tgtRoot and dist and dist <= fightRange then
+				interruptFollow = true
+			else
+				if not configuration.AutoAttackPinnedMob then
+					configuration.CombatTargetMob = nil
+				end
+				if configuration.AutoAttackMode == "Nearby" and not kind then
+					configuration.NearbyLockKind = nil
+					configuration.NearbyLockTarget = nil
+				end
+			end
+		end
+		-- Follow with spacing: keep FollowDistance studs away so we do not stack on the target.
+		if not configuration.EmergencyStopActive and followedPlayer and char and not interruptFollow and os.clock() - lastFollowMove >= 0.25 then
 			local humanoid = char:FindFirstChildOfClass("Humanoid")
 			local followedCharacter = followedPlayer.Character
 			local followedRoot = followedCharacter and followedCharacter:FindFirstChild("HumanoidRootPart")
 			if humanoid and localRoot and followedRoot then
-				if (localRoot.Position - followedRoot.Position).Magnitude > configuration.FollowDistance + 2 then
-					humanoid:MoveTo(followedRoot.Position - followedRoot.CFrame.LookVector * configuration.FollowDistance)
+				local spacing = math.max(3, configuration.FollowDistance or 8)
+				local delta = localRoot.Position - followedRoot.Position
+				local flat = Vector3.new(delta.X, 0, delta.Z)
+				local dist = flat.Magnitude
+				-- Prefer staying on the current side of the target; if overlapping, fall back behind them.
+				local outward = flat
+				if outward.Magnitude < 0.35 then
+					local behind = -followedRoot.CFrame.LookVector
+					outward = Vector3.new(behind.X, 0, behind.Z)
+					if outward.Magnitude < 0.1 then
+						outward = Vector3.new(0, 0, -1)
+					end
+				end
+				outward = outward.Unit
+				local goal = followedRoot.Position + outward * spacing
+				goal = Vector3.new(goal.X, followedRoot.Position.Y, goal.Z)
+
+				-- Hysteresis: only path when too far or too close; hold still inside the comfort band.
+				local tooFar = dist > spacing + 1.25
+				local tooClose = dist < spacing * 0.72
+				if tooFar or tooClose then
+					humanoid:MoveTo(goal)
 				else
 					humanoid:MoveTo(localRoot.Position)
 				end
