@@ -731,25 +731,25 @@ end
 
 
 --==================================================
--- COLORS (Slayers2-style dark + soft cyan)
+-- COLORS (Slayers2-inspired dark blue UI)
 --==================================================
-local BG         = Color3.fromRGB(18, 18, 20)      -- main window
-local SIDEBAR_BG = Color3.fromRGB(22, 22, 24)      -- left sidebar
-local CARD       = Color3.fromRGB(28, 28, 30)      -- content cards
-local INPUT      = Color3.fromRGB(36, 36, 39)      -- inputs / rows
-local BORDER     = Color3.fromRGB(45, 45, 48)
-local TEXT       = Color3.fromRGB(240, 240, 243)
-local MUTED      = Color3.fromRGB(140, 140, 148)
-local ACCENT     = Color3.fromRGB(130, 210, 245)   -- soft cyan
-local ACCENT_SEL = Color3.fromRGB(160, 220, 245)  -- selected nav (like image)
+local BG         = Color3.fromRGB(16, 18, 26)      -- main window
+local SIDEBAR_BG = Color3.fromRGB(12, 14, 22)      -- left sidebar
+local CARD       = Color3.fromRGB(24, 28, 40)      -- content cards / rows
+local INPUT      = Color3.fromRGB(32, 36, 50)      -- inputs
+local BORDER     = Color3.fromRGB(42, 48, 64)
+local TEXT       = Color3.fromRGB(236, 240, 248)
+local MUTED      = Color3.fromRGB(130, 138, 158)
+local ACCENT     = Color3.fromRGB(90, 160, 255)    -- switch / accent blue
+local ACCENT_SEL = Color3.fromRGB(120, 180, 255)
 local GREEN      = Color3.fromRGB(76, 218, 164)
 local RED        = Color3.fromRGB(255, 92, 112)
 local YELLOW     = Color3.fromRGB(255, 196, 92)
-local ACCENT_DIM = Color3.fromRGB(40, 90, 110)
+local ACCENT_DIM = Color3.fromRGB(32, 56, 96)
 local GREEN_DIM  = Color3.fromRGB(24, 53, 45)
 local RED_DIM    = Color3.fromRGB(56, 30, 37)
-local SEL_BG     = Color3.fromRGB(160, 220, 245)  -- light blue selected button
-local SEL_TEXT   = Color3.fromRGB(20, 30, 40)     -- dark text on selected
+local SEL_BG     = Color3.fromRGB(48, 78, 130)     -- selected nav (soft blue fill)
+local SEL_TEXT   = Color3.fromRGB(220, 235, 255)   -- light text on selected
 
 function configuration.GetHealthColor(current, maximum)
 	if not current or not maximum or maximum <= 0 then return MUTED end
@@ -934,7 +934,7 @@ local AlarmOverlay
 local Header = Instance.new("Frame")
 Header.Size = UDim2.fromScale(1, 0.09)
 Header.Active = true
-Header.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+Header.BackgroundColor3 = Color3.fromRGB(18, 20, 30)
 Header.BorderSizePixel = 0
 Header.Parent = Main
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
@@ -992,9 +992,10 @@ Subtitle.Font = Enum.Font.Gotham
 Subtitle.TextXAlignment = Enum.TextXAlignment.Left
 Subtitle.Parent = Header
 
+-- Order (right edge): [ Status ON/OFF ] [ − / + ]  — same in full + mini
 local Status = Instance.new("TextButton")
 Status.Size = UDim2.fromOffset(48, 20)
-Status.Position = UDim2.new(1, -62, 0, 10)
+Status.Position = UDim2.new(1, -84, 0, 10)
 Status.BackgroundColor3 = RED_DIM
 Status.BorderSizePixel = 0
 Status.AutoButtonColor = false
@@ -1007,7 +1008,7 @@ Instance.new("UICorner", Status).CornerRadius = UDim.new(1, 0)
 
 local MinimizeBtn = Instance.new("TextButton")
 MinimizeBtn.Size = UDim2.fromOffset(24, 24)
-MinimizeBtn.Position = UDim2.new(1, -92, 0, 8)
+MinimizeBtn.Position = UDim2.new(1, -32, 0, 8)
 MinimizeBtn.BackgroundColor3 = INPUT
 MinimizeBtn.BorderSizePixel = 0
 MinimizeBtn.Text = "−"
@@ -1168,12 +1169,13 @@ function configuration.ApplyMinimized(state)
 		local px = math.clamp(Main.Position.X.Scale * viewport.X + Main.Position.X.Offset, 8, math.max(8, viewport.X - MINI_WIDTH - 8))
 		local py = math.clamp(Main.Position.Y.Scale * viewport.Y + Main.Position.Y.Offset, 8, math.max(8, viewport.Y - MINI_HEIGHT - 8))
 		Main.Position = UDim2.fromOffset(px, py)
-		Status.Position = UDim2.new(1, -86, 0, 8)
-		Status.Size = UDim2.fromOffset(40, 18)
-		MinimizeBtn.Position = UDim2.new(1, -40, 0, 6)
-		MinimizeBtn.Size = UDim2.fromOffset(28, 22)
+		-- Same order as full UI: Status left, expand (+) rightmost
+		Status.Position = UDim2.new(1, -84, 0, 8)
+		Status.Size = UDim2.fromOffset(48, 20)
+		MinimizeBtn.Position = UDim2.new(1, -32, 0, 6)
+		MinimizeBtn.Size = UDim2.fromOffset(24, 24)
 	else
-		Header.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+		Header.BackgroundColor3 = Color3.fromRGB(18, 20, 30)
 		Main.Size = UDim2.fromScale(configuration.MainWidthScale, configuration.MainHeightScale)
 		Header.Size = UDim2.fromScale(1, 0.09)
 		if SavedMainPosition then
@@ -1181,9 +1183,10 @@ function configuration.ApplyMinimized(state)
 		else
 			Main.Position = UDim2.fromScale(0.5 - configuration.MainWidthScale / 2, 0.5 - configuration.MainHeightScale / 2)
 		end
-		Status.Position = UDim2.new(1, -62, 0, 10)
+		-- Same order: Status left, minimize (−) rightmost
+		Status.Position = UDim2.new(1, -84, 0, 10)
 		Status.Size = UDim2.fromOffset(48, 20)
-		MinimizeBtn.Position = UDim2.new(1, -92, 0, 8)
+		MinimizeBtn.Position = UDim2.new(1, -32, 0, 8)
 		MinimizeBtn.Size = UDim2.fromOffset(24, 24)
 	end
 end
@@ -1318,12 +1321,12 @@ function configuration.AddPageHeading(page, title, description)
 	return heading
 end
 
-configuration.AddPageHeading(ExpPage, "Experience", "Track your EXP progress and current farming session")
-configuration.AddPageHeading(ESPPage, "Player ESP", "Choose which player markers to show")
-configuration.AddPageHeading(PlayerPage, "Players", "Follow target, spacing, server players and whitelist")
-configuration.AddPageHeading(AlertsPage, "Alerts", "Notifications and idle behavior")
-configuration.AddPageHeading(FarmPage, "Farming", "Set the EXP cycle amount, target range, interval and goal")
-configuration.AddPageHeading(CombatPage, "Auto Attack", "Choose a target and control attack, skill and timing")
+configuration.AddPageHeading(ExpPage, "Experience", "Track your level, EXP and active farm session")
+configuration.AddPageHeading(ESPPage, "ESP", "Show other players on screen")
+configuration.AddPageHeading(PlayerPage, "Players", "Follow, block, whitelist and server list")
+configuration.AddPageHeading(AlertsPage, "Alerts", "Warn when other players come nearby")
+configuration.AddPageHeading(FarmPage, "Farm settings", "EXP per cycle, range, interval and goal")
+configuration.AddPageHeading(CombatPage, "Combat", "Auto attack, skills and target mode")
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
@@ -1362,15 +1365,18 @@ SidebarPad.Parent = SidebarScroll
 
 function configuration.MakeNavSection(text, order)
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, 0, 0, 22)
+	label.Size = UDim2.new(1, 0, 0, 20)
 	label.LayoutOrder = order
 	label.BackgroundTransparency = 1
-	label.Text = "  " .. string.upper(text)
-	label.TextColor3 = MUTED
+	label.Text = string.upper(text)
+	label.TextColor3 = Color3.fromRGB(100, 110, 130)
 	label.TextSize = 10
 	label.Font = Enum.Font.GothamBold
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Parent = SidebarScroll
+	local pad = Instance.new("UIPadding", label)
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingTop = UDim.new(0, 6)
 	return label
 end
 
@@ -1385,26 +1391,15 @@ function configuration.MakeNavButton(text, icon, order)
 	button.Text = ""
 	button.AutoButtonColor = false
 	button.Parent = SidebarScroll
-	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
-
-	local iconLabel = Instance.new("TextLabel")
-	iconLabel.Name = "Icon"
-	iconLabel.Size = UDim2.fromOffset(22, 22)
-	iconLabel.Position = UDim2.fromOffset(8, 7)
-	iconLabel.BackgroundTransparency = 1
-	iconLabel.Text = icon or "•"
-	iconLabel.TextColor3 = MUTED
-	iconLabel.TextSize = 14
-	iconLabel.Font = Enum.Font.GothamBold
-	iconLabel.Parent = button
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 9)
 
 	local textLabel = Instance.new("TextLabel")
 	textLabel.Name = "Label"
-	textLabel.Size = UDim2.new(1, -40, 1, 0)
-	textLabel.Position = UDim2.fromOffset(34, 0)
+	textLabel.Size = UDim2.new(1, -24, 1, 0)
+	textLabel.Position = UDim2.fromOffset(14, 0)
 	textLabel.BackgroundTransparency = 1
 	textLabel.Text = text
-	textLabel.TextColor3 = TEXT
+	textLabel.TextColor3 = MUTED
 	textLabel.TextSize = 13
 	textLabel.Font = Enum.Font.Gotham
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1415,15 +1410,15 @@ end
 
 configuration.MakeNavSection("Auto Farm", 1)
 local NavButtons = {
-	EXP    = configuration.MakeNavButton("Experience", "◆", 2),
-	Farm   = configuration.MakeNavButton("Farming", "▣", 3),
-	Combat = configuration.MakeNavButton("Auto Attack", "⚔", 4),
+	EXP    = configuration.MakeNavButton("Overview", nil, 2),
+	Farm   = configuration.MakeNavButton("Farm settings", nil, 3),
+	Combat = configuration.MakeNavButton("Combat", nil, 4),
 }
-configuration.MakeNavSection("Monitoring", 5)
-NavButtons.Alerts = configuration.MakeNavButton("Alerts", "⚠", 6)
-NavButtons.Player = configuration.MakeNavButton("Players", "◎", 7)
-configuration.MakeNavSection("Visuals", 8)
-NavButtons.ESP = configuration.MakeNavButton("Player ESP", "◇", 9)
+configuration.MakeNavSection("Tools", 5)
+NavButtons.Alerts = configuration.MakeNavButton("Alerts", nil, 6)
+NavButtons.Player = configuration.MakeNavButton("Players", nil, 7)
+configuration.MakeNavSection("Display", 8)
+NavButtons.ESP = configuration.MakeNavButton("ESP", nil, 9)
 
 function configuration.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -1435,13 +1430,9 @@ function configuration.SetMainTab(tab)
 		button.BackgroundTransparency = selected and 0 or 1
 		button.BackgroundColor3 = SEL_BG
 		local label = button:FindFirstChild("Label")
-		local icon = button:FindFirstChild("Icon")
 		if label then
-			label.TextColor3 = selected and SEL_TEXT or TEXT
+			label.TextColor3 = selected and SEL_TEXT or MUTED
 			label.Font = selected and Enum.Font.GothamBold or Enum.Font.Gotham
-		end
-		if icon then
-			icon.TextColor3 = selected and SEL_TEXT or MUTED
 		end
 	end
 end
@@ -1672,42 +1663,35 @@ EmergencyStopButton.Parent = ExpPage
 Instance.new("UICorner", EmergencyStopButton).CornerRadius = UDim.new(0, 8)
 
 --==================================================
--- TOGGLE GRID (2 columns)
+-- TOGGLE LIST (label left, switch right)
 --==================================================
 ToggleGrid = Instance.new("Frame")
-ToggleGrid.Size = UDim2.new(1, 0, 0, 80)
+ToggleGrid.Size = UDim2.new(1, 0, 0, 0)
+ToggleGrid.AutomaticSize = Enum.AutomaticSize.Y
 ToggleGrid.LayoutOrder = 2
 ToggleGrid.BackgroundTransparency = 1
 ToggleGrid.Parent = ESPPage
-
-local GridLayout = Instance.new("UIGridLayout", ToggleGrid)
-GridLayout.CellSize = UDim2.new(0.5, -4, 0, 36)
-GridLayout.CellPadding = UDim2.fromOffset(8, 8)
-GridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-GridLayout.FillDirectionMaxCells = 2
+local ToggleGridLayout = Instance.new("UIListLayout", ToggleGrid)
+ToggleGridLayout.Padding = UDim.new(0, 6)
+ToggleGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 function configuration.MakeToggleGrid(parent, order)
 	local grid = Instance.new("Frame")
-	grid.Size = UDim2.new(1, 0, 0, 40)
+	grid.Size = UDim2.new(1, 0, 0, 0)
+	grid.AutomaticSize = Enum.AutomaticSize.Y
 	grid.LayoutOrder = order
 	grid.BackgroundTransparency = 1
 	grid.Parent = parent
-	local layout = Instance.new("UIGridLayout", grid)
-	layout.CellSize = UDim2.new(0.5, -4, 0, 36)
-	layout.CellPadding = UDim2.fromOffset(8, 4)
+	local layout = Instance.new("UIListLayout", grid)
+	layout.Padding = UDim.new(0, 6)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.FillDirectionMaxCells = 2
 	return grid
 end
 
 local AlertsGrid = configuration.MakeToggleGrid(AlertsPage, 2)
-AlertsGrid.Size = UDim2.new(1, 0, 0, 80)
 local PlayersGrid = configuration.MakeToggleGrid(PlayerPage, 2)
-PlayersGrid.Size = UDim2.new(1, 0, 0, 120)
 local CombatGrid = configuration.MakeToggleGrid(CombatPage, 2)
-CombatGrid.Size = UDim2.new(1, 0, 0, 120)
 local AttackModeGrid = configuration.MakeToggleGrid(CombatPage, 3)
-AttackModeGrid.Size = UDim2.new(1, 0, 0, 80)
 
 local AlertsDistanceCard = Instance.new("Frame")
 AlertsDistanceCard.Size = UDim2.new(1, 0, 0, 48)
@@ -1749,44 +1733,127 @@ AlertsDistanceInput.FocusLost:Connect(function()
 	configuration.SaveConfig()
 end)
 
-function configuration.MakeToggle(text, isOn, onColor, onBg, order, parent)
+function configuration.SetToggleVisual(btn, title, isOn, onColor, onBg)
+	if not btn then return end
+	local titleLabel = btn:FindFirstChild("Title")
+	local switch = btn:FindFirstChild("Switch")
+	local knob = switch and switch:FindFirstChild("Knob")
+	local clean = title or btn:GetAttribute("BaseTitle") or ""
+	clean = tostring(clean):gsub("%s*:?%s*ON%s*$", ""):gsub("%s*:?%s*OFF%s*$", "")
+	if titleLabel then
+		titleLabel.Text = clean
+		titleLabel.TextColor3 = TEXT
+	end
+	btn:SetAttribute("BaseTitle", clean)
+	btn:SetAttribute("IsOn", isOn and true or false)
+	btn.BackgroundColor3 = CARD
+	btn.Text = ""
+	if switch then
+		-- Always use accent blue for ON (Slayers2-style), gray for OFF
+		switch.BackgroundColor3 = isOn and ACCENT or Color3.fromRGB(55, 60, 78)
+		if knob then
+			knob.Position = isOn and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+		end
+	end
+end
+
+function configuration.MakeToggle(text, isOn, onColor, onBg, order, parent, description)
+	local clean = tostring(text or ""):gsub("%s*:?%s*ON%s*$", ""):gsub("%s*:?%s*OFF%s*$", "")
+	local hasDesc = type(description) == "string" and description ~= ""
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.fromScale(1, 1)
+	btn.Size = UDim2.new(1, 0, 0, hasDesc and 58 or 48)
 	btn.LayoutOrder = order
-	btn.BackgroundColor3 = isOn and onBg or CARD
+	btn.BackgroundColor3 = CARD
 	btn.BorderSizePixel = 0
-	btn.Text = text
-	btn.TextColor3 = isOn and onColor or MUTED
-	btn.TextSize = 12
-	btn.Font = Enum.Font.GothamBold
+	btn.Text = ""
+	btn.AutoButtonColor = false
 	btn.Parent = parent or ToggleGrid
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
+	local stroke = Instance.new("UIStroke", btn)
+	stroke.Color = BORDER
+	stroke.Transparency = 0.65
+	stroke.Thickness = 1
+
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Name = "Title"
+	titleLabel.Size = UDim2.new(1, -72, 0, hasDesc and 20 or 48)
+	titleLabel.Position = UDim2.fromOffset(16, hasDesc and 10 or 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = clean
+	titleLabel.TextColor3 = TEXT
+	titleLabel.TextSize = 14
+	titleLabel.Font = Enum.Font.GothamMedium
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextYAlignment = hasDesc and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+	titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	titleLabel.Parent = btn
+
+	if hasDesc then
+		local descLabel = Instance.new("TextLabel")
+		descLabel.Name = "Desc"
+		descLabel.Size = UDim2.new(1, -72, 0, 22)
+		descLabel.Position = UDim2.fromOffset(16, 30)
+		descLabel.BackgroundTransparency = 1
+		descLabel.Text = description
+		descLabel.TextColor3 = MUTED
+		descLabel.TextSize = 11
+		descLabel.Font = Enum.Font.Gotham
+		descLabel.TextXAlignment = Enum.TextXAlignment.Left
+		descLabel.TextYAlignment = Enum.TextYAlignment.Top
+		descLabel.TextWrapped = true
+		descLabel.Parent = btn
+	end
+
+	local switch = Instance.new("Frame")
+	switch.Name = "Switch"
+	switch.Size = UDim2.fromOffset(44, 24)
+	switch.Position = UDim2.new(1, -58, 0.5, -12)
+	switch.BackgroundColor3 = isOn and ACCENT or Color3.fromRGB(55, 60, 78)
+	switch.BorderSizePixel = 0
+	switch.Parent = btn
+	Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
+
+	local knob = Instance.new("Frame")
+	knob.Name = "Knob"
+	knob.Size = UDim2.fromOffset(20, 20)
+	knob.Position = isOn and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+	knob.BackgroundColor3 = Color3.fromRGB(250, 250, 255)
+	knob.BorderSizePixel = 0
+	knob.Parent = switch
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+	btn:SetAttribute("BaseTitle", clean)
+	btn:SetAttribute("IsOn", isOn and true or false)
 	return btn
 end
 
 function configuration.MakeNumberCard(parent, title, initialValue, order, minValue, maxValue, onChanged)
 	local card = Instance.new("Frame")
-	card.Size = UDim2.new(1, 0, 0, 48)
+	card.Size = UDim2.new(1, 0, 0, 52)
 	card.LayoutOrder = order
 	card.BackgroundColor3 = CARD
 	card.BorderSizePixel = 0
 	card.Parent = parent
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
+	local cardStroke = Instance.new("UIStroke", card)
+	cardStroke.Color = BORDER
+	cardStroke.Transparency = 0.65
+	cardStroke.Thickness = 1
 
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(0.58, -16, 1, 0)
-	label.Position = UDim2.new(0, 10, 0, 0)
+	label.Position = UDim2.new(0, 16, 0, 0)
 	label.BackgroundTransparency = 1
 	label.Text = title
 	label.TextColor3 = TEXT
-	label.TextSize = 11
-	label.Font = Enum.Font.Gotham
+	label.TextSize = 13
+	label.Font = Enum.Font.GothamMedium
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Parent = card
 
 	local input = Instance.new("TextBox")
-	input.Size = UDim2.new(0.36, -8, 0, 30)
-	input.Position = UDim2.new(0.62, 0, 0.5, -15)
+	input.Size = UDim2.new(0.34, -8, 0, 30)
+	input.Position = UDim2.new(0.64, 0, 0.5, -15)
 	input.BackgroundColor3 = INPUT
 	input.BorderSizePixel = 0
 	input.Text = tostring(initialValue())
@@ -1810,29 +1877,17 @@ local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
 	function(value) configuration.FollowDistance = value end
 )
 
-local AutoAttackButton = configuration.MakeToggle(
-	configuration.AutoAttackEnabled and "Auto Attack: ON" or "Auto Attack: OFF",
-	configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid
-)
-local AutoSkillButton = configuration.MakeToggle(
-	configuration.AutoSkillEnabled and "Auto Skill: ON" or "Auto Skill: OFF",
-	configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid
-)
-CombatTargetButton = configuration.MakeToggle("Choose player target", false, TEXT, CARD, 3, CombatGrid)
+local AutoAttackButton = configuration.MakeToggle("Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid, "Attack the selected target automatically.")
+local AutoSkillButton = configuration.MakeToggle("Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid, "Use skills on an interval while attacking.")
+CombatTargetButton = configuration.MakeToggle("Select player target", false, TEXT, CARD, 3, CombatGrid, "Pick which player to focus in Player mode.")
 CombatTargetButton.TextColor3 = TEXT
-local ExpMobTargetButton = configuration.MakeToggle(
-	configuration.AutoAttackUseExpTarget and "Mob EXP: ON" or "Mob EXP: OFF",
-	configuration.AutoAttackUseExpTarget, ACCENT, ACCENT_DIM, 4, CombatGrid
-)
-local ExpTargetRetaliationButton = configuration.MakeToggle(
-	configuration.ExpTargetRetaliationEnabled and "EXP hit reaction: ON" or "EXP hit reaction: OFF",
-	configuration.ExpTargetRetaliationEnabled, RED, RED_DIM, 5, CombatGrid
-)
+local ExpMobTargetButton = configuration.MakeToggle("Attack EXP target", configuration.AutoAttackUseExpTarget, ACCENT, ACCENT_DIM, 4, CombatGrid, "Force combat onto the current EXP farm mob.")
+local ExpTargetRetaliationButton = configuration.MakeToggle("Fight back if EXP mob is hit", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM, 5, CombatGrid, "If your EXP mob takes damage, kill it first.")
 
 local AutoAttackModeButtons = {
-	Mob = configuration.MakeToggle("Mob", configuration.AutoAttackMode == "Mob", ACCENT, ACCENT_DIM, 1, AttackModeGrid),
-	Player = configuration.MakeToggle("Player", configuration.AutoAttackMode == "Player", ACCENT, ACCENT_DIM, 2, AttackModeGrid),
-	Nearby = configuration.MakeToggle("Nearest: Mob / Player", configuration.AutoAttackMode == "Nearby", ACCENT, ACCENT_DIM, 3, AttackModeGrid),
+	Mob = configuration.MakeToggle("Target: Mobs", configuration.AutoAttackMode == "Mob", ACCENT, ACCENT_DIM, 1, AttackModeGrid, "Only attack monsters."),
+	Player = configuration.MakeToggle("Target: Players", configuration.AutoAttackMode == "Player", ACCENT, ACCENT_DIM, 2, AttackModeGrid, "Only attack the selected player."),
+	Nearby = configuration.MakeToggle("Target: Nearest (mob or player)", configuration.AutoAttackMode == "Nearby", ACCENT, ACCENT_DIM, 3, AttackModeGrid, "Lock the nearest mob or player until it dies."),
 }
 
 local AutoAttackRangeCard, AutoAttackRangeInput = configuration.MakeNumberCard(
@@ -2040,26 +2095,26 @@ CombatInfo.Parent = CombatPage
 
 function configuration.UpdateAttackTargetButton()
 	local targetPlayer = configuration.AutoAttackTargetUserId and Players:GetPlayerByUserId(tonumber(configuration.AutoAttackTargetUserId))
-	CombatTargetButton.Text = targetPlayer and ("Target: @" .. targetPlayer.Name) or "Choose player target"
-	CombatTargetButton.TextColor3 = targetPlayer and YELLOW or TEXT
-	CombatTargetButton.BackgroundColor3 = targetPlayer and Color3.fromRGB(62, 52, 30) or CARD
+	configuration.SetToggleVisual(CombatTargetButton, targetPlayer and ("Target: @" .. targetPlayer.Name) or "Select player target", targetPlayer ~= nil, YELLOW, Color3.fromRGB(62, 52, 30))
 end
 configuration.UpdateAttackTargetButton()
 
 function configuration.UpdateAutoAttackModeButtons()
+	local titles = {
+		Mob = "Target: Mobs",
+		Player = "Target: Players",
+		Nearby = "Target: Nearest (mob or player)",
+	}
 	for mode, button in pairs(AutoAttackModeButtons) do
 		local selected = configuration.AutoAttackMode == mode
-		button.TextColor3 = selected and ACCENT or MUTED
-		button.BackgroundColor3 = selected and ACCENT_DIM or CARD
+		configuration.SetToggleVisual(button, titles[mode] or mode, selected, ACCENT, ACCENT_DIM)
 	end
 	if configuration.RefreshCombatMobs then configuration.RefreshCombatMobs() end
 end
 configuration.UpdateAutoAttackModeButtons()
 
 function configuration.UpdateExpMobTargetButton()
-	ExpMobTargetButton.Text = configuration.AutoAttackUseExpTarget and "Mob EXP: ON" or "Mob EXP: OFF"
-	ExpMobTargetButton.TextColor3 = configuration.AutoAttackUseExpTarget and ACCENT or MUTED
-	ExpMobTargetButton.BackgroundColor3 = configuration.AutoAttackUseExpTarget and ACCENT_DIM or CARD
+	configuration.SetToggleVisual(ExpMobTargetButton, "Attack EXP target", configuration.AutoAttackUseExpTarget, ACCENT, ACCENT_DIM)
 end
 
 ExpMobTargetButton.MouseButton1Click:Connect(function()
@@ -2085,17 +2140,13 @@ end)
 
 AutoAttackButton.MouseButton1Click:Connect(function()
 	configuration.AutoAttackEnabled = not configuration.AutoAttackEnabled
-	AutoAttackButton.Text = configuration.AutoAttackEnabled and "Auto Attack: ON" or "Auto Attack: OFF"
-	AutoAttackButton.TextColor3 = configuration.AutoAttackEnabled and RED or MUTED
-	AutoAttackButton.BackgroundColor3 = configuration.AutoAttackEnabled and RED_DIM or CARD
+	configuration.SetToggleVisual(AutoAttackButton, "Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM)
 	configuration.SaveConfig()
 end)
 
 AutoSkillButton.MouseButton1Click:Connect(function()
 	configuration.AutoSkillEnabled = not configuration.AutoSkillEnabled
-	AutoSkillButton.Text = configuration.AutoSkillEnabled and "Auto Skill: ON" or "Auto Skill: OFF"
-	AutoSkillButton.TextColor3 = configuration.AutoSkillEnabled and ACCENT or MUTED
-	AutoSkillButton.BackgroundColor3 = configuration.AutoSkillEnabled and ACCENT_DIM or CARD
+	configuration.SetToggleVisual(AutoSkillButton, "Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM)
 	if configuration.AutoSkillEnabled and not configuration.Farming and configuration.CurrentTarget
 		and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
 		configuration.AutoAttackPinnedMob = configuration.CurrentTarget
@@ -2126,49 +2177,33 @@ for mode, button in pairs(AutoAttackModeButtons) do
 	end)
 end
 
-local AlertToggleButton = configuration.MakeToggle(configuration.AlertsEnabled and "Alerts: ON" or "Alerts: OFF", configuration.AlertsEnabled, GREEN, GREEN_DIM, 1, AlertsGrid)
-local AlertFlashButton = configuration.MakeToggle(
-	configuration.AlertFlashEnabled and "Screen flash: ON" or "Screen flash: OFF",
-	configuration.AlertFlashEnabled, RED, RED_DIM, 2, AlertsGrid
-)
-local AutoResumeButton = configuration.MakeToggle(
-	configuration.AutoResumeAfterAlert and "Resume after Alert: ON" or "Resume after Alert: OFF",
-	configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM, 3, AlertsGrid
-)
-local ESPToggleButton = configuration.MakeToggle(configuration.ESPEnabled and "ESP: ON" or "ESP: OFF", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2)
-local ESPLineButton = configuration.MakeToggle(configuration.ESPLineEnabled and "Lines: ON" or "Lines: OFF", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3)
-local ESPBoxButton = configuration.MakeToggle(configuration.ESPBoxEnabled and "Boxes: ON" or "Boxes: OFF", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4)
-local AutoBlockButton = configuration.MakeToggle(configuration.AutoBlockEnabled and "Auto Block: ON" or "Auto Block: OFF", configuration.AutoBlockEnabled, RED, RED_DIM, 5, PlayersGrid)
-local PlayerListButton = configuration.MakeToggle("Open player list", false, TEXT, CARD, 1, PlayersGrid)
+local AlertToggleButton = configuration.MakeToggle("Player alerts", configuration.AlertsEnabled, GREEN, GREEN_DIM, 1, AlertsGrid, "Warn when non-whitelisted players get close.")
+local AlertFlashButton = configuration.MakeToggle("Screen flash", configuration.AlertFlashEnabled, RED, RED_DIM, 2, AlertsGrid, "Flash the screen when an alert triggers.")
+local AutoResumeButton = configuration.MakeToggle("Resume farm after alert", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM, 3, AlertsGrid, "Continue farming once the alert is cleared.")
+local ESPToggleButton = configuration.MakeToggle("Show ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2, nil, "Draw markers for other players.")
+local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw a line to each tracked player.")
+local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw a box around each tracked player.")
+local AutoBlockButton = configuration.MakeToggle("Auto block players", configuration.AutoBlockEnabled, RED, RED_DIM, 5, PlayersGrid, "Prompt block when unknown players appear.")
+local PlayerListButton = configuration.MakeToggle("Open player list", false, TEXT, CARD, 1, PlayersGrid, "View everyone currently in this server.")
 PlayerListButton.TextColor3 = TEXT
-local WhitelistButton = configuration.MakeToggle("Whitelist IDs", false, TEXT, CARD, 2, PlayersGrid)
+local WhitelistButton = configuration.MakeToggle("Manage whitelist", false, TEXT, CARD, 2, PlayersGrid, "Players you never alert or auto-block.")
 WhitelistButton.TextColor3 = TEXT
-FollowSelectButton = configuration.MakeToggle("Choose follow target", false, TEXT, CARD, 3, PlayersGrid)
+FollowSelectButton = configuration.MakeToggle("Follow player", false, TEXT, CARD, 3, PlayersGrid, "Walk behind a chosen player with spacing.")
 FollowSelectButton.TextColor3 = TEXT
-StopFollowButton = configuration.MakeToggle("Stop following", false, TEXT, CARD, 4, PlayersGrid)
+StopFollowButton = configuration.MakeToggle("Stop follow", false, TEXT, CARD, 4, PlayersGrid, "Stop following the current player.")
 StopFollowButton.TextColor3 = TEXT
 
 function configuration.UpdateFollowButtons()
 	local following = configuration.FollowPlayerUserId ~= nil
-	FollowSelectButton.Text = following and "Change follow target" or "Choose follow target"
-	FollowSelectButton.TextColor3 = following and ACCENT or TEXT
-	FollowSelectButton.BackgroundColor3 = following and ACCENT_DIM or CARD
-	StopFollowButton.TextColor3 = following and RED or MUTED
-	StopFollowButton.BackgroundColor3 = following and RED_DIM or CARD
+	configuration.SetToggleVisual(FollowSelectButton, following and "Change follow target" or "Follow player", following, ACCENT, ACCENT_DIM)
+	configuration.SetToggleVisual(StopFollowButton, "Stop follow", following, RED, RED_DIM)
 end
 configuration.UpdateFollowButtons()
 
--- placeholder to keep grid even (empty)
-local SpacerToggle = Instance.new("Frame")
-SpacerToggle.LayoutOrder = 8
-SpacerToggle.BackgroundTransparency = 1
-SpacerToggle.Parent = ToggleGrid
 
 AlertToggleButton.MouseButton1Click:Connect(function()
 	configuration.AlertsEnabled = not configuration.AlertsEnabled
-	AlertToggleButton.Text = configuration.AlertsEnabled and "Alerts: ON" or "Alerts: OFF"
-	AlertToggleButton.TextColor3 = configuration.AlertsEnabled and GREEN or MUTED
-	AlertToggleButton.BackgroundColor3 = configuration.AlertsEnabled and GREEN_DIM or CARD
+	configuration.SetToggleVisual(AlertToggleButton, "Player alerts", configuration.AlertsEnabled, GREEN, GREEN_DIM)
 	configuration.SaveConfig()
 	if not configuration.AlertsEnabled then
 		AlarmOverlay.Visible = false
@@ -2177,27 +2212,20 @@ end)
 
 AlertFlashButton.MouseButton1Click:Connect(function()
 	configuration.AlertFlashEnabled = not configuration.AlertFlashEnabled
-	AlertFlashButton.Text = configuration.AlertFlashEnabled and "Screen flash: ON" or "Screen flash: OFF"
-	AlertFlashButton.TextColor3 = configuration.AlertFlashEnabled and RED or MUTED
-	AlertFlashButton.BackgroundColor3 = configuration.AlertFlashEnabled and RED_DIM or CARD
+	configuration.SetToggleVisual(AlertFlashButton, "Screen flash", configuration.AlertFlashEnabled, RED, RED_DIM)
 	if not configuration.AlertFlashEnabled then AlarmOverlay.Visible = false end
 	configuration.SaveConfig()
 end)
 
 AutoResumeButton.MouseButton1Click:Connect(function()
 	configuration.AutoResumeAfterAlert = not configuration.AutoResumeAfterAlert
-	AutoResumeButton.Text = configuration.AutoResumeAfterAlert and "Resume after Alert: ON" or "Resume after Alert: OFF"
-	AutoResumeButton.TextColor3 = configuration.AutoResumeAfterAlert and ACCENT or MUTED
-	AutoResumeButton.BackgroundColor3 = configuration.AutoResumeAfterAlert and ACCENT_DIM or CARD
+	configuration.SetToggleVisual(AutoResumeButton, "Resume farm after alert", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM)
 	configuration.SaveConfig()
 end)
 
 ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
 	configuration.ExpTargetRetaliationEnabled = not configuration.ExpTargetRetaliationEnabled
-	ExpTargetRetaliationButton.Text = configuration.ExpTargetRetaliationEnabled
-		and "EXP hit reaction: ON" or "EXP hit reaction: OFF"
-	ExpTargetRetaliationButton.TextColor3 = configuration.ExpTargetRetaliationEnabled and RED or MUTED
-	ExpTargetRetaliationButton.BackgroundColor3 = configuration.ExpTargetRetaliationEnabled and RED_DIM or CARD
+	configuration.SetToggleVisual(ExpTargetRetaliationButton, "Fight back if EXP mob is hit", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM)
 	if not configuration.ExpTargetRetaliationEnabled then
 		local previousTarget = configuration.ExpRetaliationTarget
 		configuration.ExpRetaliationTarget = nil
@@ -2211,33 +2239,25 @@ end)
 
 ESPToggleButton.MouseButton1Click:Connect(function()
 	configuration.ESPEnabled = not configuration.ESPEnabled
-	ESPToggleButton.Text = configuration.ESPEnabled and "ESP: ON" or "ESP: OFF"
-	ESPToggleButton.TextColor3 = configuration.ESPEnabled and ACCENT or MUTED
-	ESPToggleButton.BackgroundColor3 = configuration.ESPEnabled and ACCENT_DIM or CARD
+	configuration.SetToggleVisual(ESPToggleButton, "Show ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM)
 	configuration.SaveConfig()
 end)
 
 ESPLineButton.MouseButton1Click:Connect(function()
 	configuration.ESPLineEnabled = not configuration.ESPLineEnabled
-	ESPLineButton.Text = configuration.ESPLineEnabled and "Lines: ON" or "Lines: OFF"
-	ESPLineButton.TextColor3 = configuration.ESPLineEnabled and ACCENT or MUTED
-	ESPLineButton.BackgroundColor3 = configuration.ESPLineEnabled and ACCENT_DIM or CARD
+	configuration.SetToggleVisual(ESPLineButton, "ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM)
 	configuration.SaveConfig()
 end)
 
 ESPBoxButton.MouseButton1Click:Connect(function()
 	configuration.ESPBoxEnabled = not configuration.ESPBoxEnabled
-	ESPBoxButton.Text = configuration.ESPBoxEnabled and "Boxes: ON" or "Boxes: OFF"
-	ESPBoxButton.TextColor3 = configuration.ESPBoxEnabled and ACCENT or MUTED
-	ESPBoxButton.BackgroundColor3 = configuration.ESPBoxEnabled and ACCENT_DIM or CARD
+	configuration.SetToggleVisual(ESPBoxButton, "ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM)
 	configuration.SaveConfig()
 end)
 
 AutoBlockButton.MouseButton1Click:Connect(function()
 	configuration.AutoBlockEnabled = not configuration.AutoBlockEnabled
-	AutoBlockButton.Text = configuration.AutoBlockEnabled and "Auto Block: ON" or "Auto Block: OFF"
-	AutoBlockButton.TextColor3 = configuration.AutoBlockEnabled and RED or MUTED
-	AutoBlockButton.BackgroundColor3 = configuration.AutoBlockEnabled and RED_DIM or CARD
+	configuration.SetToggleVisual(AutoBlockButton, "Auto block players", configuration.AutoBlockEnabled, RED, RED_DIM)
 	if not configuration.AutoBlockEnabled and not configuration.AlertCombatPending then
 		configuration.AlertCombatBlockReady = false
 		configuration.AlertBlockTarget = nil
@@ -2907,19 +2927,12 @@ PlayerEspLayer.Parent = ScreenGui
 
 local ResizeHandle = Instance.new("TextButton")
 ResizeHandle.Name = "ResizeHandle"
-ResizeHandle.Size = UDim2.fromScale(0.065, 0.032)
-ResizeHandle.AnchorPoint = Vector2.new(1, 1)
+ResizeHandle.Visible = false
+ResizeHandle.Size = UDim2.fromOffset(1, 1)
 ResizeHandle.Position = UDim2.fromScale(1, 1)
-ResizeHandle.ZIndex = 95
-ResizeHandle.BackgroundColor3 = INPUT
-ResizeHandle.BackgroundTransparency = 0.2
-ResizeHandle.BorderSizePixel = 0
-ResizeHandle.Text = "◢"
-ResizeHandle.TextColor3 = MUTED
-ResizeHandle.TextSize = 12
-ResizeHandle.Font = Enum.Font.GothamBold
+ResizeHandle.BackgroundTransparency = 1
+ResizeHandle.Text = ""
 ResizeHandle.Parent = Main
-Instance.new("UICorner", ResizeHandle).CornerRadius = UDim.new(0, 6)
 
 local Resizing, ResizeStart, ResizeStartSize = false, nil, nil
 ResizeHandle.InputBegan:Connect(function(input)
