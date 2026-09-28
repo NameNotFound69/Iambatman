@@ -45,7 +45,7 @@ end
 local configuration: {[string]: any} = {
 	Amount = 5000,
 	MaxDistance = 250,
-	ExpApproachDistance = 25,
+	ExpApproachDistance = 30,
 	Interval = 1,
 	ExpGoal = 2000000,
 	AlertsDistance = 1000,
@@ -185,10 +185,7 @@ function configuration.LoadConfig()
 
 	configuration.Amount = math.floor(ReadNumber("Amount", configuration.Amount, 0, false))
 	configuration.ExpApproachDistance = math.clamp(ReadNumber("ExpApproachDistance", configuration.ExpApproachDistance, 5, false), 5, 100)
-	configuration.MaxDistance = math.max(
-		ReadNumber("MaxDistance", configuration.MaxDistance, 0, false),
-		configuration.ExpApproachDistance + 5
-	)
+	configuration.MaxDistance = math.clamp(ReadNumber("MaxDistance", configuration.MaxDistance, 5, false), 5, 100000)
 	configuration.Interval = ReadNumber("Interval", configuration.Interval, 0, true)
 	configuration.ExpGoal = ReadNumber("ExpGoal", configuration.ExpGoal, 0, false)
 	configuration.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configuration.AlertsDistance, 0, true), 0, 100000)
@@ -570,10 +567,12 @@ Subtitle.Font = Enum.Font.Gotham
 Subtitle.TextXAlignment = Enum.TextXAlignment.Left
 Subtitle.Parent = Header
 
-local Status = Instance.new("TextLabel")
+local Status = Instance.new("TextButton")
 Status.Size = UDim2.fromOffset(48, 20)
 Status.Position = UDim2.new(1, -62, 0, 10)
 Status.BackgroundColor3 = RED_DIM
+Status.BorderSizePixel = 0
+Status.AutoButtonColor = false
 Status.Text = "OFF"
 Status.TextColor3 = RED
 Status.TextSize = 10
@@ -1898,10 +1897,10 @@ function configuration.MakeCompactSetting(parent, name, default, xScale, yOffset
 end
 
 local AmountBox = configuration.MakeCompactSetting(SettingsCard, "Amount / cycle", configuration.Amount, 0, 24)
-local DistBox = configuration.MakeCompactSetting(SettingsCard, "Search radius (studs)", configuration.MaxDistance, 0.5, 24)
+local DistBox = configuration.MakeCompactSetting(SettingsCard, "EXP target search radius (studs)", configuration.MaxDistance, 0.5, 24)
 local IntervalBox = configuration.MakeCompactSetting(SettingsCard, "Interval (s)", configuration.Interval, 0, 62)
 local MaxBox = configuration.MakeCompactSetting(SettingsCard, "EXP Max", configuration.ExpGoal, 0.5, 62)
-local ExpApproachBox = configuration.MakeCompactSetting(SettingsCard, "EXP standoff (studs)", configuration.ExpApproachDistance, 0, 100)
+local ExpApproachBox = configuration.MakeCompactSetting(SettingsCard, "EXP firing range / standoff (studs)", configuration.ExpApproachDistance, 0, 100)
 
 AmountBox.FocusLost:Connect(function()
 	local v = tonumber(AmountBox.Text)
@@ -1914,7 +1913,7 @@ end)
 DistBox.FocusLost:Connect(function()
 	local v = tonumber(DistBox.Text)
 	if v and v > 0 then
-		configuration.MaxDistance = math.clamp(v, configuration.ExpApproachDistance + 5, 100000)
+		configuration.MaxDistance = math.clamp(v, 5, 100000)
 	end
 	DistBox.Text = tostring(configuration.MaxDistance)
 	configuration.SaveConfig()
@@ -1923,8 +1922,6 @@ ExpApproachBox.FocusLost:Connect(function()
 	local v = tonumber(ExpApproachBox.Text)
 	if v and v > 0 then
 		configuration.ExpApproachDistance = math.clamp(v, 5, 100)
-		configuration.MaxDistance = math.max(configuration.MaxDistance, configuration.ExpApproachDistance + 5)
-		DistBox.Text = tostring(configuration.MaxDistance)
 	end
 	ExpApproachBox.Text = tostring(configuration.ExpApproachDistance)
 	configuration.SaveConfig()
@@ -2506,6 +2503,14 @@ StartBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
+Status.MouseButton1Click:Connect(function()
+	if configuration.Farming then
+		configuration.SetIdle()
+	else
+		configuration.SetRunning()
+	end
+end)
+
 --==================================================
 -- FIND TARGET
 --==================================================
@@ -2861,10 +2866,40 @@ task.spawn(function()
 		local cycleStartTime = os.clock()
 		local callsSent = 0
 
-		for i = 1, toFire do
+		while callsSent < toFire do
 			if not configuration.Farming or configuration.EmergencyStopActive then break end
 			if not target:IsDescendantOf(MobsFolder) then break end
 			if exp.Value >= configuration.ExpGoal then break end
+
+			local firingCharacter = Player.Character
+			local firingRoot = firingCharacter and firingCharacter:FindFirstChild("HumanoidRootPart")
+			local firingMobRoot = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
+			local firingDistance = firingRoot and firingMobRoot
+				and (firingRoot.Position - firingMobRoot.Position).Magnitude or math.huge
+			if firingDistance > configuration.ExpApproachDistance then
+				StateLabel.Text = "Moving"
+				MiniState.Text = string.format("Walking into %.0f-stud EXP range", configuration.ExpApproachDistance)
+				local moveCharacter = Player.Character
+				local moveHumanoid = moveCharacter and moveCharacter:FindFirstChildOfClass("Humanoid")
+				if firingRoot and firingMobRoot and moveHumanoid
+					and (chasingExpTarget ~= target or os.clock() - lastExpMoveAt >= 0.4) then
+					local flatOffset = Vector3.new(
+						firingRoot.Position.X - firingMobRoot.Position.X,
+						0,
+						firingRoot.Position.Z - firingMobRoot.Position.Z
+					)
+					if flatOffset.Magnitude < 0.1 then
+						flatOffset = Vector3.new(firingMobRoot.CFrame.LookVector.X, 0, firingMobRoot.CFrame.LookVector.Z)
+					end
+					if flatOffset.Magnitude < 0.1 then flatOffset = Vector3.new(1, 0, 0) end
+					local movePoint = firingMobRoot.Position + flatOffset.Unit * configuration.ExpApproachDistance
+					moveHumanoid:MoveTo(Vector3.new(movePoint.X, firingRoot.Position.Y, movePoint.Z))
+					chasingExpTarget = target
+					lastExpMoveAt = os.clock()
+				end
+				task.wait(0.1)
+				continue
+			end
 
 			-- Sync Auto Attack's mob target to EXP when the target toggle is enabled.
 			if configuration.AutoAttackUseExpTarget then
@@ -2877,7 +2912,7 @@ task.spawn(function()
 			-- ใกล้ Max แล้ว → ยิงช้าลง + รอค่าอัปเดต
 			if exp.Value >= configuration.ExpGoal - 200 then
 				task.wait(0.02)
-			elseif i % 50 == 0 then
+			elseif callsSent % 50 == 0 then
 				-- เว้นจังหวะเล็กน้อยทุก 50 ครั้ง ให้ Value มีโอกาส replicate
 				task.wait()
 			end
@@ -2960,24 +2995,41 @@ task.spawn(function()
 			local character = Player.Character
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			local targetKind, target, targetRoot, distance
+			local atRearPosition = targetKind ~= "Mob"
+			local isAboveMob = false
 			if localRoot then
 				targetKind, target, targetRoot, distance = configuration.Combat.FindAutoAttackTarget(localRoot)
+				atRearPosition = targetKind ~= "Mob"
 			end
 			if target and targetRoot then
 				if targetKind == "Mob" and localRoot and (configuration.AutoAttackEnabled or configuration.AlertCombatPending) then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					local now = os.clock()
-					if distance > configuration.AutoAttackStandoff + 1 then
+					local flatForward = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
+					if flatForward.Magnitude < 0.1 then
+						flatForward = Vector3.new(0, 0, -1)
+					else
+						flatForward = flatForward.Unit
+					end
+					local rearPosition = targetRoot.Position - flatForward * configuration.AutoAttackStandoff
+					local approachPoint = Vector3.new(rearPosition.X, targetRoot.Position.Y, rearPosition.Z)
+					local horizontalGap = Vector3.new(
+						localRoot.Position.X - approachPoint.X,
+						0,
+						localRoot.Position.Z - approachPoint.Z
+					).Magnitude
+					atRearPosition = horizontalGap <= 2.5
+					local horizontalTargetGap = Vector3.new(
+						localRoot.Position.X - targetRoot.Position.X,
+						0,
+						localRoot.Position.Z - targetRoot.Position.Z
+					).Magnitude
+					local humanoidHipHeight = humanoid and humanoid.HipHeight or 2
+					local aboveThreshold = math.max(3, targetRoot.Size.Y * 0.5 + humanoidHipHeight * 0.65)
+					local nearMobFootprint = horizontalTargetGap <= math.max(targetRoot.Size.X, targetRoot.Size.Z) * 0.75 + 2
+					isAboveMob = nearMobFootprint and localRoot.Position.Y > targetRoot.Position.Y + aboveThreshold
+					if not atRearPosition or isAboveMob then
 						if humanoid and now - lastMoveAt >= 0.3 then
-							local flatOffset = Vector3.new(
-								localRoot.Position.X - targetRoot.Position.X,
-								0,
-								localRoot.Position.Z - targetRoot.Position.Z
-							)
-							if flatOffset.Magnitude < 0.1 then
-								flatOffset = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
-							end
-							local approachPoint = targetRoot.Position + flatOffset.Unit * configuration.AutoAttackStandoff
 							humanoid:MoveTo(approachPoint)
 							lastMoveAt = now
 							chasingMob = true
@@ -3157,6 +3209,7 @@ task.spawn(function()
 	local lastAutoBlockCheck = 0
 	local nextAutoBlockPromptAt = 0
 	local autoBlockTeleporting = false
+	local deferredAutoBlockMob = nil
 	local flashOn = false
 	local lastFlashToggle = 0
 	local PlayerVisuals = {}
@@ -3290,6 +3343,22 @@ task.spawn(function()
 			local hasNonWhitelistedPlayer = false
 			local blockedNonWhitelistedPlayer = false
 			local nextPlayerToPrompt = nil
+			if not configuration.Farming then
+				deferredAutoBlockMob = nil
+			elseif not deferredAutoBlockMob then
+				local activeExpMob = configuration.CurrentTarget
+				if not configuration.Combat.IsLivingMob(activeExpMob) then
+					activeExpMob = configuration.ExpMaxCombatTarget
+				end
+				if configuration.Combat.IsLivingMob(activeExpMob) then
+					deferredAutoBlockMob = activeExpMob
+				end
+			end
+			local deferPromptForExp = deferredAutoBlockMob ~= nil
+				and configuration.Combat.IsLivingMob(deferredAutoBlockMob)
+			if deferredAutoBlockMob and not deferPromptForExp then
+				deferredAutoBlockMob = nil
+			end
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= Player and not configuration.IsWhitelisted(otherPlayer) then
@@ -3332,6 +3401,9 @@ task.spawn(function()
 						task.delay(15, function() autoBlockTeleporting = false end)
 					end
 				end)
+			elseif nextPlayerToPrompt and deferPromptForExp then
+				StateLabel.Text = "Waiting"
+				MiniState.Text = "Waiting for current EXP mob to die before Block prompt"
 			elseif nextPlayerToPrompt and os.clock() >= nextAutoBlockPromptAt then
 				nextAutoBlockPromptAt = os.clock() + 4
 				local ok, err = pcall(function()
