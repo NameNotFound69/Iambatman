@@ -40,6 +40,174 @@ if not InitClashing or not InitClashing:IsA("RemoteEvent") then
 end
 
 --==================================================
+-- MOB CACHE + MOVEMENT HELPERS
+--==================================================
+local RunService = game:GetService("RunService")
+
+local MobCache = {
+	List = {},
+	ByInstance = {},
+	Dirty = true,
+	LastRebuild = 0,
+}
+
+local function MobCache_ClearEntry(mob)
+	local entry = MobCache.ByInstance[mob]
+	if not entry then return end
+	MobCache.ByInstance[mob] = nil
+	for i = #MobCache.List, 1, -1 do
+		if MobCache.List[i] == entry then
+			table.remove(MobCache.List, i)
+			break
+		end
+	end
+end
+
+local function MobCache_ReadEntry(mob)
+	local cfg = mob:FindFirstChild("Config")
+	local exp = cfg and cfg:FindFirstChild("EXP")
+	local root = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
+	local humanoid = mob:FindFirstChildOfClass("Humanoid")
+	if not root or not root:IsA("BasePart") then return nil end
+	if humanoid and humanoid.Health <= 0 then return nil end
+	return {
+		Mob = mob,
+		Root = root,
+		Humanoid = humanoid,
+		Config = cfg,
+		EXP = exp,
+		HasEXP = exp ~= nil and (exp:IsA("IntValue") or exp:IsA("NumberValue")),
+	}
+end
+
+local function MobCache_Upsert(mob)
+	if not mob or not mob:IsDescendantOf(MobsFolder) then
+		MobCache_ClearEntry(mob)
+		return
+	end
+	local fresh = MobCache_ReadEntry(mob)
+	if not fresh then
+		MobCache_ClearEntry(mob)
+		return
+	end
+	local existing = MobCache.ByInstance[mob]
+	if existing then
+		existing.Root = fresh.Root
+		existing.Humanoid = fresh.Humanoid
+		existing.Config = fresh.Config
+		existing.EXP = fresh.EXP
+		existing.HasEXP = fresh.HasEXP
+	else
+		MobCache.ByInstance[mob] = fresh
+		table.insert(MobCache.List, fresh)
+	end
+end
+
+local function MobCache_Rebuild(force)
+	local now = os.clock()
+	if not force and not MobCache.Dirty and (now - MobCache.LastRebuild) < 0.75 then
+		return
+	end
+	table.clear(MobCache.List)
+	table.clear(MobCache.ByInstance)
+	for _, mob in ipairs(MobsFolder:GetChildren()) do
+		local entry = MobCache_ReadEntry(mob)
+		if entry then
+			MobCache.ByInstance[mob] = entry
+			table.insert(MobCache.List, entry)
+		end
+	end
+	MobCache.Dirty = false
+	MobCache.LastRebuild = now
+end
+
+local function MobCache_MarkDirty()
+	MobCache.Dirty = true
+end
+
+MobsFolder.ChildAdded:Connect(function(child)
+	task.defer(function()
+		MobCache_Upsert(child)
+	end)
+end)
+MobsFolder.ChildRemoved:Connect(function(child)
+	MobCache_ClearEntry(child)
+end)
+task.defer(function()
+	MobCache_Rebuild(true)
+end)
+
+-- Smooth approach helpers (shared by EXP farm + auto attack)
+local function FlatUnit(fromPos, toPos, fallback)
+	local delta = Vector3.new(fromPos.X - toPos.X, 0, fromPos.Z - toPos.Z)
+	if delta.Magnitude < 0.05 then
+		if fallback and fallback.Magnitude > 0.05 then
+			return fallback.Unit
+		end
+		return Vector3.new(1, 0, 0)
+	end
+	return delta.Unit
+end
+
+local function SmoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius)
+	if not humanoid or not root or not goal then return false end
+	local now = os.clock()
+	local flat = Vector3.new(root.Position.X - goal.X, 0, root.Position.Z - goal.Z)
+	local dist = flat.Magnitude
+	if dist <= (stopRadius or 1.6) then
+		if state.Active then
+			humanoid:MoveTo(root.Position)
+			state.Active = false
+			state.Goal = nil
+		end
+		return true
+	end
+	local sameGoal = state.Goal and (state.Goal - goal).Magnitude < 1.25
+	local interval = minInterval or 0.22
+	if state.Active and sameGoal and (now - (state.LastMoveAt or 0)) < interval then
+		return false
+	end
+	-- Keep current Y so pathing stays grounded and avoids hop jitter.
+	local point = Vector3.new(goal.X, root.Position.Y, goal.Z)
+	humanoid:MoveTo(point)
+	state.Active = true
+	state.Goal = goal
+	state.LastMoveAt = now
+	return false
+end
+
+local function RearApproachPoint(targetRoot, standoff)
+	local look = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
+	if look.Magnitude < 0.1 then
+		look = Vector3.new(0, 0, -1)
+	else
+		look = look.Unit
+	end
+	local rear = targetRoot.Position - look * standoff
+	return Vector3.new(rear.X, targetRoot.Position.Y, rear.Z)
+end
+
+local function OrbitApproachPoint(localRoot, targetRoot, standoff)
+	local away = FlatUnit(localRoot.Position, targetRoot.Position, Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z))
+	return targetRoot.Position + away * standoff
+end
+
+-- Face the combat target (shiftlock-like orientation without locking the mouse).
+local function FaceTargetSmooth(root, targetPos, alpha)
+	if not root or not targetPos then return end
+	local flatTarget = Vector3.new(targetPos.X, root.Position.Y, targetPos.Z)
+	local delta = flatTarget - root.Position
+	if delta.Magnitude < 0.05 then return end
+	local goal = CFrame.lookAt(root.Position, flatTarget)
+	-- Keep position; only rotate yaw so pathing stays stable.
+	local _, goalYaw, _ = goal:ToOrientation()
+	local pos = root.Position
+	local current = root.CFrame
+	local blended = current:Lerp(CFrame.new(pos) * CFrame.Angles(0, goalYaw, 0), math.clamp(alpha or 0.35, 0.05, 1))
+	root.CFrame = CFrame.new(pos) * (blended - blended.Position)
+end
+
+--==================================================
 -- CONFIG
 --==================================================
 local configuration: {[string]: any} = {
@@ -92,6 +260,9 @@ local configuration: {[string]: any} = {
 	AlertCombatBlockReady = false,
 	AlertBlockTarget = nil,
 	LastAlertCombatUserId = nil,
+	PendingServerHop = false,
+	ServerHopKillTarget = nil,
+	FaceTargetEnabled = true,
 	ESPEnabled = true,
 	ESPLineEnabled = true,
 	ESPBoxEnabled = true,
@@ -364,6 +535,39 @@ function configuration.FormatPlayerStats(otherPlayer)
 	return string.format("Level %s  •  Defense %s", level ~= nil and tostring(level) or "—", defense ~= nil and tostring(defense) or "—")
 end
 
+-- Local player level + EXP progress (PlayerStats).
+function configuration.GetLocalLevelProgress()
+	local stats = Player:FindFirstChild("PlayerStats")
+	if not stats then
+		return nil, nil, nil, nil
+	end
+	local function numChild(...)
+		for _, name in ipairs({...}) do
+			local v = stats:FindFirstChild(name)
+			if v and (v:IsA("NumberValue") or v:IsA("IntValue") or v:IsA("NumberAttribute") or typeof(v.Value) == "number") then
+				local n = tonumber(v.Value)
+				if n then return n end
+			end
+			local attr = stats:GetAttribute(name)
+			if attr ~= nil then
+				local n = tonumber(attr)
+				if n then return n end
+			end
+		end
+		return nil
+	end
+	local level = numChild("Level", "LV", "Lvl")
+	local exp = numChild("EXP", "Exp", "Experience", "CurrentEXP", "CurrentExp")
+	local maxExp = numChild("MaxEXP", "MaxExp", "EXPMax", "ExpToLevel", "RequiredEXP", "NextEXP", "EXPRequired")
+	local ratio = nil
+	if exp and maxExp and maxExp > 0 then
+		ratio = math.clamp(exp / maxExp, 0, 1)
+	elseif exp and maxExp == 0 then
+		ratio = 1
+	end
+	return level, exp, maxExp, ratio
+end
+
 --==================================================
 -- COLORS (Slayers2-style dark + soft cyan)
 --==================================================
@@ -600,7 +804,7 @@ Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 6)
 -- MINI CARD (compact EXP box when minimized)
 --==================================================
 local MINI_WIDTH = 300
-local MINI_HEIGHT = 128
+local MINI_HEIGHT = 148
 local SavedMainPosition = nil
 
 local MiniBar = Instance.new("Frame")
@@ -627,22 +831,34 @@ MiniTitle.Font = Enum.Font.GothamBold
 MiniTitle.TextXAlignment = Enum.TextXAlignment.Left
 MiniTitle.Parent = MiniTop
 
--- Big EXP number
+local MiniLevel = Instance.new("TextLabel")
+MiniLevel.Name = "MiniLevel"
+MiniLevel.Size = UDim2.new(0.55, 0, 0, 14)
+MiniLevel.Position = UDim2.fromOffset(10, 30)
+MiniLevel.BackgroundTransparency = 1
+MiniLevel.Text = "Lv —"
+MiniLevel.TextColor3 = ACCENT
+MiniLevel.TextSize = 11
+MiniLevel.Font = Enum.Font.GothamBold
+MiniLevel.TextXAlignment = Enum.TextXAlignment.Left
+MiniLevel.Parent = MiniBar
+
+-- Big farm EXP number
 local MiniExp = Instance.new("TextLabel")
 MiniExp.Name = "MiniExp"
-MiniExp.Size = UDim2.new(1, -20, 0, 36)
-MiniExp.Position = UDim2.fromOffset(10, 34)
+MiniExp.Size = UDim2.new(0.58, 0, 0, 28)
+MiniExp.Position = UDim2.fromOffset(10, 44)
 MiniExp.BackgroundTransparency = 1
 MiniExp.Text = "0"
 MiniExp.TextColor3 = GREEN
-MiniExp.TextSize = 28
+MiniExp.TextSize = 24
 MiniExp.Font = Enum.Font.GothamBlack
 MiniExp.TextXAlignment = Enum.TextXAlignment.Left
 MiniExp.Parent = MiniBar
 
 local MiniMax = Instance.new("TextLabel")
-MiniMax.Size = UDim2.new(0.55, 0, 0, 16)
-MiniMax.Position = UDim2.fromOffset(10, 70)
+MiniMax.Size = UDim2.new(0.55, 0, 0, 14)
+MiniMax.Position = UDim2.fromOffset(10, 72)
 MiniMax.BackgroundTransparency = 1
 MiniMax.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
 MiniMax.TextColor3 = MUTED
@@ -655,7 +871,7 @@ MiniMax.Parent = MiniBar
 local MiniTime = Instance.new("TextLabel")
 MiniTime.Name = "MiniTime"
 MiniTime.Size = UDim2.new(0.42, 0, 0, 20)
-MiniTime.Position = UDim2.new(1, -12, 0, 38)
+MiniTime.Position = UDim2.new(1, -12, 0, 42)
 MiniTime.AnchorPoint = Vector2.new(1, 0)
 MiniTime.BackgroundTransparency = 1
 MiniTime.Text = "00:00:00"
@@ -668,7 +884,7 @@ MiniTime.Parent = MiniBar
 local MiniState = Instance.new("TextLabel")
 MiniState.Name = "MiniState"
 MiniState.Size = UDim2.new(0.42, 0, 0, 16)
-MiniState.Position = UDim2.new(1, -12, 0, 58)
+MiniState.Position = UDim2.new(1, -12, 0, 62)
 MiniState.AnchorPoint = Vector2.new(1, 0)
 MiniState.BackgroundTransparency = 1
 MiniState.Text = "Idle"
@@ -678,10 +894,28 @@ MiniState.Font = Enum.Font.Gotham
 MiniState.TextXAlignment = Enum.TextXAlignment.Right
 MiniState.Parent = MiniBar
 
--- Progress bar at bottom of mini card
+-- Player level EXP bar
+local MiniLevelBarBg = Instance.new("Frame")
+MiniLevelBarBg.Name = "MiniLevelBarBg"
+MiniLevelBarBg.Size = UDim2.new(1, -20, 0, 4)
+MiniLevelBarBg.Position = UDim2.fromOffset(10, 92)
+MiniLevelBarBg.BackgroundColor3 = INPUT
+MiniLevelBarBg.BorderSizePixel = 0
+MiniLevelBarBg.Parent = MiniBar
+Instance.new("UICorner", MiniLevelBarBg).CornerRadius = UDim.new(1, 0)
+
+local MiniLevelBarFill = Instance.new("Frame")
+MiniLevelBarFill.Name = "MiniLevelBarFill"
+MiniLevelBarFill.Size = UDim2.fromScale(0, 1)
+MiniLevelBarFill.BackgroundColor3 = ACCENT
+MiniLevelBarFill.BorderSizePixel = 0
+MiniLevelBarFill.Parent = MiniLevelBarBg
+Instance.new("UICorner", MiniLevelBarFill).CornerRadius = UDim.new(1, 0)
+
+-- Farm target EXP progress bar
 local MiniBarBg = Instance.new("Frame")
 MiniBarBg.Size = UDim2.new(1, -20, 0, 5)
-MiniBarBg.Position = UDim2.fromOffset(10, 96)
+MiniBarBg.Position = UDim2.fromOffset(10, 104)
 MiniBarBg.BackgroundColor3 = INPUT
 MiniBarBg.BorderSizePixel = 0
 MiniBarBg.Parent = MiniBar
@@ -694,6 +928,18 @@ MiniBarFill.BackgroundColor3 = GREEN
 MiniBarFill.BorderSizePixel = 0
 MiniBarFill.Parent = MiniBarBg
 Instance.new("UICorner", MiniBarFill).CornerRadius = UDim.new(1, 0)
+
+local MiniLevelExpLabel = Instance.new("TextLabel")
+MiniLevelExpLabel.Name = "MiniLevelExpLabel"
+MiniLevelExpLabel.Size = UDim2.new(1, -20, 0, 12)
+MiniLevelExpLabel.Position = UDim2.fromOffset(10, 112)
+MiniLevelExpLabel.BackgroundTransparency = 1
+MiniLevelExpLabel.Text = "Level EXP  —"
+MiniLevelExpLabel.TextColor3 = MUTED
+MiniLevelExpLabel.TextSize = 9
+MiniLevelExpLabel.Font = Enum.Font.Gotham
+MiniLevelExpLabel.TextXAlignment = Enum.TextXAlignment.Left
+MiniLevelExpLabel.Parent = MiniBar
 
 function configuration.ApplyMinimized(state)
 	configuration.IsMinimized = state
@@ -1009,7 +1255,7 @@ configuration.SetMainTab("EXP")
 -- HERO EXP CARD (big numbers)
 --==================================================
 InfoCard = Instance.new("Frame")
-InfoCard.Size = UDim2.new(1, 0, 0, 208)
+InfoCard.Size = UDim2.new(1, 0, 0, 248)
 InfoCard.LayoutOrder = 2
 InfoCard.BackgroundColor3 = CARD
 InfoCard.BorderSizePixel = 0
@@ -1020,12 +1266,65 @@ InfoStroke.Color = BORDER
 InfoStroke.Thickness = 1
 InfoStroke.Transparency = 0.35
 
--- Big EXP number (main focus)
+-- Player level header
+local LevelCaption = Instance.new("TextLabel")
+LevelCaption.Size = UDim2.new(0.5, -12, 0, 12)
+LevelCaption.Position = UDim2.fromOffset(12, 6)
+LevelCaption.BackgroundTransparency = 1
+LevelCaption.Text = "YOUR LEVEL"
+LevelCaption.TextColor3 = ACCENT
+LevelCaption.TextSize = 9
+LevelCaption.Font = Enum.Font.GothamBold
+LevelCaption.TextXAlignment = Enum.TextXAlignment.Left
+LevelCaption.Parent = InfoCard
+
+local LevelLabel = Instance.new("TextLabel")
+LevelLabel.Name = "LevelLabel"
+LevelLabel.Size = UDim2.new(0.5, -12, 0, 22)
+LevelLabel.Position = UDim2.fromOffset(12, 18)
+LevelLabel.BackgroundTransparency = 1
+LevelLabel.Text = "Lv —"
+LevelLabel.TextColor3 = TEXT
+LevelLabel.TextSize = 18
+LevelLabel.Font = Enum.Font.GothamBlack
+LevelLabel.TextXAlignment = Enum.TextXAlignment.Left
+LevelLabel.Parent = InfoCard
+
+local LevelExpText = Instance.new("TextLabel")
+LevelExpText.Name = "LevelExpText"
+LevelExpText.Size = UDim2.new(0.5, -12, 0, 14)
+LevelExpText.Position = UDim2.new(0.5, 0, 0, 22)
+LevelExpText.BackgroundTransparency = 1
+LevelExpText.Text = "Level EXP  —"
+LevelExpText.TextColor3 = MUTED
+LevelExpText.TextSize = 11
+LevelExpText.Font = Enum.Font.Gotham
+LevelExpText.TextXAlignment = Enum.TextXAlignment.Right
+LevelExpText.Parent = InfoCard
+
+local LevelBarBg = Instance.new("Frame")
+LevelBarBg.Name = "LevelBarBg"
+LevelBarBg.Size = UDim2.new(1, -28, 0, 6)
+LevelBarBg.Position = UDim2.fromOffset(14, 44)
+LevelBarBg.BackgroundColor3 = INPUT
+LevelBarBg.BorderSizePixel = 0
+LevelBarBg.Parent = InfoCard
+Instance.new("UICorner", LevelBarBg).CornerRadius = UDim.new(1, 0)
+
+local LevelBarFill = Instance.new("Frame")
+LevelBarFill.Name = "LevelBarFill"
+LevelBarFill.Size = UDim2.fromScale(0, 1)
+LevelBarFill.BackgroundColor3 = ACCENT
+LevelBarFill.BorderSizePixel = 0
+LevelBarFill.Parent = LevelBarBg
+Instance.new("UICorner", LevelBarFill).CornerRadius = UDim.new(1, 0)
+
+-- Big farm EXP number (target mob EXP toward goal)
 local ExpCaption = Instance.new("TextLabel")
 ExpCaption.Size = UDim2.new(1, -20, 0, 12)
-ExpCaption.Position = UDim2.fromOffset(10, 5)
+ExpCaption.Position = UDim2.fromOffset(10, 56)
 ExpCaption.BackgroundTransparency = 1
-ExpCaption.Text = "TOTAL EXP"
+ExpCaption.Text = "TARGET EXP  (FARM)"
 ExpCaption.TextColor3 = ACCENT
 ExpCaption.TextSize = 9
 ExpCaption.Font = Enum.Font.GothamBold
@@ -1033,19 +1332,19 @@ ExpCaption.TextXAlignment = Enum.TextXAlignment.Center
 ExpCaption.Parent = InfoCard
 
 local ExpLabel = Instance.new("TextLabel")
-ExpLabel.Size = UDim2.new(1, -20, 0, 48)
-ExpLabel.Position = UDim2.fromOffset(10, 18)
+ExpLabel.Size = UDim2.new(1, -20, 0, 40)
+ExpLabel.Position = UDim2.fromOffset(10, 68)
 ExpLabel.BackgroundTransparency = 1
 ExpLabel.Text = "0"
 ExpLabel.TextColor3 = GREEN
-ExpLabel.TextSize = 38
+ExpLabel.TextSize = 32
 ExpLabel.Font = Enum.Font.GothamBlack
 ExpLabel.TextXAlignment = Enum.TextXAlignment.Center
 ExpLabel.Parent = InfoCard
 
 local MaxLabel = Instance.new("TextLabel")
-MaxLabel.Size = UDim2.new(1, -20, 0, 16)
-MaxLabel.Position = UDim2.fromOffset(10, 66)
+MaxLabel.Size = UDim2.new(1, -20, 0, 14)
+MaxLabel.Position = UDim2.fromOffset(10, 108)
 MaxLabel.BackgroundTransparency = 1
 MaxLabel.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
 MaxLabel.TextColor3 = MUTED
@@ -1054,10 +1353,10 @@ MaxLabel.Font = Enum.Font.Gotham
 MaxLabel.TextXAlignment = Enum.TextXAlignment.Center
 MaxLabel.Parent = InfoCard
 
--- Progress bar
+-- Farm target progress bar
 local BarBg = Instance.new("Frame")
 BarBg.Size = UDim2.new(1, -28, 0, 8)
-BarBg.Position = UDim2.fromOffset(14, 88)
+BarBg.Position = UDim2.fromOffset(14, 126)
 BarBg.BackgroundColor3 = INPUT
 BarBg.BorderSizePixel = 0
 BarBg.Parent = InfoCard
@@ -1065,14 +1364,14 @@ Instance.new("UICorner", BarBg).CornerRadius = UDim.new(1, 0)
 
 local Bar = Instance.new("Frame")
 Bar.Size = UDim2.fromScale(0, 1)
-Bar.BackgroundColor3 = ACCENT
+Bar.BackgroundColor3 = GREEN
 Bar.BorderSizePixel = 0
 Bar.Parent = BarBg
 Instance.new("UICorner", Bar).CornerRadius = UDim.new(1, 0)
 
 local PercentLabel = Instance.new("TextLabel")
 PercentLabel.Size = UDim2.new(1, 0, 0, 14)
-PercentLabel.Position = UDim2.fromOffset(0, 100)
+PercentLabel.Position = UDim2.fromOffset(0, 138)
 PercentLabel.BackgroundTransparency = 1
 PercentLabel.Text = "0%"
 PercentLabel.TextColor3 = MUTED
@@ -1084,7 +1383,7 @@ PercentLabel.Parent = InfoCard
 -- Meta row 1: Target + Dist
 local TargetLabel = Instance.new("TextLabel")
 TargetLabel.Size = UDim2.new(0.58, -8, 0, 16)
-TargetLabel.Position = UDim2.fromOffset(12, 120)
+TargetLabel.Position = UDim2.fromOffset(12, 158)
 TargetLabel.BackgroundTransparency = 1
 TargetLabel.Text = "No target"
 TargetLabel.TextColor3 = TEXT
@@ -1096,7 +1395,7 @@ TargetLabel.Parent = InfoCard
 
 local DistLabel = Instance.new("TextLabel")
 DistLabel.Size = UDim2.new(0.42, -12, 0, 16)
-DistLabel.Position = UDim2.new(0.58, 0, 0, 120)
+DistLabel.Position = UDim2.new(0.58, 0, 0, 158)
 DistLabel.BackgroundTransparency = 1
 DistLabel.Text = "Dist  -"
 DistLabel.TextColor3 = MUTED
@@ -1108,7 +1407,7 @@ DistLabel.Parent = InfoCard
 -- Meta row 2: Time + Rate + State
 local TimeLabel = Instance.new("TextLabel")
 TimeLabel.Size = UDim2.new(0.38, -4, 0, 15)
-TimeLabel.Position = UDim2.fromOffset(12, 140)
+TimeLabel.Position = UDim2.fromOffset(12, 178)
 TimeLabel.BackgroundTransparency = 1
 TimeLabel.Text = "00:00:00"
 TimeLabel.TextColor3 = YELLOW
@@ -1119,7 +1418,7 @@ TimeLabel.Parent = InfoCard
 
 local RateLabel = Instance.new("TextLabel")
 RateLabel.Size = UDim2.new(0.32, -4, 0, 15)
-RateLabel.Position = UDim2.new(0.36, 0, 0, 140)
+RateLabel.Position = UDim2.new(0.36, 0, 0, 178)
 RateLabel.BackgroundTransparency = 1
 RateLabel.Text = "Rate -"
 RateLabel.TextColor3 = MUTED
@@ -1130,7 +1429,7 @@ RateLabel.Parent = InfoCard
 
 local StateLabel = Instance.new("TextLabel")
 StateLabel.Size = UDim2.new(0.32, -10, 0, 15)
-StateLabel.Position = UDim2.new(0.68, 0, 0, 140)
+StateLabel.Position = UDim2.new(0.68, 0, 0, 178)
 StateLabel.BackgroundTransparency = 1
 StateLabel.Text = "Idle"
 StateLabel.TextColor3 = MUTED
@@ -1142,7 +1441,7 @@ StateLabel.Parent = InfoCard
 -- Session + recent
 local SessionLabel = Instance.new("TextLabel")
 SessionLabel.Size = UDim2.new(1, -24, 0, 14)
-SessionLabel.Position = UDim2.fromOffset(12, 162)
+SessionLabel.Position = UDim2.fromOffset(12, 200)
 SessionLabel.BackgroundTransparency = 1
 SessionLabel.Text = "Session: +0 EXP / 00:00:00 / 0 EXP/h"
 SessionLabel.TextColor3 = MUTED
@@ -1153,7 +1452,7 @@ SessionLabel.Parent = InfoCard
 
 local RecentCycleLabel = Instance.new("TextLabel")
 RecentCycleLabel.Size = UDim2.new(1, -24, 0, 14)
-RecentCycleLabel.Position = UDim2.fromOffset(12, 182)
+RecentCycleLabel.Position = UDim2.fromOffset(12, 220)
 RecentCycleLabel.BackgroundTransparency = 1
 RecentCycleLabel.Text = configuration.RecentCycle
 RecentCycleLabel.TextColor3 = MUTED
@@ -1776,6 +2075,8 @@ EmergencyStopButton.MouseButton1Click:Connect(function()
 		configuration.AlertBlockTarget = nil
 		configuration.LastAlertCombatUserId = nil
 		configuration.ExpRetaliationTarget = nil
+		configuration.PendingServerHop = false
+		configuration.ServerHopKillTarget = nil
 		StartBtn.Text = "Start"
 		StartBtn.BackgroundColor3 = ACCENT
 		Status.Text = "OFF"
@@ -2548,20 +2849,41 @@ function configuration.FindTarget()
 	local root = char and char:FindFirstChild("HumanoidRootPart")
 	if not root then return nil end
 
-	local best, bestDist = nil, math.huge
-	local mobs = MobsFolder:GetChildren()
-	for _, mob in ipairs(mobs) do
-		local cfg = mob:FindFirstChild("Config")
-		local exp = cfg and cfg:FindFirstChild("EXP")
-		local mroot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
-		if exp and (exp:IsA("IntValue") or exp:IsA("NumberValue"))
-			and mroot and mroot:IsA("BasePart")
-			and exp.Value < configuration.ExpGoal then
-			local d = (root.Position - mroot.Position).Magnitude
-			if d <= configuration.MaxDistance and d < bestDist then
-				bestDist = d
-				best = mob
-			end
+	MobCache_Rebuild(false)
+	local best, bestDist, bestRemaining = nil, math.huge, math.huge
+	for _, entry in ipairs(MobCache.List) do
+		local mob, exp, mroot = entry.Mob, entry.EXP, entry.Root
+		if not entry.HasEXP or not exp then
+			continue
+		end
+		if exp.Value >= configuration.ExpGoal then
+			continue
+		end
+		local humanoid = entry.Humanoid
+		if not humanoid or not humanoid.Parent then
+			humanoid = mob:FindFirstChildOfClass("Humanoid")
+			entry.Humanoid = humanoid
+		end
+		if humanoid and humanoid.Health <= 0 then
+			continue
+		end
+		if not mroot or not mroot.Parent then
+			mroot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
+			entry.Root = mroot
+		end
+		if not mroot or not mroot:IsA("BasePart") then
+			continue
+		end
+		local d = (root.Position - mroot.Position).Magnitude
+		if d > configuration.MaxDistance then
+			continue
+		end
+		local remaining = configuration.ExpGoal - exp.Value
+		-- Prefer closer targets; break distance ties with less remaining EXP (finishes faster).
+		if d < bestDist - 0.5 or (math.abs(d - bestDist) <= 0.5 and remaining < bestRemaining) then
+			bestDist = d
+			bestRemaining = remaining
+			best = mob
 		end
 	end
 	return best
@@ -2596,10 +2918,18 @@ function configuration.Combat.GetWeaponEquipState(character)
 end
 
 function configuration.Combat.FindNearestCombatMob(localRoot, maxDistance)
+	MobCache_Rebuild(false)
 	local bestMob, bestRoot, bestDistance = nil, nil, maxDistance or configuration.AutoAttackSearchRange
-	for _, mob in ipairs(MobsFolder:GetChildren()) do
-		local mobRoot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
-		local humanoid = mob:FindFirstChildOfClass("Humanoid")
+	for _, entry in ipairs(MobCache.List) do
+		local mob, mobRoot, humanoid = entry.Mob, entry.Root, entry.Humanoid
+		if not mobRoot or not mobRoot.Parent then
+			mobRoot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
+			entry.Root = mobRoot
+		end
+		if not humanoid or not humanoid.Parent then
+			humanoid = mob:FindFirstChildOfClass("Humanoid")
+			entry.Humanoid = humanoid
+		end
 		if mobRoot and mobRoot:IsA("BasePart") and (not humanoid or humanoid.Health > 0) then
 			local distance = (localRoot.Position - mobRoot.Position).Magnitude
 			if distance <= bestDistance then
@@ -2628,6 +2958,22 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 			return "Mob", alertMob, alertRoot, (localRoot.Position - alertRoot.Position).Magnitude
 		end
 		return nil
+	end
+
+	-- Finish the active EXP mob before hopping away from a blocked player.
+	if configuration.PendingServerHop then
+		local hopMob = configuration.ServerHopKillTarget
+		if not configuration.Combat.IsLivingMob(hopMob) then
+			hopMob = configuration.CurrentTarget
+		end
+		if not configuration.Combat.IsLivingMob(hopMob) then
+			hopMob = configuration.ExpMaxCombatTarget
+		end
+		local hopRoot = hopMob and (hopMob.PrimaryPart or hopMob:FindFirstChild("HumanoidRootPart"))
+		if configuration.Combat.IsLivingMob(hopMob) and hopRoot and hopRoot:IsA("BasePart") then
+			configuration.ServerHopKillTarget = hopMob
+			return "Mob", hopMob, hopRoot, (localRoot.Position - hopRoot.Position).Magnitude
+		end
 	end
 
 	local hitExpMob = configuration.ExpRetaliationTarget
@@ -2729,7 +3075,7 @@ end
 -- FARM LOOP (ยิงไม่เกิน Max)
 --==================================================
 task.spawn(function()
-	local lastExpMoveAt = 0
+	local expMoveState = { Active = false, Goal = nil, LastMoveAt = 0 }
 	local chasingExpTarget = nil
 	local watchedTarget = nil
 	local lastObservedExp = nil
@@ -2737,6 +3083,9 @@ task.spawn(function()
 	local watchedHealthTarget = nil
 	local lastObservedTargetHealth = nil
 	local healthChangedConnection = nil
+	local adaptiveYield = 0
+	local lastCycleGain = 0
+	local lastCycleCalls = 0
 	local function StartExpRetaliation(mob, currentHealth)
 		configuration.ExpRetaliationTarget = mob
 		configuration.AutoAttackPinnedMob = mob
@@ -2753,14 +3102,16 @@ task.spawn(function()
 				if watchedExp then lastObservedExp = watchedExp.Value end
 				lastExpProgressAt = os.clock()
 			end
-			if chasingExpTarget then
+			if chasingExpTarget or expMoveState.Active then
 				local character = Player.Character
 				local root = character and character:FindFirstChild("HumanoidRootPart")
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				if root and humanoid then humanoid:MoveTo(root.Position) end
 				chasingExpTarget = nil
+				expMoveState.Active = false
+				expMoveState.Goal = nil
 			end
-			task.wait(0.1)
+			task.wait(0.12)
 			continue
 		end
 
@@ -2791,12 +3142,14 @@ task.spawn(function()
 		if target and configuration.Combat.IsLivingMob(target) then
 			-- ยึดตัวเดิม
 		else
-			if chasingExpTarget then
+			if chasingExpTarget or expMoveState.Active then
 				local character = Player.Character
 				local root = character and character:FindFirstChild("HumanoidRootPart")
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				if root and humanoid then humanoid:MoveTo(root.Position) end
 				chasingExpTarget = nil
+				expMoveState.Active = false
+				expMoveState.Goal = nil
 			end
 			if configuration.ExpMaxCombatTarget == target then
 				configuration.ExpMaxCombatTarget = nil
@@ -2906,34 +3259,22 @@ task.spawn(function()
 		MaxLabel.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
 		DistLabel.Text = "Dist  " .. string.format("%.1f", dist)
 
-		-- Walk toward the locked EXP mob and hold the configured firing distance.
+		-- Smooth approach: hold firing standoff without re-issuing MoveTo every frame.
 		if exp.Value < configuration.ExpGoal and root and mroot then
 			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-			if dist > configuration.ExpApproachDistance + 1 then
-				if humanoid and (chasingExpTarget ~= target or os.clock() - lastExpMoveAt >= 0.4) then
-					local flatOffset = Vector3.new(
-						root.Position.X - mroot.Position.X,
-						0,
-						root.Position.Z - mroot.Position.Z
-					)
-					if flatOffset.Magnitude < 0.1 then
-						flatOffset = Vector3.new(mroot.CFrame.LookVector.X, 0, mroot.CFrame.LookVector.Z)
-					end
-					if flatOffset.Magnitude < 0.1 then
-						flatOffset = Vector3.new(1, 0, 0)
-					end
-					humanoid:MoveTo(mroot.Position + flatOffset.Unit * configuration.ExpApproachDistance)
-					chasingExpTarget = target
-					lastExpMoveAt = os.clock()
-				end
-			elseif chasingExpTarget then
-				if humanoid then humanoid:MoveTo(root.Position) end
+			local standoff = configuration.ExpApproachDistance
+			local goal = OrbitApproachPoint(root, mroot, standoff)
+			local arrived = SmoothMoveTo(humanoid, root, goal, expMoveState, dist > 60 and 0.18 or 0.28, 1.8)
+			chasingExpTarget = (not arrived and dist > standoff + 1) and target or nil
+			if arrived then
 				chasingExpTarget = nil
 			end
-		elseif chasingExpTarget then
+		elseif chasingExpTarget or expMoveState.Active then
 			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
 			if humanoid and root then humanoid:MoveTo(root.Position) end
 			chasingExpTarget = nil
+			expMoveState.Active = false
+			expMoveState.Goal = nil
 		end
 
 		-- เมื่อถึง Max ให้คงเป้าหมายเดิมไว้จนกว่ามอนจะตาย
@@ -2960,12 +3301,26 @@ task.spawn(function()
 		end
 		configuration.UpdateBillboardText(exp.Value, false)
 
-		-- ยิงเฉพาะจำนวนที่เหลือถึง Max (กันยิงเกิน)
+		-- Adaptive fire: scale batch + yield from recent progress.
 		local remaining = configuration.ExpGoal - exp.Value
-		local toFire = math.min(configuration.Amount, math.max(0, remaining))
+		local baseAmount = configuration.Amount
+		if configuration.NoProgressCycles >= 2 then
+			baseAmount = math.max(200, math.floor(baseAmount * 0.35))
+		elseif lastCycleCalls > 0 and lastCycleGain <= 0 then
+			baseAmount = math.max(300, math.floor(baseAmount * 0.55))
+		elseif lastCycleCalls > 0 and lastCycleGain >= lastCycleCalls * 0.6 then
+			baseAmount = math.min(configuration.Amount, math.floor(baseAmount * 1.15))
+		end
+		local toFire = math.min(baseAmount, math.max(0, remaining))
 		local cycleStartExp = exp.Value
 		local cycleStartTime = os.clock()
 		local callsSent = 0
+		local batchYieldEvery = 40
+		if adaptiveYield > 0.008 then
+			batchYieldEvery = 25
+		elseif lastCycleGain > 0 and lastCycleCalls > 0 and (lastCycleGain / lastCycleCalls) > 0.8 then
+			batchYieldEvery = 60
+		end
 
 		while callsSent < toFire do
 			if not configuration.Farming or configuration.EmergencyStopActive then break end
@@ -2987,28 +3342,16 @@ task.spawn(function()
 			local firingMobRoot = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
 			local firingDistance = firingRoot and firingMobRoot
 				and (firingRoot.Position - firingMobRoot.Position).Magnitude or math.huge
-			if firingDistance > configuration.ExpApproachDistance then
+			if firingDistance > configuration.ExpApproachDistance + 0.75 then
 				StateLabel.Text = "Moving"
 				MiniState.Text = string.format("Walking into %.0f-stud EXP range", configuration.ExpApproachDistance)
-				local moveCharacter = Player.Character
-				local moveHumanoid = moveCharacter and moveCharacter:FindFirstChildOfClass("Humanoid")
-				if firingRoot and firingMobRoot and moveHumanoid
-					and (chasingExpTarget ~= target or os.clock() - lastExpMoveAt >= 0.4) then
-					local flatOffset = Vector3.new(
-						firingRoot.Position.X - firingMobRoot.Position.X,
-						0,
-						firingRoot.Position.Z - firingMobRoot.Position.Z
-					)
-					if flatOffset.Magnitude < 0.1 then
-						flatOffset = Vector3.new(firingMobRoot.CFrame.LookVector.X, 0, firingMobRoot.CFrame.LookVector.Z)
-					end
-					if flatOffset.Magnitude < 0.1 then flatOffset = Vector3.new(1, 0, 0) end
-					local movePoint = firingMobRoot.Position + flatOffset.Unit * configuration.ExpApproachDistance
-					moveHumanoid:MoveTo(Vector3.new(movePoint.X, firingRoot.Position.Y, movePoint.Z))
+				local moveHumanoid = firingCharacter and firingCharacter:FindFirstChildOfClass("Humanoid")
+				if firingRoot and firingMobRoot and moveHumanoid then
+					local goal = OrbitApproachPoint(firingRoot, firingMobRoot, configuration.ExpApproachDistance)
+					SmoothMoveTo(moveHumanoid, firingRoot, goal, expMoveState, 0.22, 1.6)
 					chasingExpTarget = target
-					lastExpMoveAt = os.clock()
 				end
-				task.wait(0.1)
+				task.wait(0.08)
 				continue
 			end
 
@@ -3020,12 +3363,13 @@ task.spawn(function()
 			InitClashing:FireServer(2, exp)
 			callsSent += 1
 
-			-- ใกล้ Max แล้ว → ยิงช้าลง + รอค่าอัปเดต
+			-- Adaptive throttle near max / after stalled cycles / periodic yield for replicate.
 			if exp.Value >= configuration.ExpGoal - 200 then
-				task.wait(0.02)
-			elseif callsSent % 50 == 0 then
-				-- เว้นจังหวะเล็กน้อยทุก 50 ครั้ง ให้ Value มีโอกาส replicate
-				task.wait()
+				task.wait(0.025 + adaptiveYield)
+			elseif configuration.NoProgressCycles >= 2 and callsSent % 15 == 0 then
+				task.wait(0.03 + adaptiveYield)
+			elseif callsSent % batchYieldEvery == 0 then
+				task.wait(math.max(0, adaptiveYield))
 			end
 		end
 
@@ -3040,6 +3384,9 @@ task.spawn(function()
 
 		if exp.Value >= configuration.ExpGoal then
 			configuration.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
+			lastCycleGain = math.max(0, exp.Value - cycleStartExp)
+			lastCycleCalls = callsSent
+			adaptiveYield = math.max(0, adaptiveYield - 0.004)
 			configuration.ExpMaxCombatTarget = target
 			StateLabel.Text = "EXP max - waiting for mob to die"
 			MiniState.Text = "Waiting for mob to die"
@@ -3067,6 +3414,13 @@ task.spawn(function()
 		end
 
 		configuration.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
+		lastCycleGain = math.max(0, exp.Value - cycleStartExp)
+		lastCycleCalls = callsSent
+		if callsSent > 0 and lastCycleGain <= 0 then
+			adaptiveYield = math.min(0.04, adaptiveYield + 0.008)
+		elseif lastCycleGain > 0 then
+			adaptiveYield = math.max(0, adaptiveYield - 0.006)
+		end
 
 		if configuration.Farming then
 			if not target:IsDescendantOf(MobsFolder) then
@@ -3094,22 +3448,26 @@ end)
 task.spawn(function()
 	local lastAttackAt = 0
 	local lastSkillAt = 0
-	local lastMoveAt = 0
 	local lastEquipAt = 0
+	local attackMoveState = { Active = false, Goal = nil, LastMoveAt = 0 }
 	local chasingMob = false
 	local lastRetaliationAttackTarget = nil
+	local lastUiSync = 0
 	while true do
 		local canCombatDuringExp = configuration.Farming
-			and (configuration.ExpMaxCombatTarget ~= nil or configuration.ExpRetaliationTarget ~= nil)
+			and (configuration.ExpMaxCombatTarget ~= nil or configuration.ExpRetaliationTarget ~= nil
+				or configuration.PendingServerHop)
+		local forceFinishExp = configuration.PendingServerHop and configuration.ServerHopKillTarget ~= nil
 		if not configuration.EmergencyStopActive
 			and (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or configuration.AlertCombatPending
-				or configuration.ExpRetaliationTarget ~= nil)
+				or configuration.ExpRetaliationTarget ~= nil or forceFinishExp)
 			and not configuration.AlertCombatHold
-			and (not configuration.Farming or canCombatDuringExp) and not configuration.AlertCombatBlockReady then
+			and (not configuration.Farming or canCombatDuringExp or forceFinishExp)
+			and not configuration.AlertCombatBlockReady then
 			local character = Player.Character
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			local targetKind, target, targetRoot, distance
-			local atRearPosition = targetKind ~= "Mob"
+			local atRearPosition = true
 			local isAboveMob = false
 			if localRoot then
 				targetKind, target, targetRoot, distance = configuration.Combat.FindAutoAttackTarget(localRoot)
@@ -3126,23 +3484,16 @@ task.spawn(function()
 			if target and targetRoot then
 				if targetKind == "Mob" and localRoot
 					and (configuration.AutoAttackEnabled or configuration.AlertCombatPending
-						or configuration.ExpRetaliationTarget == target) then
+						or configuration.ExpRetaliationTarget == target
+						or configuration.ServerHopKillTarget == target) then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-					local now = os.clock()
-					local flatForward = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
-					if flatForward.Magnitude < 0.1 then
-						flatForward = Vector3.new(0, 0, -1)
-					else
-						flatForward = flatForward.Unit
-					end
-					local rearPosition = targetRoot.Position - flatForward * configuration.AutoAttackStandoff
-					local approachPoint = Vector3.new(rearPosition.X, targetRoot.Position.Y, rearPosition.Z)
+					local approachPoint = RearApproachPoint(targetRoot, configuration.AutoAttackStandoff)
 					local horizontalGap = Vector3.new(
 						localRoot.Position.X - approachPoint.X,
 						0,
 						localRoot.Position.Z - approachPoint.Z
 					).Magnitude
-					atRearPosition = horizontalGap <= 2.5
+					atRearPosition = horizontalGap <= 2.2
 					local horizontalTargetGap = Vector3.new(
 						localRoot.Position.X - targetRoot.Position.X,
 						0,
@@ -3153,23 +3504,33 @@ task.spawn(function()
 					local nearMobFootprint = horizontalTargetGap <= math.max(targetRoot.Size.X, targetRoot.Size.Z) * 0.75 + 2
 					isAboveMob = nearMobFootprint and localRoot.Position.Y > targetRoot.Position.Y + aboveThreshold
 					if not atRearPosition or isAboveMob then
-						if humanoid and now - lastMoveAt >= 0.3 then
-							humanoid:MoveTo(approachPoint)
-							lastMoveAt = now
-							chasingMob = true
+						-- Far targets path more often; close range softens repathing to reduce jitter.
+						local interval = (distance or 0) > 40 and 0.16 or 0.26
+						local stopRadius = isAboveMob and 1.1 or 1.9
+						local arrived = SmoothMoveTo(humanoid, localRoot, approachPoint, attackMoveState, interval, stopRadius)
+						chasingMob = not arrived
+						-- Start facing early so attacks land cleaner on arrival.
+						if configuration.FaceTargetEnabled and (distance or 999) <= configuration.AutoAttackRange + 15 then
+							FaceTargetSmooth(localRoot, targetRoot.Position, 0.22)
 						end
-					elseif chasingMob and humanoid and now - lastMoveAt >= 0.4 then
-						humanoid:MoveTo(localRoot.Position)
-						lastMoveAt = now
+					elseif chasingMob or attackMoveState.Active then
+						if humanoid then humanoid:MoveTo(localRoot.Position) end
+						attackMoveState.Active = false
+						attackMoveState.Goal = nil
 						chasingMob = false
 					end
-				elseif chasingMob then
+				elseif chasingMob or attackMoveState.Active then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
+					attackMoveState.Active = false
+					attackMoveState.Goal = nil
 					chasingMob = false
 				end
 
 				if distance <= configuration.AutoAttackRange then
+					if configuration.FaceTargetEnabled and localRoot and targetRoot then
+						FaceTargetSmooth(localRoot, targetRoot.Position, distance <= 12 and 0.45 or 0.28)
+					end
 					local playerGui = Player:FindFirstChildOfClass("PlayerGui")
 					local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
 					if inputFunction and inputFunction:IsA("BindableFunction") then
@@ -3194,7 +3555,8 @@ task.spawn(function()
 						else
 							CombatInfo.Text = configuration.AlertCombatPending and "Alert response: attacking only the locked EXP target." or "Weapon ready; Auto Attack can engage the selected target."
 							if (configuration.AutoAttackEnabled or configuration.AlertCombatPending
-								or configuration.ExpRetaliationTarget == target)
+								or configuration.ExpRetaliationTarget == target
+								or configuration.ServerHopKillTarget == target)
 								and now - lastAttackAt >= configuration.AutoAttackInterval then
 								local ok, err = pcall(function()
 									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
@@ -3218,20 +3580,29 @@ task.spawn(function()
 						end
 					end
 				end
-			elseif chasingMob then
+			elseif chasingMob or attackMoveState.Active then
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
+				attackMoveState.Active = false
+				attackMoveState.Goal = nil
 				chasingMob = false
 			end
-		elseif chasingMob then
+		elseif chasingMob or attackMoveState.Active then
 			local character = Player.Character
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
+			attackMoveState.Active = false
+			attackMoveState.Goal = nil
 			chasingMob = false
 		end
-		configuration.UpdateExpMobTargetButton()
-		task.wait(0.1)
+		-- Throttle button label sync; combat loop no longer needs full UI work every tick.
+		local nowUi = os.clock()
+		if nowUi - lastUiSync >= 0.35 then
+			lastUiSync = nowUi
+			configuration.UpdateExpMobTargetButton()
+		end
+		task.wait(0.08)
 	end
 end)
 
@@ -3322,7 +3693,32 @@ task.spawn(function()
 			end
 		end
 
-		task.wait(0.1)
+		-- Player level + level EXP bar (both mini + full Experience page).
+		do
+			local level, pExp, pMax, pRatio = configuration.GetLocalLevelProgress()
+			local levelText = level ~= nil and ("Lv " .. tostring(math.floor(level))) or "Lv —"
+			if LevelLabel.Text ~= levelText then LevelLabel.Text = levelText end
+			if MiniLevel.Text ~= levelText then MiniLevel.Text = levelText end
+			local levelExpLine
+			if pExp ~= nil and pMax ~= nil then
+				levelExpLine = string.format("Level EXP  %s / %s", configuration.FormatNumber(pExp), configuration.FormatNumber(pMax))
+			elseif pExp ~= nil then
+				levelExpLine = "Level EXP  " .. configuration.FormatNumber(pExp)
+			else
+				levelExpLine = "Level EXP  —"
+			end
+			if LevelExpText.Text ~= levelExpLine then LevelExpText.Text = levelExpLine end
+			if MiniLevelExpLabel.Text ~= levelExpLine then MiniLevelExpLabel.Text = levelExpLine end
+			local fill = pRatio or 0
+			if math.floor(fill * 1000) ~= math.floor((LevelBarFill.Size.X.Scale or 0) * 1000) then
+				LevelBarFill.Size = UDim2.fromScale(fill, 1)
+				MiniLevelBarFill.Size = UDim2.fromScale(fill, 1)
+			end
+		end
+
+		-- Faster while farming/combat feedback matters; slower when idle to cut CPU.
+		local uiBusy = configuration.Farming or configuration.AutoAttackEnabled or configuration.AlertCombatPending
+		task.wait(uiBusy and 0.12 or 0.28)
 	end
 end)
 
@@ -3513,20 +3909,50 @@ task.spawn(function()
 			elseif blockedNonWhitelistedPlayer and not autoBlockTeleporting then
 				configuration.AlertCombatBlockReady = false
 				configuration.AlertBlockTarget = nil
-				StateLabel.Text = "Server hop"
-				MiniState.Text = "A non-Whitelisted player is already blocked"
-				autoBlockTeleporting = true
-				task.spawn(function()
-					local ok, err = pcall(function()
-						TeleportService:Teleport(game.PlaceId, Player)
-					end)
-					if not ok then
-						autoBlockTeleporting = false
-						warn("Auto Block teleport failed:", err)
-					else
-						task.delay(15, function() autoBlockTeleporting = false end)
+				-- Prefer finishing the active EXP mob before hopping.
+				local killMob = deferredAutoBlockMob
+				if not configuration.Combat.IsLivingMob(killMob) then
+					killMob = configuration.CurrentTarget
+				end
+				if not configuration.Combat.IsLivingMob(killMob) then
+					killMob = configuration.ExpMaxCombatTarget
+				end
+				if configuration.Combat.IsLivingMob(killMob) then
+					configuration.PendingServerHop = true
+					configuration.ServerHopKillTarget = killMob
+					configuration.AutoAttackPinnedMob = killMob
+					configuration.CombatTargetMob = killMob
+					configuration.ExpMaxCombatTarget = killMob
+					-- Stop EXP firing; focus on killing, then hop.
+					if configuration.Farming then
+						configuration.Farming = false
+						configuration.PauseTimer()
+						StartBtn.Text = "Start"
+						StartBtn.BackgroundColor3 = ACCENT
+						Status.Text = "OFF"
+						Status.TextColor3 = RED
+						Status.BackgroundColor3 = RED_DIM
 					end
-				end)
+					StateLabel.Text = "Finish EXP"
+					MiniState.Text = "Blocked player in server — killing EXP mob before hop"
+				else
+					configuration.PendingServerHop = false
+					configuration.ServerHopKillTarget = nil
+					StateLabel.Text = "Server hop"
+					MiniState.Text = "A non-Whitelisted player is already blocked"
+					autoBlockTeleporting = true
+					task.spawn(function()
+						local ok, err = pcall(function()
+							TeleportService:Teleport(game.PlaceId, Player)
+						end)
+						if not ok then
+							autoBlockTeleporting = false
+							warn("Auto Block teleport failed:", err)
+						else
+							task.delay(15, function() autoBlockTeleporting = false end)
+						end
+					end)
+				end
 			elseif nextPlayerToPrompt and deferPromptForExp then
 				StateLabel.Text = "Waiting"
 				MiniState.Text = "Waiting for current EXP mob to die before Block prompt"
@@ -3546,6 +3972,38 @@ task.spawn(function()
 			end
 		elseif not configuration.AutoBlockEnabled then
 			nextAutoBlockPromptAt = 0
+			configuration.PendingServerHop = false
+			configuration.ServerHopKillTarget = nil
+		end
+
+		-- Complete deferred hop once the locked EXP mob is dead (or gone).
+		if configuration.PendingServerHop and not autoBlockTeleporting and not configuration.EmergencyStopActive then
+			local hopMob = configuration.ServerHopKillTarget
+			local stillAlive = configuration.Combat.IsLivingMob(hopMob)
+			if stillAlive then
+				configuration.AutoAttackPinnedMob = hopMob
+				configuration.CombatTargetMob = hopMob
+				StateLabel.Text = "Finish EXP"
+				MiniState.Text = "Killing EXP mob before server hop"
+			else
+				configuration.PendingServerHop = false
+				configuration.ServerHopKillTarget = nil
+				configuration.ExpMaxCombatTarget = nil
+				StateLabel.Text = "Server hop"
+				MiniState.Text = "EXP mob down — hopping away from blocked player"
+				autoBlockTeleporting = true
+				task.spawn(function()
+					local ok, err = pcall(function()
+						TeleportService:Teleport(game.PlaceId, Player)
+					end)
+					if not ok then
+						autoBlockTeleporting = false
+						warn("Auto Block teleport failed:", err)
+					else
+						task.delay(15, function() autoBlockTeleporting = false end)
+					end
+				end)
+			end
 		end
 
 		if PlayerPanel.Visible and os.clock() - lastPlayerRefresh >= 0.5 then
@@ -4071,7 +4529,10 @@ task.spawn(function()
 			flashOn = false
 		end
 
-		task.wait(0.05)
+		-- Alert / ESP / follow loop: stay responsive near threats, slower when quiet.
+		local alertBusy = configuration.AlertsEnabled or configuration.FollowPlayerUserId ~= nil
+			or configuration.AlertCombatPending or configuration.AlertCombatHold or AlarmOverlay.Visible
+		task.wait(alertBusy and 0.08 or 0.18)
 	end
 end)
 
