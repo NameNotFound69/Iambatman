@@ -2643,61 +2643,61 @@ MobsFolder.ChildAdded:Connect(configuration.RequestCombatMobRefresh)
 MobsFolder.ChildRemoved:Connect(configuration.RequestCombatMobRefresh)
 configuration.RefreshCombatMobs()
 
-local CombatStatusCard = Instance.new("Frame")
-CombatStatusCard.Size = UDim2.new(1, 0, 0, 78)
-CombatStatusCard.LayoutOrder = 10
-CombatStatusCard.BackgroundColor3 = CARD
-CombatStatusCard.BorderSizePixel = 0
-CombatStatusCard.Parent = CombatPage
-Instance.new("UICorner", CombatStatusCard).CornerRadius = UDim.new(0, 8)
-local CombatStatusStroke = Instance.new("UIStroke", CombatStatusCard)
-CombatStatusStroke.Color = INPUT
-CombatStatusStroke.Transparency = 0.35
+configuration.CombatStatusCard = Instance.new("Frame")
+configuration.CombatStatusCard.Size = UDim2.new(1, 0, 0, 78)
+configuration.CombatStatusCard.LayoutOrder = 10
+configuration.CombatStatusCard.BackgroundColor3 = CARD
+configuration.CombatStatusCard.BorderSizePixel = 0
+configuration.CombatStatusCard.Parent = CombatPage
+Instance.new("UICorner", configuration.CombatStatusCard).CornerRadius = UDim.new(0, 8)
+configuration.CombatStatusStroke = Instance.new("UIStroke", configuration.CombatStatusCard)
+configuration.CombatStatusStroke.Color = INPUT
+configuration.CombatStatusStroke.Transparency = 0.35
 
-local CombatStatusAccent = Instance.new("Frame")
-CombatStatusAccent.Size = UDim2.new(0, 3, 1, -18)
-CombatStatusAccent.Position = UDim2.fromOffset(8, 9)
-CombatStatusAccent.BackgroundColor3 = ACCENT
-CombatStatusAccent.BorderSizePixel = 0
-CombatStatusAccent.Parent = CombatStatusCard
-Instance.new("UICorner", CombatStatusAccent).CornerRadius = UDim.new(1, 0)
+configuration.CombatStatusAccent = Instance.new("Frame")
+configuration.CombatStatusAccent.Size = UDim2.new(0, 3, 1, -18)
+configuration.CombatStatusAccent.Position = UDim2.fromOffset(8, 9)
+configuration.CombatStatusAccent.BackgroundColor3 = ACCENT
+configuration.CombatStatusAccent.BorderSizePixel = 0
+configuration.CombatStatusAccent.Parent = configuration.CombatStatusCard
+Instance.new("UICorner", configuration.CombatStatusAccent).CornerRadius = UDim.new(1, 0)
 
-local CombatStatusTitle = Instance.new("TextLabel")
-CombatStatusTitle.Size = UDim2.new(1, -28, 0, 16)
-CombatStatusTitle.Position = UDim2.fromOffset(19, 7)
-CombatStatusTitle.BackgroundTransparency = 1
-CombatStatusTitle.Text = "COMBAT STATUS"
-CombatStatusTitle.TextColor3 = ACCENT
-CombatStatusTitle.TextSize = 9
-CombatStatusTitle.Font = Enum.Font.GothamBold
-CombatStatusTitle.TextXAlignment = Enum.TextXAlignment.Left
-CombatStatusTitle.Parent = CombatStatusCard
+configuration.CombatStatusTitle = Instance.new("TextLabel")
+configuration.CombatStatusTitle.Size = UDim2.new(1, -28, 0, 16)
+configuration.CombatStatusTitle.Position = UDim2.fromOffset(19, 7)
+configuration.CombatStatusTitle.BackgroundTransparency = 1
+configuration.CombatStatusTitle.Text = "COMBAT STATUS"
+configuration.CombatStatusTitle.TextColor3 = ACCENT
+configuration.CombatStatusTitle.TextSize = 9
+configuration.CombatStatusTitle.Font = Enum.Font.GothamBold
+configuration.CombatStatusTitle.TextXAlignment = Enum.TextXAlignment.Left
+configuration.CombatStatusTitle.Parent = configuration.CombatStatusCard
 
-local CombatInfo = Instance.new("TextLabel")
-CombatInfo.Size = UDim2.new(1, -28, 0, 49)
-CombatInfo.Position = UDim2.fromOffset(19, 23)
-CombatInfo.BackgroundTransparency = 1
-CombatInfo.Text = "Combat locks one target, routes around obstacles, and attacks while closing in. It holds still in range; skills fire in range only. EXP firing behavior stays unchanged."
-CombatInfo.TextColor3 = TEXT
-CombatInfo.TextSize = 10
-CombatInfo.Font = Enum.Font.Gotham
-CombatInfo.TextWrapped = true
-CombatInfo.TextXAlignment = Enum.TextXAlignment.Left
-CombatInfo.TextYAlignment = Enum.TextYAlignment.Top
-CombatInfo.Parent = CombatStatusCard
+configuration.CombatInfo = Instance.new("TextLabel")
+configuration.CombatInfo.Size = UDim2.new(1, -28, 0, 49)
+configuration.CombatInfo.Position = UDim2.fromOffset(19, 23)
+configuration.CombatInfo.BackgroundTransparency = 1
+configuration.CombatInfo.Text = "Combat locks one target, routes around obstacles, and attacks while closing in. It holds still in range; skills fire in range only. EXP firing behavior stays unchanged."
+configuration.CombatInfo.TextColor3 = TEXT
+configuration.CombatInfo.TextSize = 10
+configuration.CombatInfo.Font = Enum.Font.Gotham
+configuration.CombatInfo.TextWrapped = true
+configuration.CombatInfo.TextXAlignment = Enum.TextXAlignment.Left
+configuration.CombatInfo.TextYAlignment = Enum.TextYAlignment.Top
+configuration.CombatInfo.Parent = configuration.CombatStatusCard
 
-local HitboxCountCache = setmetatable({}, { __mode = "k" })
-local TargetHealthCache = setmetatable({}, { __mode = "k" })
-local CombatDebugFolder = nil
-local CombatDebugBillboard = nil
-local CombatDebugText = nil
-local CombatDebugMarkers = {}
-local lastCombatDiagnosticsUpdate = 0
+configuration.HitboxCountCache = setmetatable({}, { __mode = "k" })
+configuration.TargetHealthCache = setmetatable({}, { __mode = "k" })
+configuration.CombatDebugFolder = nil
+configuration.CombatDebugBillboard = nil
+configuration.CombatDebugText = nil
+configuration.CombatDebugMarkers = {}
+configuration.LastCombatDiagnosticsUpdate = 0
 
-local function CountExposedAttackHitboxes(model)
+function configuration.CountExposedAttackHitboxes(model)
 	if not model or not model:IsA("Model") then return 0 end
 	local now = os.clock()
-	local cached = HitboxCountCache[model]
+	local cached = configuration.HitboxCountCache[model]
 	if cached and now - cached.At < 1 then return cached.Count end
 	local count = 0
 	for _, item in ipairs(model:GetDescendants()) do
@@ -2710,20 +2710,20 @@ local function CountExposedAttackHitboxes(model)
 			if explicitlyMarked or tagged or namedWeaponPart then count += 1 end
 		end
 	end
-	HitboxCountCache[model] = { At = now, Count = count }
+	configuration.HitboxCountCache[model] = { At = now, Count = count }
 	return count
 end
 
-local function SetCombatDiagnosticsEnabled(enabled)
+function configuration.SetCombatDiagnosticsEnabled(enabled)
 	configuration.CombatDiagnosticsEnabled = enabled == true
 	configuration.SetToggleVisual(CombatDiagnosticsButton, "Combat diagnostics", configuration.CombatDiagnosticsEnabled, ACCENT, ACCENT_DIM)
 	if configuration.CombatDiagnosticsEnabled then
 		local folderName = "_IamrichCombatDebug_" .. tostring(Player.UserId)
 		local oldFolder = workspace:FindFirstChild(folderName)
 		if oldFolder then oldFolder:Destroy() end
-		CombatDebugFolder = Instance.new("Folder")
-		CombatDebugFolder.Name = folderName
-		CombatDebugFolder.Parent = workspace
+		configuration.CombatDebugFolder = Instance.new("Folder")
+		configuration.CombatDebugFolder.Name = folderName
+		configuration.CombatDebugFolder.Parent = workspace
 		for index = 1, 8 do
 			local marker = Instance.new("Part")
 			marker.Name = "RoutePoint" .. index
@@ -2736,27 +2736,27 @@ local function SetCombatDiagnosticsEnabled(enabled)
 			marker.Material = Enum.Material.Neon
 			marker.Color = index == 1 and ACCENT or Color3.fromRGB(67, 205, 184)
 			marker.Transparency = 1
-			marker.Parent = CombatDebugFolder
-			CombatDebugMarkers[index] = marker
+			marker.Parent = configuration.CombatDebugFolder
+			configuration.CombatDebugMarkers[index] = marker
 		end
 		local playerGui = Player:FindFirstChildOfClass("PlayerGui") or ScreenGui
 		local billboardName = "_IamrichCombatDiagnostics_" .. tostring(Player.UserId)
 		local oldBillboard = playerGui:FindFirstChild(billboardName)
 		if oldBillboard then oldBillboard:Destroy() end
-		CombatDebugBillboard = Instance.new("BillboardGui")
-		CombatDebugBillboard.Name = billboardName
-		CombatDebugBillboard.Size = UDim2.fromOffset(230, 66)
-		CombatDebugBillboard.StudsOffset = Vector3.new(0, 4, 0)
-		CombatDebugBillboard.AlwaysOnTop = true
-		CombatDebugBillboard.MaxDistance = 1200
-		CombatDebugBillboard.Enabled = false
-		CombatDebugBillboard.Parent = playerGui
+		configuration.CombatDebugBillboard = Instance.new("BillboardGui")
+		configuration.CombatDebugBillboard.Name = billboardName
+		configuration.CombatDebugBillboard.Size = UDim2.fromOffset(230, 66)
+		configuration.CombatDebugBillboard.StudsOffset = Vector3.new(0, 4, 0)
+		configuration.CombatDebugBillboard.AlwaysOnTop = true
+		configuration.CombatDebugBillboard.MaxDistance = 1200
+		configuration.CombatDebugBillboard.Enabled = false
+		configuration.CombatDebugBillboard.Parent = playerGui
 		local background = Instance.new("Frame")
 		background.Size = UDim2.fromScale(1, 1)
 		background.BackgroundColor3 = BG
 		background.BackgroundTransparency = 0.12
 		background.BorderSizePixel = 0
-		background.Parent = CombatDebugBillboard
+		background.Parent = configuration.CombatDebugBillboard
 		Instance.new("UICorner", background).CornerRadius = UDim.new(0, 7)
 		local stroke = Instance.new("UIStroke", background)
 		stroke.Color = ACCENT
@@ -2772,24 +2772,24 @@ local function SetCombatDiagnosticsEnabled(enabled)
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.TextYAlignment = Enum.TextYAlignment.Center
 		label.Parent = background
-		CombatDebugText = label
+		configuration.CombatDebugText = label
 	else
-		if CombatDebugBillboard then CombatDebugBillboard:Destroy() end
-		if CombatDebugFolder then CombatDebugFolder:Destroy() end
-		CombatDebugBillboard, CombatDebugText, CombatDebugFolder = nil, nil, nil
-		table.clear(CombatDebugMarkers)
+		if configuration.CombatDebugBillboard then configuration.CombatDebugBillboard:Destroy() end
+		if configuration.CombatDebugFolder then configuration.CombatDebugFolder:Destroy() end
+		configuration.CombatDebugBillboard, configuration.CombatDebugText, configuration.CombatDebugFolder = nil, nil, nil
+		table.clear(configuration.CombatDebugMarkers)
 	end
 end
 
 CombatDiagnosticsButton.MouseButton1Click:Connect(function()
-	SetCombatDiagnosticsEnabled(not configuration.CombatDiagnosticsEnabled)
+	configuration.SetCombatDiagnosticsEnabled(not configuration.CombatDiagnosticsEnabled)
 end)
 
-local function UpdateCombatDiagnostics(target, targetRoot, distance, attackRange, navigationState, moveState)
+function configuration.UpdateCombatDiagnostics(target, targetRoot, distance, attackRange, navigationState, moveState)
 	local now = os.clock()
-	if now - lastCombatDiagnosticsUpdate < 0.18 then return end
-	lastCombatDiagnosticsUpdate = now
-	local hitboxCount = target and target:IsA("Model") and CountExposedAttackHitboxes(target) or 0
+	if now - configuration.LastCombatDiagnosticsUpdate < 0.18 then return end
+	configuration.LastCombatDiagnosticsUpdate = now
+	local hitboxCount = target and target:IsA("Model") and configuration.CountExposedAttackHitboxes(target) or 0
 	local mode = navigationState or "holding"
 	if target and targetRoot then
 		local name = target.Name
@@ -2799,11 +2799,11 @@ local function UpdateCombatDiagnostics(target, targetRoot, distance, attackRange
 			or (moveState and moveState.Active and "approaching · attack input active" or "outside range · route needed")
 		local targetModel = target:IsA("Model") and target or target.Character
 		local targetHumanoid = targetModel and targetModel:FindFirstChildOfClass("Humanoid")
-		local healthState = targetModel and TargetHealthCache[targetModel]
+		local healthState = targetModel and configuration.TargetHealthCache[targetModel]
 		if targetHumanoid then
 			if not healthState then
 				healthState = { Health = targetHumanoid.Health, LastDamageAt = 0 }
-				TargetHealthCache[targetModel] = healthState
+				configuration.TargetHealthCache[targetModel] = healthState
 			elseif targetHumanoid.Health < healthState.Health - 0.01 then
 				healthState.LastDamageAt = now
 			end
@@ -2822,20 +2822,20 @@ local function UpdateCombatDiagnostics(target, targetRoot, distance, attackRange
 		local weaponReady, needsEquip = configuration.Combat.GetWeaponEquipState(Player.Character)
 		local weaponStatus = weaponReady and attackFeedback or (needsEquip and "equipping weapon" or "weapon unavailable")
 		local statusText = string.format("%s: %s\n%s · %s (%s)\nHitboxes %d · %s", kind, name, distanceText, action, mode, hitboxCount, weaponStatus)
-		CombatInfo.Text = statusText
-		if CombatDebugBillboard then
-			CombatDebugBillboard.Adornee = targetRoot
-			CombatDebugBillboard.Enabled = configuration.CombatDiagnosticsEnabled
-			if CombatDebugText then CombatDebugText.Text = statusText end
+		configuration.CombatInfo.Text = statusText
+		if configuration.CombatDebugBillboard then
+			configuration.CombatDebugBillboard.Adornee = targetRoot
+			configuration.CombatDebugBillboard.Enabled = configuration.CombatDiagnosticsEnabled
+			if configuration.CombatDebugText then configuration.CombatDebugText.Text = statusText end
 		end
 	else
-		CombatInfo.Text = configuration.Farming and "Combat paused during EXP firing."
+		configuration.CombatInfo.Text = configuration.Farming and "Combat paused during EXP firing."
 			or (configuration.AutoAttackEnabled and "Combat: searching for an eligible target."
 				or "Combat is idle. Enable Auto Attack and select a target mode.")
-		if CombatDebugBillboard then CombatDebugBillboard.Enabled = false end
+		if configuration.CombatDebugBillboard then configuration.CombatDebugBillboard.Enabled = false end
 	end
 
-	if configuration.CombatDiagnosticsEnabled and CombatDebugFolder then
+	if configuration.CombatDiagnosticsEnabled and configuration.CombatDebugFolder then
 		local points = {}
 		if target and targetRoot and moveState and moveState.Waypoints and moveState.WaypointIndex then
 			for index = moveState.WaypointIndex, math.min(#moveState.Waypoints, moveState.WaypointIndex + 6) do
@@ -2844,7 +2844,7 @@ local function UpdateCombatDiagnostics(target, targetRoot, distance, attackRange
 		elseif target and targetRoot and moveState and (moveState.PathGoal or moveState.Goal or moveState.PathMoveGoal) then
 			table.insert(points, moveState.PathGoal or moveState.Goal or moveState.PathMoveGoal)
 		end
-		for index, marker in ipairs(CombatDebugMarkers) do
+		for index, marker in ipairs(configuration.CombatDebugMarkers) do
 			local point = points[index]
 			marker.Transparency = point and 0.18 or 1
 			if point then marker.Position = point end
@@ -2878,7 +2878,7 @@ end
 
 ExpMobTargetButton.MouseButton1Click:Connect(function()
 	if configuration.AutoAttackBossesOnly then
-		CombatInfo.Text = "Bosses only is active; EXP target selection is disabled."
+		configuration.CombatInfo.Text = "Bosses only is active; EXP target selection is disabled."
 		return
 	end
 	configuration.AutoAttackUseExpTarget = not configuration.AutoAttackUseExpTarget
@@ -3408,106 +3408,106 @@ StopFollowButton.MouseButton1Click:Connect(function()
 	if configuration.PlayerPanelMode == "follow" then PlayerPanel.Visible = true end
 end)
 
-local WhitelistPanel = Instance.new("Frame")
-WhitelistPanel.Name = "WhitelistPanel"
-WhitelistPanel.Size = UDim2.fromScale(configuration.WhitelistPanelWidthScale, configuration.WhitelistPanelHeightScale)
-WhitelistPanel.Position = UDim2.fromScale(0.04, 0.20)
-WhitelistPanel.ZIndex = 90
-WhitelistPanel.BackgroundColor3 = BG
-WhitelistPanel.BorderSizePixel = 0
-WhitelistPanel.Visible = false
-WhitelistPanel.Parent = ScreenGui
-Instance.new("UICorner", WhitelistPanel).CornerRadius = UDim.new(0, 12)
-local WhitelistPanelStroke = Instance.new("UIStroke", WhitelistPanel)
-WhitelistPanelStroke.Color = BORDER
-WhitelistPanelStroke.Thickness = 1
-WhitelistPanelStroke.Transparency = 0.35
+configuration.WhitelistPanel = Instance.new("Frame")
+configuration.WhitelistPanel.Name = "WhitelistPanel"
+configuration.WhitelistPanel.Size = UDim2.fromScale(configuration.WhitelistPanelWidthScale, configuration.WhitelistPanelHeightScale)
+configuration.WhitelistPanel.Position = UDim2.fromScale(0.04, 0.20)
+configuration.WhitelistPanel.ZIndex = 90
+configuration.WhitelistPanel.BackgroundColor3 = BG
+configuration.WhitelistPanel.BorderSizePixel = 0
+configuration.WhitelistPanel.Visible = false
+configuration.WhitelistPanel.Parent = ScreenGui
+Instance.new("UICorner", configuration.WhitelistPanel).CornerRadius = UDim.new(0, 12)
+configuration.WhitelistPanelStroke = Instance.new("UIStroke", configuration.WhitelistPanel)
+configuration.WhitelistPanelStroke.Color = BORDER
+configuration.WhitelistPanelStroke.Thickness = 1
+configuration.WhitelistPanelStroke.Transparency = 0.35
 
-local WhitelistHeader = Instance.new("Frame")
-WhitelistHeader.Name = "Header"
-WhitelistHeader.Size = UDim2.new(1, 0, 0, 44)
-WhitelistHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
-WhitelistHeader.BorderSizePixel = 0
-WhitelistHeader.ZIndex = 91
-WhitelistHeader.Parent = WhitelistPanel
-Instance.new("UICorner", WhitelistHeader).CornerRadius = UDim.new(0, 12)
+configuration.WhitelistHeader = Instance.new("Frame")
+configuration.WhitelistHeader.Name = "Header"
+configuration.WhitelistHeader.Size = UDim2.new(1, 0, 0, 44)
+configuration.WhitelistHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configuration.WhitelistHeader.BorderSizePixel = 0
+configuration.WhitelistHeader.ZIndex = 91
+configuration.WhitelistHeader.Parent = configuration.WhitelistPanel
+Instance.new("UICorner", configuration.WhitelistHeader).CornerRadius = UDim.new(0, 12)
 
-local WhitelistHeaderFix = Instance.new("Frame")
-WhitelistHeaderFix.Size = UDim2.new(1, 0, 0, 16)
-WhitelistHeaderFix.Position = UDim2.new(0, 0, 1, -16)
-WhitelistHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
-WhitelistHeaderFix.BorderSizePixel = 0
-WhitelistHeaderFix.ZIndex = 91
-WhitelistHeaderFix.Parent = WhitelistHeader
+configuration.WhitelistHeaderFix = Instance.new("Frame")
+configuration.WhitelistHeaderFix.Size = UDim2.new(1, 0, 0, 16)
+configuration.WhitelistHeaderFix.Position = UDim2.new(0, 0, 1, -16)
+configuration.WhitelistHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configuration.WhitelistHeaderFix.BorderSizePixel = 0
+configuration.WhitelistHeaderFix.ZIndex = 91
+configuration.WhitelistHeaderFix.Parent = configuration.WhitelistHeader
 
-local WhitelistHeaderRule = Instance.new("Frame")
-WhitelistHeaderRule.Size = UDim2.new(1, -20, 0, 1)
-WhitelistHeaderRule.Position = UDim2.new(0, 10, 1, -1)
-WhitelistHeaderRule.BackgroundColor3 = BORDER
-WhitelistHeaderRule.BackgroundTransparency = 0.4
-WhitelistHeaderRule.BorderSizePixel = 0
-WhitelistHeaderRule.ZIndex = 92
-WhitelistHeaderRule.Parent = WhitelistHeader
+configuration.WhitelistHeaderRule = Instance.new("Frame")
+configuration.WhitelistHeaderRule.Size = UDim2.new(1, -20, 0, 1)
+configuration.WhitelistHeaderRule.Position = UDim2.new(0, 10, 1, -1)
+configuration.WhitelistHeaderRule.BackgroundColor3 = BORDER
+configuration.WhitelistHeaderRule.BackgroundTransparency = 0.4
+configuration.WhitelistHeaderRule.BorderSizePixel = 0
+configuration.WhitelistHeaderRule.ZIndex = 92
+configuration.WhitelistHeaderRule.Parent = configuration.WhitelistHeader
 
-local WhitelistTitle = Instance.new("TextLabel")
-WhitelistTitle.Size = UDim2.new(1, -20, 0, 22)
-WhitelistTitle.Position = UDim2.fromOffset(14, 11)
-WhitelistTitle.ZIndex = 92
-WhitelistTitle.Active = true
-WhitelistTitle.BackgroundTransparency = 1
-WhitelistTitle.Text = "Whitelist by UserId"
-WhitelistTitle.TextColor3 = TEXT
-WhitelistTitle.TextSize = 14
-WhitelistTitle.Font = Enum.Font.GothamBold
-WhitelistTitle.TextXAlignment = Enum.TextXAlignment.Left
-WhitelistTitle.Parent = WhitelistHeader
+configuration.WhitelistTitle = Instance.new("TextLabel")
+configuration.WhitelistTitle.Size = UDim2.new(1, -20, 0, 22)
+configuration.WhitelistTitle.Position = UDim2.fromOffset(14, 11)
+configuration.WhitelistTitle.ZIndex = 92
+configuration.WhitelistTitle.Active = true
+configuration.WhitelistTitle.BackgroundTransparency = 1
+configuration.WhitelistTitle.Text = "Whitelist by UserId"
+configuration.WhitelistTitle.TextColor3 = TEXT
+configuration.WhitelistTitle.TextSize = 14
+configuration.WhitelistTitle.Font = Enum.Font.GothamBold
+configuration.WhitelistTitle.TextXAlignment = Enum.TextXAlignment.Left
+configuration.WhitelistTitle.Parent = configuration.WhitelistHeader
 
-local WhitelistInput = Instance.new("TextBox")
-WhitelistInput.Size = UDim2.new(1, -112, 0, 34)
-WhitelistInput.Position = UDim2.fromOffset(12, 54)
-WhitelistInput.ZIndex = 91
-WhitelistInput.BackgroundColor3 = INPUT
-WhitelistInput.BorderSizePixel = 0
-WhitelistInput.PlaceholderText = "Enter Player UserId"
-WhitelistInput.Text = ""
-WhitelistInput.TextColor3 = TEXT
-WhitelistInput.PlaceholderColor3 = MUTED
-WhitelistInput.TextSize = 12
-WhitelistInput.Font = Enum.Font.Gotham
-WhitelistInput.ClearTextOnFocus = false
-WhitelistInput.Parent = WhitelistPanel
-Instance.new("UICorner", WhitelistInput).CornerRadius = UDim.new(0, 8)
+configuration.WhitelistInput = Instance.new("TextBox")
+configuration.WhitelistInput.Size = UDim2.new(1, -112, 0, 34)
+configuration.WhitelistInput.Position = UDim2.fromOffset(12, 54)
+configuration.WhitelistInput.ZIndex = 91
+configuration.WhitelistInput.BackgroundColor3 = INPUT
+configuration.WhitelistInput.BorderSizePixel = 0
+configuration.WhitelistInput.PlaceholderText = "Enter Player UserId"
+configuration.WhitelistInput.Text = ""
+configuration.WhitelistInput.TextColor3 = TEXT
+configuration.WhitelistInput.PlaceholderColor3 = MUTED
+configuration.WhitelistInput.TextSize = 12
+configuration.WhitelistInput.Font = Enum.Font.Gotham
+configuration.WhitelistInput.ClearTextOnFocus = false
+configuration.WhitelistInput.Parent = configuration.WhitelistPanel
+Instance.new("UICorner", configuration.WhitelistInput).CornerRadius = UDim.new(0, 8)
 
-local AddWhitelistButton = Instance.new("TextButton")
-AddWhitelistButton.Size = UDim2.fromOffset(88, 34)
-AddWhitelistButton.Position = UDim2.new(1, -100, 0, 54)
-AddWhitelistButton.ZIndex = 91
-AddWhitelistButton.BackgroundColor3 = ACCENT_DIM
-AddWhitelistButton.BorderSizePixel = 0
-AddWhitelistButton.Text = "Add ID"
-AddWhitelistButton.TextColor3 = ACCENT
-AddWhitelistButton.TextSize = 12
-AddWhitelistButton.Font = Enum.Font.GothamBold
-AddWhitelistButton.Parent = WhitelistPanel
-Instance.new("UICorner", AddWhitelistButton).CornerRadius = UDim.new(0, 8)
+configuration.AddWhitelistButton = Instance.new("TextButton")
+configuration.AddWhitelistButton.Size = UDim2.fromOffset(88, 34)
+configuration.AddWhitelistButton.Position = UDim2.new(1, -100, 0, 54)
+configuration.AddWhitelistButton.ZIndex = 91
+configuration.AddWhitelistButton.BackgroundColor3 = ACCENT_DIM
+configuration.AddWhitelistButton.BorderSizePixel = 0
+configuration.AddWhitelistButton.Text = "Add ID"
+configuration.AddWhitelistButton.TextColor3 = ACCENT
+configuration.AddWhitelistButton.TextSize = 12
+configuration.AddWhitelistButton.Font = Enum.Font.GothamBold
+configuration.AddWhitelistButton.Parent = configuration.WhitelistPanel
+Instance.new("UICorner", configuration.AddWhitelistButton).CornerRadius = UDim.new(0, 8)
 
-local WhitelistScroll = Instance.new("ScrollingFrame")
-WhitelistScroll.Size = UDim2.new(1, -20, 1, -102)
-WhitelistScroll.Position = UDim2.fromOffset(10, 96)
-WhitelistScroll.ZIndex = 91
-WhitelistScroll.BackgroundTransparency = 1
-WhitelistScroll.BorderSizePixel = 0
-WhitelistScroll.ScrollBarThickness = 3
-WhitelistScroll.ScrollBarImageColor3 = MUTED
-WhitelistScroll.CanvasSize = UDim2.new()
-WhitelistScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-WhitelistScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-WhitelistScroll.Parent = WhitelistPanel
+configuration.WhitelistScroll = Instance.new("ScrollingFrame")
+configuration.WhitelistScroll.Size = UDim2.new(1, -20, 1, -102)
+configuration.WhitelistScroll.Position = UDim2.fromOffset(10, 96)
+configuration.WhitelistScroll.ZIndex = 91
+configuration.WhitelistScroll.BackgroundTransparency = 1
+configuration.WhitelistScroll.BorderSizePixel = 0
+configuration.WhitelistScroll.ScrollBarThickness = 3
+configuration.WhitelistScroll.ScrollBarImageColor3 = MUTED
+configuration.WhitelistScroll.CanvasSize = UDim2.new()
+configuration.WhitelistScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configuration.WhitelistScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+configuration.WhitelistScroll.Parent = configuration.WhitelistPanel
 
-local WhitelistLayout = Instance.new("UIListLayout", WhitelistScroll)
-WhitelistLayout.Padding = UDim.new(0, 6)
-WhitelistLayout.SortOrder = Enum.SortOrder.LayoutOrder
-WhitelistLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+configuration.WhitelistLayout = Instance.new("UIListLayout", configuration.WhitelistScroll)
+configuration.WhitelistLayout.Padding = UDim.new(0, 6)
+configuration.WhitelistLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configuration.WhitelistLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 function configuration.MakeDraggable(panel, handle)
 	local dragging = false
@@ -3540,7 +3540,7 @@ function configuration.MakeDraggable(panel, handle)
 end
 
 configuration.MakeDraggable(PlayerPanel, PlayerPanelHeader)
-configuration.MakeDraggable(WhitelistPanel, WhitelistHeader)
+configuration.MakeDraggable(configuration.WhitelistPanel, configuration.WhitelistHeader)
 
 function configuration.MakeResizable(panel, name, minWidth, minHeight, onReleased)
 	local handle = Instance.new("TextButton")
@@ -3593,13 +3593,13 @@ configuration.MakeResizable(PlayerPanel, "PlayerPanel", 0.28, 0.35, function(wid
 	configuration.PlayerPanelWidthScale, configuration.PlayerPanelHeightScale = width, height
 	configuration.SaveConfig()
 end)
-configuration.MakeResizable(WhitelistPanel, "WhitelistPanel", 0.26, 0.32, function(width, height)
+configuration.MakeResizable(configuration.WhitelistPanel, "WhitelistPanel", 0.26, 0.32, function(width, height)
 	configuration.WhitelistPanelWidthScale, configuration.WhitelistPanelHeightScale = width, height
 	configuration.SaveConfig()
 end)
 
 function configuration.RefreshWhitelist()
-	for _, child in ipairs(WhitelistScroll:GetChildren()) do
+	for _, child in ipairs(configuration.WhitelistScroll:GetChildren()) do
 		if child:IsA("Frame") then child:Destroy() end
 	end
 
@@ -3620,7 +3620,7 @@ function configuration.RefreshWhitelist()
 		row.LayoutOrder = order
 		row.ZIndex = 92
 		row.BackgroundTransparency = 1
-		row.Parent = WhitelistScroll
+		row.Parent = configuration.WhitelistScroll
 
 		local idLabel = Instance.new("TextLabel")
 		idLabel.Size = UDim2.new(1, -48, 1, 0)
@@ -3655,32 +3655,32 @@ function configuration.RefreshWhitelist()
 end
 
 WhitelistButton.MouseButton1Click:Connect(function()
-	WhitelistPanel.Visible = not WhitelistPanel.Visible
-	if WhitelistPanel.Visible then configuration.RefreshWhitelist() end
+	configuration.WhitelistPanel.Visible = not configuration.WhitelistPanel.Visible
+	if configuration.WhitelistPanel.Visible then configuration.RefreshWhitelist() end
 end)
 
 function configuration.AddWhitelistId()
-	local idText = WhitelistInput.Text:match("^%s*(%d+)%s*$")
+	local idText = configuration.WhitelistInput.Text:match("^%s*(%d+)%s*$")
 	if not idText then
-		WhitelistInput.Text = ""
-		WhitelistInput.PlaceholderText = "Enter a valid UserId"
+		configuration.WhitelistInput.Text = ""
+		configuration.WhitelistInput.PlaceholderText = "Enter a valid UserId"
 		return
 	end
 	local userId = idText:gsub("^0+", "")
 	if userId == "" then
-		WhitelistInput.Text = ""
-		WhitelistInput.PlaceholderText = "Enter a valid UserId"
+		configuration.WhitelistInput.Text = ""
+		configuration.WhitelistInput.PlaceholderText = "Enter a valid UserId"
 		return
 	end
 	configuration.WhitelistIds[userId] = true
-	WhitelistInput.Text = ""
-	WhitelistInput.PlaceholderText = "Enter Player UserId"
+	configuration.WhitelistInput.Text = ""
+	configuration.WhitelistInput.PlaceholderText = "Enter Player UserId"
 	configuration.SaveConfig()
 	configuration.RefreshWhitelist()
 end
 
-AddWhitelistButton.MouseButton1Click:Connect(configuration.AddWhitelistId)
-WhitelistInput.FocusLost:Connect(function(enterPressed)
+configuration.AddWhitelistButton.MouseButton1Click:Connect(configuration.AddWhitelistId)
+configuration.WhitelistInput.FocusLost:Connect(function(enterPressed)
 	if enterPressed then configuration.AddWhitelistId() end
 end)
 
@@ -3695,25 +3695,25 @@ AlarmOverlay.Active = false
 AlarmOverlay.ZIndex = 100
 AlarmOverlay.Parent = ScreenGui
 
-local AlarmText = Instance.new("TextLabel")
-AlarmText.Size = UDim2.new(1, 0, 0, 72)
-AlarmText.Position = UDim2.new(0, 0, 0.5, -36)
-AlarmText.BackgroundTransparency = 1
-AlarmText.Text = ""
-AlarmText.TextColor3 = Color3.new(1, 1, 1)
-AlarmText.TextStrokeTransparency = 0.15
-AlarmText.TextSize = 30
-AlarmText.Font = Enum.Font.GothamBlack
-AlarmText.ZIndex = 101
-AlarmText.Parent = AlarmOverlay
+configuration.AlarmText = Instance.new("TextLabel")
+configuration.AlarmText.Size = UDim2.new(1, 0, 0, 72)
+configuration.AlarmText.Position = UDim2.new(0, 0, 0.5, -36)
+configuration.AlarmText.BackgroundTransparency = 1
+configuration.AlarmText.Text = ""
+configuration.AlarmText.TextColor3 = Color3.new(1, 1, 1)
+configuration.AlarmText.TextStrokeTransparency = 0.15
+configuration.AlarmText.TextSize = 30
+configuration.AlarmText.Font = Enum.Font.GothamBlack
+configuration.AlarmText.ZIndex = 101
+configuration.AlarmText.Parent = AlarmOverlay
 
-local PlayerEspLayer = Instance.new("Frame")
-PlayerEspLayer.Name = "PlayerESPLayer"
-PlayerEspLayer.Size = UDim2.fromScale(1, 1)
-PlayerEspLayer.BackgroundTransparency = 1
-PlayerEspLayer.Active = false
-PlayerEspLayer.ZIndex = 0
-PlayerEspLayer.Parent = ScreenGui
+configuration.PlayerEspLayer = Instance.new("Frame")
+configuration.PlayerEspLayer.Name = "PlayerESPLayer"
+configuration.PlayerEspLayer.Size = UDim2.fromScale(1, 1)
+configuration.PlayerEspLayer.BackgroundTransparency = 1
+configuration.PlayerEspLayer.Active = false
+configuration.PlayerEspLayer.ZIndex = 0
+configuration.PlayerEspLayer.Parent = ScreenGui
 
 local ResizeHandle = Instance.new("TextButton")
 ResizeHandle.Name = "ResizeHandle"
@@ -4780,7 +4780,7 @@ task.spawn(function()
 						local hasWeapon, needsEquip = configuration.Combat.GetWeaponEquipState(character)
 						local canAttack = humanoid and humanoid.Health > 0 and hasWeapon
 						if not canAttack then
-							CombatInfo.Text = needsEquip and "Waiting for Sword; trying EquipButton before attacking." or "Waiting for PlayerStats and Sword/MainWeld."
+							configuration.CombatInfo.Text = needsEquip and "Waiting for Sword; trying EquipButton before attacking." or "Waiting for PlayerStats and Sword/MainWeld."
 							if not configuration.Farming or configuration.AlertCombatPending or configuration.ExpMaxCombatTarget then
 								StateLabel.Text = needsEquip and "Equipping" or "Waiting"
 								MiniState.Text = needsEquip and "Auto Attack is equipping the Sword" or "Waiting for Sword and PlayerStats"
@@ -4794,7 +4794,7 @@ task.spawn(function()
 								if not ok then warn("Auto Equip failed:", err) end
 							end
 						else
-							CombatInfo.Text = configuration.AlertCombatPending and "Alert response: attacking only the locked EXP target." or "Weapon ready; Auto Attack can engage the selected target."
+							configuration.CombatInfo.Text = configuration.AlertCombatPending and "Alert response: attacking only the locked EXP target." or "Weapon ready; Auto Attack can engage the selected target."
 							if not configuration.Farming or configuration.AlertCombatPending or configuration.ExpRetaliationTarget == target then
 								StateLabel.Text = distance > attackRange and "Moving and attacking" or "Attacking"
 								MiniState.Text = distance > attackRange and "Attacking while closing distance" or "In range — attacking target"
@@ -4830,7 +4830,7 @@ task.spawn(function()
 				if not configuration.Farming or configuration.AlertCombatPending
 					or target == configuration.ExpRetaliationTarget or target == configuration.ExpMaxCombatTarget
 					or target == configuration.ServerHopKillTarget then
-					UpdateCombatDiagnostics(target, targetRoot, distance, attackRange, attackMoveState.NavigationMode, attackMoveState)
+					configuration.UpdateCombatDiagnostics(target, targetRoot, distance, attackRange, attackMoveState.NavigationMode, attackMoveState)
 				end
 			else
 				if chasingMob or attackMoveState.Active then
@@ -4845,7 +4845,7 @@ task.spawn(function()
 				attackMoveState.ApproachActive = false
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				ReleaseMovement("Combat", humanoid, localRoot)
-				UpdateCombatDiagnostics(nil, nil, nil, nil, "searching", attackMoveState)
+				configuration.UpdateCombatDiagnostics(nil, nil, nil, nil, "searching", attackMoveState)
 			end
 		else
 			if chasingMob or attackMoveState.Active then
@@ -4864,7 +4864,7 @@ task.spawn(function()
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			ReleaseMovement("Combat", humanoid, localRoot)
-			UpdateCombatDiagnostics(nil, nil, nil, nil, "paused", attackMoveState)
+			configuration.UpdateCombatDiagnostics(nil, nil, nil, nil, "paused", attackMoveState)
 		end
 		-- Throttle button label sync; combat loop no longer needs full UI work every tick.
 		local nowUi = os.clock()
@@ -5625,7 +5625,7 @@ task.spawn(function()
 						whitelistToggle.Text = enabled and "WL ON" or "WL ADD"
 						whitelistToggle.TextColor3 = enabled and YELLOW or MUTED
 						whitelistToggle.BackgroundColor3 = enabled and Color3.fromRGB(55, 45, 22) or INPUT
-						if WhitelistPanel.Visible then configuration.RefreshWhitelist() end
+						if configuration.WhitelistPanel.Visible then configuration.RefreshWhitelist() end
 					end)
 
 					if configuration.PlayerPanelMode == "follow" or configuration.PlayerPanelMode == "attack" then
@@ -5651,11 +5651,11 @@ task.spawn(function()
 						followButton.MouseButton1Click:Connect(function()
 							if selectingAttackTarget then
 								if configuration.AutoAttackBossesOnly then
-									CombatInfo.Text = "Bosses only is active; player targets are disabled."
+									configuration.CombatInfo.Text = "Bosses only is active; player targets are disabled."
 									return
 								end
 								if configuration.IsWhitelisted(otherPlayer) then
-									CombatInfo.Text = "Whitelisted players are skipped by Auto Attack."
+									configuration.CombatInfo.Text = "Whitelisted players are skipped by Auto Attack."
 									return
 								end
 								configuration.AutoAttackTargetUserId = tostring(otherPlayer.UserId)
@@ -5779,7 +5779,7 @@ task.spawn(function()
 						nameTag.BorderSizePixel = 0
 						nameTag.Visible = false
 						nameTag.ZIndex = 80
-						nameTag.Parent = PlayerEspLayer
+						nameTag.Parent = configuration.PlayerEspLayer
 
 						local nameLabel = Instance.new("TextLabel")
 						nameLabel.Size = UDim2.new(1, 0, 0, 26)
@@ -5836,7 +5836,7 @@ task.spawn(function()
 						tracer.BorderSizePixel = 0
 						tracer.Visible = false
 						tracer.ZIndex = 0
-						tracer.Parent = PlayerEspLayer
+						tracer.Parent = configuration.PlayerEspLayer
 						visual = { Highlight = highlight, NameTag = nameTag, NameLabel = nameLabel, DistanceLabel = distanceLabel, HealthLabel = healthLabel, StatsLabel = statsLabel, Tracer = tracer }
 						PlayerVisuals[otherPlayer] = visual
 					end
@@ -5911,11 +5911,11 @@ task.spawn(function()
 
 		if configuration.AlertsEnabled and not configuration.EmergencyStopActive and configuration.AlertFlashEnabled and nearbyPlayer then
 			AlarmOverlay.BackgroundColor3 = RED
-			AlarmText.Text = string.format("PLAYER NEARBY  •  %s  •  %.0f studs", nearbyPlayer.Name, nearbyDistance)
+			configuration.AlarmText.Text = string.format("PLAYER NEARBY  •  %s  •  %.0f studs", nearbyPlayer.Name, nearbyDistance)
 			AlarmOverlay.Visible = true
 		elseif configuration.AlertsEnabled and not configuration.EmergencyStopActive and configuration.AlertFlashEnabled and reachedMax then
 			AlarmOverlay.BackgroundColor3 = GREEN
-			AlarmText.Text = "EXP MAX REACHED"
+			configuration.AlarmText.Text = "EXP MAX REACHED"
 			AlarmOverlay.Visible = true
 		else
 			AlarmOverlay.Visible = false
