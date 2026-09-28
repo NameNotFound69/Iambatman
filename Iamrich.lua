@@ -535,30 +535,144 @@ function configuration.FormatPlayerStats(otherPlayer)
 	return string.format("Level %s  •  Defense %s", level ~= nil and tostring(level) or "—", defense ~= nil and tostring(defense) or "—")
 end
 
--- Local player level + EXP progress (PlayerStats).
+-- Local player level + EXP progress from PlayerStats and/or the game's HUD ("EXP: 58354/59211").
+local LevelProgressCache = {
+	ExpLabel = nil,
+	LastScanAt = 0,
+	LastExp = nil,
+	LastMax = nil,
+}
+
+local function ParseExpPair(text)
+	if type(text) ~= "string" or text == "" then return nil, nil end
+	-- Matches: EXP:58354/59211  |  EXP: 58,354 / 59,211  |  58354/59211
+	local a, b = string.match(text, "[Ee][Xx][Pp]%s*:?%s*([%d,]+)%s*/%s*([%d,]+)")
+	if not a then
+		a, b = string.match(text, "^%s*([%d,]+)%s*/%s*([%d,]+)%s*$")
+	end
+	if not a or not b then return nil, nil end
+	local cur = tonumber((a:gsub(",", "")))
+	local maxv = tonumber((b:gsub(",", "")))
+	if cur and maxv then return cur, maxv end
+	return nil, nil
+end
+
+local function ReadNumberValue(inst)
+	if not inst then return nil end
+	if inst:IsA("NumberValue") or inst:IsA("IntValue") or inst:IsA("StringValue") then
+		return tonumber(tostring(inst.Value):gsub(",", ""))
+	end
+	if inst:IsA("TextLabel") or inst:IsA("TextButton") or inst:IsA("TextBox") then
+		return tonumber((inst.Text or ""):gsub(",", ""):match("[%d%.]+"))
+	end
+	return nil
+end
+
+local function FindHudExpLabel(force)
+	local now = os.clock()
+	if not force and LevelProgressCache.ExpLabel and LevelProgressCache.ExpLabel.Parent then
+		return LevelProgressCache.ExpLabel
+	end
+	if not force and (now - LevelProgressCache.LastScanAt) < 2.5 then
+		return LevelProgressCache.ExpLabel
+	end
+	LevelProgressCache.LastScanAt = now
+	local playerGui = Player:FindFirstChildOfClass("PlayerGui")
+	if not playerGui then return nil end
+
+	local function consider(label)
+		if not label or not (label:IsA("TextLabel") or label:IsA("TextButton") or label:IsA("TextBox")) then
+			return false
+		end
+		-- Skip our own UI.
+		local ownGui = label:FindFirstAncestor("EXPFarmUI")
+		if ownGui then return false end
+		local cur, maxv = ParseExpPair(label.Text)
+		if cur and maxv and maxv > 0 then
+			LevelProgressCache.ExpLabel = label
+			return true
+		end
+		return false
+	end
+
+	-- Fast path: GameGui common layout.
+	local gameGui = playerGui:FindFirstChild("GameGui")
+	if gameGui then
+		for _, name in ipairs({ "EXP", "Exp", "Experience", "EXPLabel", "ExpLabel", "LevelEXP", "LevelExp" }) do
+			local node = gameGui:FindFirstChild(name, true)
+			if node and consider(node) then
+				return LevelProgressCache.ExpLabel
+			end
+			if node then
+				for _, child in ipairs(node:GetDescendants()) do
+					if consider(child) then
+						return LevelProgressCache.ExpLabel
+					end
+				end
+			end
+		end
+		-- Also scan all GameGui text for EXP:x/y once.
+		for _, desc in ipairs(gameGui:GetDescendants()) do
+			if consider(desc) then
+				return LevelProgressCache.ExpLabel
+			end
+		end
+	end
+
+	-- Broader scan (throttled).
+	for _, desc in ipairs(playerGui:GetDescendants()) do
+		if consider(desc) then
+			return LevelProgressCache.ExpLabel
+		end
+	end
+	return LevelProgressCache.ExpLabel
+end
+
 function configuration.GetLocalLevelProgress()
 	local stats = Player:FindFirstChild("PlayerStats")
-	if not stats then
-		return nil, nil, nil, nil
-	end
-	local function numChild(...)
+	local function numFromStats(...)
+		if not stats then return nil end
 		for _, name in ipairs({...}) do
-			local v = stats:FindFirstChild(name)
-			if v and (v:IsA("NumberValue") or v:IsA("IntValue") or v:IsA("NumberAttribute") or typeof(v.Value) == "number") then
-				local n = tonumber(v.Value)
-				if n then return n end
-			end
+			local v = stats:FindFirstChild(name, true)
+			local n = ReadNumberValue(v)
+			if n then return n end
 			local attr = stats:GetAttribute(name)
 			if attr ~= nil then
-				local n = tonumber(attr)
+				n = tonumber(attr)
 				if n then return n end
 			end
 		end
 		return nil
 	end
-	local level = numChild("Level", "LV", "Lvl")
-	local exp = numChild("EXP", "Exp", "Experience", "CurrentEXP", "CurrentExp")
-	local maxExp = numChild("MaxEXP", "MaxExp", "EXPMax", "ExpToLevel", "RequiredEXP", "NextEXP", "EXPRequired")
+
+	local level = numFromStats("Level", "LV", "Lvl")
+	local exp = numFromStats("EXP", "Exp", "Experience", "CurrentEXP", "CurrentExp")
+	local maxExp = numFromStats("MaxEXP", "MaxExp", "EXPMax", "ExpToLevel", "RequiredEXP", "NextEXP", "EXPRequired")
+
+	-- Prefer live HUD values (same numbers the game shows, e.g. EXP:58354/59211).
+	local hud = FindHudExpLabel(false)
+	if hud and hud.Parent then
+		local cur, maxv = ParseExpPair(hud.Text)
+		if cur and maxv then
+			exp, maxExp = cur, maxv
+			LevelProgressCache.LastExp, LevelProgressCache.LastMax = cur, maxv
+		end
+	elseif LevelProgressCache.LastExp and LevelProgressCache.LastMax then
+		exp, maxExp = LevelProgressCache.LastExp, LevelProgressCache.LastMax
+	end
+
+	-- If HUD lost, force rescan occasionally.
+	if not exp or not maxExp then
+		hud = FindHudExpLabel(true)
+		if hud then
+			local cur, maxv = ParseExpPair(hud.Text)
+			if cur and maxv then
+				exp, maxExp = cur, maxv
+				LevelProgressCache.LastExp, LevelProgressCache.LastMax = cur, maxv
+			end
+		end
+	end
+
 	local ratio = nil
 	if exp and maxExp and maxExp > 0 then
 		ratio = math.clamp(exp / maxExp, 0, 1)
@@ -601,7 +715,9 @@ end
 -- HELPERS
 --==================================================
 function configuration.FormatNumber(n)
-	local s = tostring(math.floor(n))
+	n = tonumber(n)
+	if not n then return "0" end
+	local s = tostring(math.floor(n + 0))
 	local result = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
 	if result:sub(1, 1) == "," then
 		result = result:sub(2)
@@ -621,64 +737,117 @@ end
 --==================================================
 function configuration.ClearBillboard()
 	if configuration.CurrentBillboard then
-		configuration.CurrentBillboard:Destroy()
+		pcall(function() configuration.CurrentBillboard:Destroy() end)
 		configuration.CurrentBillboard = nil
 	end
+	configuration.BillboardAdornee = nil
 end
+
+function configuration.BuildBillboardText(expValue, isMax)
+	local cur = tonumber(expValue) or 0
+	local goal = tonumber(configuration.ExpGoal) or 0
+	local curText = configuration.FormatNumber(cur)
+	local goalText = configuration.FormatNumber(goal)
+	if isMax or (goal > 0 and cur >= goal) then
+		return "MAX\n" .. curText .. " / " .. goalText, true
+	end
+	local pct = goal > 0 and math.clamp(cur / goal, 0, 1) * 100 or 0
+	return string.format("FARMING\n%s / %s\n%.1f%%", curText, goalText, pct), false
+end
+
+-- Fixed on-screen pixel size (does not grow/shrink with camera distance).
+local BILLBOARD_WIDTH = 150
+local BILLBOARD_HEIGHT = 52
 
 function configuration.AttachBillboard(mob, expValue)
 	configuration.ClearBillboard()
+	if not mob then return end
 	local root = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
-	if not root then return end
+	if not root or not root:IsA("BasePart") then return end
+
+	local playerGui = Player:FindFirstChildOfClass("PlayerGui")
+	if not playerGui then return end
 
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "FarmMarker"
-	bb.Size = UDim2.fromScale(3, 1)
-	bb.StudsOffset = Vector3.new(0, 3.2, 0)
+	-- Parent to PlayerGui + Adornee keeps Offset size stable in screen pixels.
+	bb.Adornee = root
+	bb.Size = UDim2.fromOffset(BILLBOARD_WIDTH, BILLBOARD_HEIGHT)
+	bb.StudsOffset = Vector3.new(0, 3.4, 0)
 	bb.AlwaysOnTop = true
-	bb.MaxDistance = 120
-	bb.Parent = root
+	bb.MaxDistance = 250
+	bb.LightInfluence = 0
+	bb.ResetOnSpawn = false
+	bb.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	bb.Parent = playerGui
 
 	local frame = Instance.new("Frame")
+	frame.Name = "Frame"
 	frame.Size = UDim2.fromScale(1, 1)
 	frame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-	frame.BackgroundTransparency = 0.15
+	frame.BackgroundTransparency = 0.12
 	frame.BorderSizePixel = 0
 	frame.Parent = bb
 	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
 	local stroke = Instance.new("UIStroke", frame)
+	stroke.Name = "Stroke"
 	stroke.Color = ACCENT
 	stroke.Thickness = 1.5
 
 	local label = Instance.new("TextLabel")
 	label.Name = "Text"
-	label.Size = UDim2.fromScale(1, 1)
+	label.Size = UDim2.new(1, -8, 1, -4)
+	label.Position = UDim2.fromOffset(4, 2)
 	label.BackgroundTransparency = 1
-	label.Text = "FARMING\n" .. configuration.FormatNumber(expValue)
 	label.TextColor3 = ACCENT
-	label.TextSize = 11
+	label.TextSize = 12
 	label.Font = Enum.Font.GothamBold
 	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.TextWrapped = true
 	label.Parent = frame
 
+	local text, isMax = configuration.BuildBillboardText(expValue, false)
+	label.Text = text
+	label.TextColor3 = isMax and GREEN or ACCENT
+	if isMax then stroke.Color = GREEN end
+
 	configuration.CurrentBillboard = bb
+	configuration.BillboardAdornee = root
 end
 
 function configuration.UpdateBillboardText(expValue, isMax)
-	if configuration.CurrentBillboard then
-		local label = configuration.CurrentBillboard:FindFirstChild("Text", true)
-		if label then
-			if isMax then
-				local text = "MAX\n" .. configuration.FormatNumber(expValue)
-				if label.Text ~= text then label.Text = text end
-				label.TextColor3 = GREEN
-			else
-				local text = "FARMING\n" .. configuration.FormatNumber(expValue)
-				if label.Text ~= text then label.Text = text end
-				label.TextColor3 = ACCENT
-			end
+	local bb = configuration.CurrentBillboard
+	if not bb or not bb.Parent then
+		configuration.CurrentBillboard = nil
+		configuration.BillboardAdornee = nil
+		return
+	end
+	-- Keep adornee on the live root if the mob's PrimaryPart changed.
+	local target = configuration.CurrentTarget
+	if target and target.Parent then
+		local root = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
+		if root and root:IsA("BasePart") and bb.Adornee ~= root then
+			bb.Adornee = root
+			configuration.BillboardAdornee = root
 		end
+	end
+	-- Re-assert fixed pixel size (prevents any accidental scale mutation).
+	if bb.Size.X.Offset ~= BILLBOARD_WIDTH or bb.Size.Y.Offset ~= BILLBOARD_HEIGHT
+		or bb.Size.X.Scale ~= 0 or bb.Size.Y.Scale ~= 0 then
+		bb.Size = UDim2.fromOffset(BILLBOARD_WIDTH, BILLBOARD_HEIGHT)
+	end
+	local label = bb:FindFirstChild("Text", true)
+	if not label then return end
+	local text, maxed = configuration.BuildBillboardText(expValue, isMax)
+	if label.Text ~= text then
+		label.Text = text
+	end
+	label.TextColor3 = maxed and GREEN or ACCENT
+	local stroke = bb:FindFirstChild("Stroke", true)
+	if stroke then
+		stroke.Color = maxed and GREEN or ACCENT
 	end
 end
 
@@ -3174,10 +3343,10 @@ task.spawn(function()
 
 			local cfg = target:FindFirstChild("Config")
 			local exp = cfg and cfg:FindFirstChild("EXP")
-			configuration.AttachBillboard(target, exp and exp.Value or 0)
+			configuration.AttachBillboard(target, exp and tonumber(exp.Value) or 0)
 
 			-- เริ่มจับเวลา rate ของมอนตัวนี้
-			configuration.SessionStartEXP = exp and exp.Value or 0
+			configuration.SessionStartEXP = exp and tonumber(exp.Value) or 0
 			configuration.SessionStartTime = os.clock()
 		end
 
@@ -3254,10 +3423,17 @@ task.spawn(function()
 		local mroot = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
 		local dist = (root and mroot) and (root.Position - mroot.Position).Magnitude or 0
 
+		local expNow = tonumber(exp.Value) or 0
 		TargetLabel.Text = target.Name
-		ExpLabel.Text = configuration.FormatNumber(exp.Value)
+		ExpLabel.Text = configuration.FormatNumber(expNow)
 		MaxLabel.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
 		DistLabel.Text = "Dist  " .. string.format("%.1f", dist)
+		-- Keep marker alive/updated even if the host part respawned.
+		if not configuration.CurrentBillboard or not configuration.CurrentBillboard.Parent then
+			configuration.AttachBillboard(target, expNow)
+		else
+			configuration.UpdateBillboardText(expNow, expNow >= configuration.ExpGoal)
+		end
 
 		-- Smooth approach: hold firing standoff without re-issuing MoveTo every frame.
 		if exp.Value < configuration.ExpGoal and root and mroot then
