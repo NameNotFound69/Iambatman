@@ -1364,20 +1364,35 @@ SidebarPad.PaddingBottom = UDim.new(0, 12)
 SidebarPad.Parent = SidebarScroll
 
 function configuration.MakeNavSection(text, order)
+	-- Section header (not clickable) — visually distinct from nav buttons
+	local wrap = Instance.new("Frame")
+	wrap.Name = "Section_" .. text
+	wrap.Size = UDim2.new(1, 0, 0, 28)
+	wrap.LayoutOrder = order
+	wrap.BackgroundTransparency = 1
+	wrap.Parent = SidebarScroll
+
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, 0, 0, 20)
-	label.LayoutOrder = order
+	label.Size = UDim2.new(1, -16, 0, 14)
+	label.Position = UDim2.fromOffset(12, 12)
 	label.BackgroundTransparency = 1
 	label.Text = string.upper(text)
-	label.TextColor3 = Color3.fromRGB(100, 110, 130)
-	label.TextSize = 10
+	label.TextColor3 = Color3.fromRGB(88, 98, 120)
+	label.TextSize = 9
 	label.Font = Enum.Font.GothamBold
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = SidebarScroll
-	local pad = Instance.new("UIPadding", label)
-	pad.PaddingLeft = UDim.new(0, 12)
-	pad.PaddingTop = UDim.new(0, 6)
-	return label
+	label.TextTransparency = 0.15
+	label.Parent = wrap
+
+	-- subtle divider under header text
+	local line = Instance.new("Frame")
+	line.Size = UDim2.new(1, -24, 0, 1)
+	line.Position = UDim2.fromOffset(12, 26)
+	line.BackgroundColor3 = BORDER
+	line.BackgroundTransparency = 0.55
+	line.BorderSizePixel = 0
+	line.Parent = wrap
+	return wrap
 end
 
 function configuration.MakeNavButton(text, icon, order)
@@ -1443,11 +1458,93 @@ end
 configuration.SetMainTab("EXP")
 
 --==================================================
+-- SERVER STATUS WIDGET
+--==================================================
+local ServerCard = Instance.new("Frame")
+ServerCard.Name = "ServerCard"
+ServerCard.Size = UDim2.new(1, 0, 0, 64)
+ServerCard.LayoutOrder = 2
+ServerCard.BackgroundColor3 = CARD
+ServerCard.BorderSizePixel = 0
+ServerCard.Parent = ExpPage
+Instance.new("UICorner", ServerCard).CornerRadius = UDim.new(0, 12)
+local ServerStroke = Instance.new("UIStroke", ServerCard)
+ServerStroke.Color = BORDER
+ServerStroke.Thickness = 1
+ServerStroke.Transparency = 0.55
+
+local ServerTitle = Instance.new("TextLabel")
+ServerTitle.Size = UDim2.new(0.5, -12, 0, 14)
+ServerTitle.Position = UDim2.fromOffset(14, 10)
+ServerTitle.BackgroundTransparency = 1
+ServerTitle.Text = "SERVER"
+ServerTitle.TextColor3 = ACCENT
+ServerTitle.TextSize = 10
+ServerTitle.Font = Enum.Font.GothamBold
+ServerTitle.TextXAlignment = Enum.TextXAlignment.Left
+ServerTitle.Parent = ServerCard
+
+local ServerPlayersLabel = Instance.new("TextLabel")
+ServerPlayersLabel.Name = "ServerPlayers"
+ServerPlayersLabel.Size = UDim2.new(0.5, -12, 0, 14)
+ServerPlayersLabel.Position = UDim2.new(0.5, 0, 0, 10)
+ServerPlayersLabel.BackgroundTransparency = 1
+ServerPlayersLabel.Text = "0 players"
+ServerPlayersLabel.TextColor3 = MUTED
+ServerPlayersLabel.TextSize = 11
+ServerPlayersLabel.Font = Enum.Font.Gotham
+ServerPlayersLabel.TextXAlignment = Enum.TextXAlignment.Right
+ServerPlayersLabel.Parent = ServerCard
+
+local ServerPlaceLabel = Instance.new("TextLabel")
+ServerPlaceLabel.Name = "ServerPlace"
+ServerPlaceLabel.Size = UDim2.new(1, -28, 0, 18)
+ServerPlaceLabel.Position = UDim2.fromOffset(14, 28)
+ServerPlaceLabel.BackgroundTransparency = 1
+ServerPlaceLabel.Text = "—"
+ServerPlaceLabel.TextColor3 = TEXT
+ServerPlaceLabel.TextSize = 13
+ServerPlaceLabel.Font = Enum.Font.GothamMedium
+ServerPlaceLabel.TextXAlignment = Enum.TextXAlignment.Left
+ServerPlaceLabel.TextTruncate = Enum.TextTruncate.AtEnd
+ServerPlaceLabel.Parent = ServerCard
+
+local ServerJobLabel = Instance.new("TextLabel")
+ServerJobLabel.Name = "ServerJob"
+ServerJobLabel.Size = UDim2.new(1, -28, 0, 12)
+ServerJobLabel.Position = UDim2.fromOffset(14, 46)
+ServerJobLabel.BackgroundTransparency = 1
+ServerJobLabel.Text = "Job —"
+ServerJobLabel.TextColor3 = MUTED
+ServerJobLabel.TextSize = 10
+ServerJobLabel.Font = Enum.Font.Gotham
+ServerJobLabel.TextXAlignment = Enum.TextXAlignment.Left
+ServerJobLabel.TextTruncate = Enum.TextTruncate.AtEnd
+ServerJobLabel.Parent = ServerCard
+
+function configuration.RefreshServerWidget()
+	local count = #Players:GetPlayers()
+	ServerPlayersLabel.Text = string.format("%d player%s", count, count == 1 and "" or "s")
+	local placeName = "Place " .. tostring(game.PlaceId)
+	pcall(function()
+		local info = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+		if info and info.Name then placeName = info.Name end
+	end)
+	ServerPlaceLabel.Text = placeName
+	local job = tostring(game.JobId or "")
+	if #job > 18 then job = job:sub(1, 8) .. "…" .. job:sub(-6) end
+	ServerJobLabel.Text = "Job " .. (job ~= "" and job or "—") .. "  ·  PlaceId " .. tostring(game.PlaceId)
+end
+configuration.RefreshServerWidget()
+Players.PlayerAdded:Connect(function() configuration.RefreshServerWidget() end)
+Players.PlayerRemoving:Connect(function() task.defer(configuration.RefreshServerWidget) end)
+
+--==================================================
 -- HERO EXP CARD (big numbers)
 --==================================================
 InfoCard = Instance.new("Frame")
 InfoCard.Size = UDim2.new(1, 0, 0, 228)
-InfoCard.LayoutOrder = 2
+InfoCard.LayoutOrder = 3
 InfoCard.BackgroundColor3 = CARD
 InfoCard.BorderSizePixel = 0
 InfoCard.Parent = ExpPage
@@ -1827,6 +1924,83 @@ function configuration.MakeToggle(text, isOn, onColor, onBg, order, parent, desc
 	return btn
 end
 
+-- Action row: title + description + chevron (opens a panel / runs an action — not a switch)
+function configuration.SetActionVisual(btn, title, accented)
+	if not btn then return end
+	local titleLabel = btn:FindFirstChild("Title")
+	local clean = tostring(title or btn:GetAttribute("BaseTitle") or "")
+	if titleLabel then
+		titleLabel.Text = clean
+		titleLabel.TextColor3 = accented and ACCENT or TEXT
+	end
+	btn:SetAttribute("BaseTitle", clean)
+	btn.BackgroundColor3 = accented and ACCENT_DIM or CARD
+	btn.Text = ""
+end
+
+function configuration.MakeActionRow(text, order, parent, description)
+	local clean = tostring(text or "")
+	local hasDesc = type(description) == "string" and description ~= ""
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, 0, 0, hasDesc and 58 or 48)
+	btn.LayoutOrder = order
+	btn.BackgroundColor3 = CARD
+	btn.BorderSizePixel = 0
+	btn.Text = ""
+	btn.AutoButtonColor = false
+	btn.Parent = parent
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
+	local stroke = Instance.new("UIStroke", btn)
+	stroke.Color = BORDER
+	stroke.Transparency = 0.65
+	stroke.Thickness = 1
+
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Name = "Title"
+	titleLabel.Size = UDim2.new(1, -48, 0, hasDesc and 20 or 48)
+	titleLabel.Position = UDim2.fromOffset(16, hasDesc and 10 or 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = clean
+	titleLabel.TextColor3 = TEXT
+	titleLabel.TextSize = 14
+	titleLabel.Font = Enum.Font.GothamMedium
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextYAlignment = hasDesc and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+	titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	titleLabel.Parent = btn
+
+	if hasDesc then
+		local descLabel = Instance.new("TextLabel")
+		descLabel.Name = "Desc"
+		descLabel.Size = UDim2.new(1, -48, 0, 22)
+		descLabel.Position = UDim2.fromOffset(16, 30)
+		descLabel.BackgroundTransparency = 1
+		descLabel.Text = description
+		descLabel.TextColor3 = MUTED
+		descLabel.TextSize = 11
+		descLabel.Font = Enum.Font.Gotham
+		descLabel.TextXAlignment = Enum.TextXAlignment.Left
+		descLabel.TextYAlignment = Enum.TextYAlignment.Top
+		descLabel.TextWrapped = true
+		descLabel.Parent = btn
+	end
+
+	local chevron = Instance.new("TextLabel")
+	chevron.Name = "Chevron"
+	chevron.Size = UDim2.fromOffset(24, 24)
+	chevron.Position = UDim2.new(1, -34, 0.5, -12)
+	chevron.BackgroundTransparency = 1
+	chevron.Text = ">"
+	chevron.TextColor3 = MUTED
+	chevron.TextSize = 16
+	chevron.Font = Enum.Font.GothamBold
+	chevron.Parent = btn
+
+	btn:SetAttribute("BaseTitle", clean)
+	btn:SetAttribute("IsAction", true)
+	return btn
+end
+
 function configuration.MakeNumberCard(parent, title, initialValue, order, minValue, maxValue, onChanged)
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, 0, 0, 52)
@@ -1879,8 +2053,7 @@ local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
 
 local AutoAttackButton = configuration.MakeToggle("Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid, "Attack the selected target automatically.")
 local AutoSkillButton = configuration.MakeToggle("Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid, "Use skills on an interval while attacking.")
-CombatTargetButton = configuration.MakeToggle("Select player target", false, TEXT, CARD, 3, CombatGrid, "Pick which player to focus in Player mode.")
-CombatTargetButton.TextColor3 = TEXT
+CombatTargetButton = configuration.MakeActionRow("Select player target", 3, CombatGrid, "Pick which player to focus in Player mode.")
 local ExpMobTargetButton = configuration.MakeToggle("Attack EXP target", configuration.AutoAttackUseExpTarget, ACCENT, ACCENT_DIM, 4, CombatGrid, "Force combat onto the current EXP farm mob.")
 local ExpTargetRetaliationButton = configuration.MakeToggle("Fight back if EXP mob is hit", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM, 5, CombatGrid, "If your EXP mob takes damage, kill it first.")
 
@@ -2095,7 +2268,7 @@ CombatInfo.Parent = CombatPage
 
 function configuration.UpdateAttackTargetButton()
 	local targetPlayer = configuration.AutoAttackTargetUserId and Players:GetPlayerByUserId(tonumber(configuration.AutoAttackTargetUserId))
-	configuration.SetToggleVisual(CombatTargetButton, targetPlayer and ("Target: @" .. targetPlayer.Name) or "Select player target", targetPlayer ~= nil, YELLOW, Color3.fromRGB(62, 52, 30))
+	configuration.SetActionVisual(CombatTargetButton, targetPlayer and ("Target: @" .. targetPlayer.Name) or "Select player target", targetPlayer ~= nil)
 end
 configuration.UpdateAttackTargetButton()
 
@@ -2184,19 +2357,15 @@ local ESPToggleButton = configuration.MakeToggle("Show ESP", configuration.ESPEn
 local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw a line to each tracked player.")
 local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw a box around each tracked player.")
 local AutoBlockButton = configuration.MakeToggle("Auto block players", configuration.AutoBlockEnabled, RED, RED_DIM, 5, PlayersGrid, "Prompt block when unknown players appear.")
-local PlayerListButton = configuration.MakeToggle("Open player list", false, TEXT, CARD, 1, PlayersGrid, "View everyone currently in this server.")
-PlayerListButton.TextColor3 = TEXT
-local WhitelistButton = configuration.MakeToggle("Manage whitelist", false, TEXT, CARD, 2, PlayersGrid, "Players you never alert or auto-block.")
-WhitelistButton.TextColor3 = TEXT
-FollowSelectButton = configuration.MakeToggle("Follow player", false, TEXT, CARD, 3, PlayersGrid, "Walk behind a chosen player with spacing.")
-FollowSelectButton.TextColor3 = TEXT
-StopFollowButton = configuration.MakeToggle("Stop follow", false, TEXT, CARD, 4, PlayersGrid, "Stop following the current player.")
-StopFollowButton.TextColor3 = TEXT
+local PlayerListButton = configuration.MakeActionRow("Open player list", 1, PlayersGrid, "View everyone currently in this server.")
+local WhitelistButton = configuration.MakeActionRow("Manage whitelist", 2, PlayersGrid, "Players you never alert or auto-block.")
+FollowSelectButton = configuration.MakeActionRow("Follow player", 3, PlayersGrid, "Walk behind a chosen player with spacing.")
+StopFollowButton = configuration.MakeActionRow("Stop follow", 4, PlayersGrid, "Stop following the current player.")
 
 function configuration.UpdateFollowButtons()
 	local following = configuration.FollowPlayerUserId ~= nil
-	configuration.SetToggleVisual(FollowSelectButton, following and "Change follow target" or "Follow player", following, ACCENT, ACCENT_DIM)
-	configuration.SetToggleVisual(StopFollowButton, "Stop follow", following, RED, RED_DIM)
+	configuration.SetActionVisual(FollowSelectButton, following and "Change follow target" or "Follow player", following)
+	configuration.SetActionVisual(StopFollowButton, "Stop follow", following)
 end
 configuration.UpdateFollowButtons()
 
@@ -2578,22 +2747,19 @@ PlayerListButton.MouseButton1Click:Connect(function()
 	configuration.PlayerPanelMode = "server"
 	PlayerPanelTitle.Text = "Players in server"
 	PlayerPanel.Visible = not PlayerPanel.Visible
-	PlayerListButton.Text = PlayerPanel.Visible and "Close player list" or "Open player list"
-	PlayerListButton.TextColor3 = PlayerPanel.Visible and ACCENT or TEXT
+	configuration.SetActionVisual(PlayerListButton, PlayerPanel.Visible and "Close player list" or "Open player list", PlayerPanel.Visible)
 end)
 PlayerPanelClose.MouseButton1Click:Connect(function()
 	PlayerPanel.Visible = false
 	configuration.PlayerPanelMode = "server"
-	PlayerListButton.Text = "Open player list"
-	PlayerListButton.TextColor3 = TEXT
+	configuration.SetActionVisual(PlayerListButton, "Open player list", false)
 end)
 
 FollowSelectButton.MouseButton1Click:Connect(function()
 	configuration.PlayerPanelMode = "follow"
 	PlayerPanelTitle.Text = "Choose player to follow"
 	PlayerPanel.Visible = true
-	PlayerListButton.Text = "Open player list"
-	PlayerListButton.TextColor3 = TEXT
+	configuration.SetActionVisual(PlayerListButton, "Open player list", false)
 end)
 
 CombatTargetButton.MouseButton1Click:Connect(function()
