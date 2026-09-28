@@ -559,11 +559,36 @@ end
 
 local function ReadNumberValue(inst)
 	if not inst then return nil end
-	if inst:IsA("NumberValue") or inst:IsA("IntValue") or inst:IsA("StringValue") then
-		return tonumber(tostring(inst.Value):gsub(",", ""))
+	-- Prefer .Value on any value-like instance (IntValue, NumberValue, StringValue, constrained, etc.).
+	local ok, val = pcall(function()
+		return inst.Value
+	end)
+	if ok and val ~= nil then
+		if type(val) == "number" then
+			return val
+		end
+		local n = tonumber(tostring(val):gsub(",", ""):match("[-%d%.]+"))
+		if n then return n end
 	end
 	if inst:IsA("TextLabel") or inst:IsA("TextButton") or inst:IsA("TextBox") then
-		return tonumber((inst.Text or ""):gsub(",", ""):match("[%d%.]+"))
+		return tonumber((inst.Text or ""):gsub(",", ""):match("[-%d%.]+"))
+	end
+	-- Nested Value child
+	local nested = inst:FindFirstChild("Value")
+	if nested then
+		return ReadNumberValue(nested)
+	end
+	return nil
+end
+
+local function FindPlayerStatsFolder()
+	local stats = Player:FindFirstChild("PlayerStats")
+	if stats then return stats end
+	-- Case-insensitive / delayed load
+	for _, child in ipairs(Player:GetChildren()) do
+		if string.lower(child.Name) == "playerstats" then
+			return child
+		end
 	end
 	return nil
 end
@@ -641,77 +666,67 @@ function configuration.NeededExp(lvl)
 end
 
 function configuration.GetLocalLevelProgress()
-	local stats = Player:FindFirstChild("PlayerStats")
-	local function numFromStats(...)
-		if not stats then return nil end
-		for _, name in ipairs({...}) do
-			local v = stats:FindFirstChild(name) or stats:FindFirstChild(name, true)
-			local n = ReadNumberValue(v)
-			if n then return n end
-			local attr = stats:GetAttribute(name)
-			if attr ~= nil then
-				n = tonumber(attr)
-				if n then return n end
+	local level, exp, maxExp = nil, nil, nil
+
+	local ok, err = pcall(function()
+		local stats = Player:FindFirstChild("PlayerStats")
+		if not stats then
+			-- Sometimes replicated a moment later / alternate casing
+			for _, child in ipairs(Player:GetChildren()) do
+				if string.lower(child.Name) == "playerstats" then
+					stats = child
+					break
+				end
 			end
 		end
-		return nil
+		if not stats then
+			return
+		end
+
+		-- Direct NumberValue read (confirmed: PlayerStats.Level / PlayerStats.EXP)
+		local levelInst = stats:FindFirstChild("Level")
+		local expInst = stats:FindFirstChild("EXP")
+		if not expInst then
+			expInst = stats:FindFirstChild("Exp")
+		end
+
+		if levelInst then
+			level = tonumber(levelInst.Value)
+		end
+		if expInst then
+			exp = tonumber(expInst.Value)
+		end
+
+		if level then
+			maxExp = configuration.NeededExp(level)
+		end
+	end)
+
+	if not ok then
+		warn("[Iamrich] GetLocalLevelProgress error:", err)
 	end
 
-	-- Primary source: Players.LocalPlayer.PlayerStats.Level / .EXP
-	local level = numFromStats("Level", "LV", "Lvl")
-	local exp = numFromStats("EXP", "Exp", "Experience", "CurrentEXP", "CurrentExp")
-	local maxExp = numFromStats("MaxEXP", "MaxExp", "EXPMax", "ExpToLevel", "RequiredEXP", "NextEXP", "EXPRequired")
-
-	-- Max EXP is not stored on PlayerStats — compute from Level using the game formula.
-	if level and (not maxExp or maxExp <= 0) then
-		maxExp = configuration.NeededExp(level)
-	end
-
-	-- Optional HUD fallback if PlayerStats EXP is missing.
-	if not exp or not maxExp then
-		local hud = FindHudExpLabel(false)
-		if hud and hud.Parent then
+	-- HUD fallback only if stats missing
+	if (not level or not exp) then
+		local hudOk, hud = pcall(FindHudExpLabel, true)
+		if hudOk and hud then
 			local cur, maxv = ParseExpPair(hud.Text)
-			if cur and maxv then
-				exp = exp or cur
-				maxExp = maxExp or maxv
-				LevelProgressCache.LastExp, LevelProgressCache.LastMax = exp, maxExp
-			end
-		elseif LevelProgressCache.LastExp and LevelProgressCache.LastMax then
-			exp = exp or LevelProgressCache.LastExp
-			maxExp = maxExp or LevelProgressCache.LastMax
+			if cur and not exp then exp = cur end
+			if maxv and not maxExp then maxExp = maxv end
 		end
 	end
 
-	if not exp or not maxExp then
-		local hud = FindHudExpLabel(true)
-		if hud then
-			local cur, maxv = ParseExpPair(hud.Text)
-			if cur and maxv then
-				exp = exp or cur
-				maxExp = maxExp or maxv
-				LevelProgressCache.LastExp, LevelProgressCache.LastMax = exp, maxExp
-			end
-		end
-	end
-
-	-- Recompute max from level if still missing / level changed.
-	if level then
+	if level and not maxExp then
 		maxExp = configuration.NeededExp(level)
-	end
-
-	if exp and maxExp then
-		LevelProgressCache.LastExp, LevelProgressCache.LastMax = exp, maxExp
 	end
 
 	local ratio = nil
 	if exp and maxExp and maxExp > 0 then
 		ratio = math.clamp(exp / maxExp, 0, 1)
-	elseif exp and maxExp == 0 then
-		ratio = 1
 	end
 	return level, exp, maxExp, ratio
 end
+
 
 --==================================================
 -- COLORS (Slayers2-style dark + soft cyan)
@@ -3897,22 +3912,22 @@ task.spawn(function()
 			end
 		end
 
-		-- Player level + Exp current/max (no level progress bar).
+		-- Player level + Exp current/max from PlayerStats.Level / PlayerStats.EXP
 		do
 			local level, pExp, pMax = configuration.GetLocalLevelProgress()
-			local levelText = level ~= nil and ("Lv " .. tostring(math.floor(level))) or "Lv —"
-			if LevelLabel.Text ~= levelText then LevelLabel.Text = levelText end
-			if MiniLevel.Text ~= levelText then MiniLevel.Text = levelText end
+			local levelText = (type(level) == "number") and ("Lv " .. tostring(math.floor(level + 0))) or "Lv —"
 			local expLine
-			if pExp ~= nil and pMax ~= nil then
+			if type(pExp) == "number" and type(pMax) == "number" then
 				expLine = string.format("Exp %s/%s", configuration.FormatNumber(pExp), configuration.FormatNumber(pMax))
-			elseif pExp ~= nil then
+			elseif type(pExp) == "number" then
 				expLine = "Exp " .. configuration.FormatNumber(pExp)
 			else
 				expLine = "Exp —/—"
 			end
-			if LevelExpText.Text ~= expLine then LevelExpText.Text = expLine end
-			if MiniLevelExpLabel.Text ~= expLine then MiniLevelExpLabel.Text = expLine end
+			if LevelLabel and LevelLabel.Text ~= levelText then LevelLabel.Text = levelText end
+			if MiniLevel and MiniLevel.Text ~= levelText then MiniLevel.Text = levelText end
+			if LevelExpText and LevelExpText.Text ~= expLine then LevelExpText.Text = expLine end
+			if MiniLevelExpLabel and MiniLevelExpLabel.Text ~= expLine then MiniLevelExpLabel.Text = expLine end
 		end
 
 		-- Faster while farming/combat feedback matters; slower when idle to cut CPU.
