@@ -43,19 +43,7 @@ end
 -- MOB CACHE + MOVEMENT HELPERS
 --==================================================
 local RunService = game:GetService("RunService")
-local PathfindingService = game:GetService("PathfindingService")
 local MovementOwner = nil
-local CombatUnreachableUntil = setmetatable({}, { __mode = "k" })
-
-local function IsCombatTargetCoolingDown(mob)
-	local expiry = mob and CombatUnreachableUntil[mob]
-	if not expiry then return false end
-	if os.clock() >= expiry then
-		CombatUnreachableUntil[mob] = nil
-		return false
-	end
-	return true
-end
 
 local function ClaimMovement(owner, humanoid, root)
 	if MovementOwner ~= owner then
@@ -262,201 +250,9 @@ local function SmoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius
 	return false
 end
 
--- Combat and Follow get obstacle-aware navigation. Keep this separate from
--- SmoothMoveTo because EXP farming deliberately retains its existing movement.
-local function NavigateMoveTo(humanoid, root, goal, targetModel, state, minInterval, stopRadius)
-	if not humanoid or not root or not goal then return false, "unavailable" end
-	local now = os.clock()
-	if state.Active and now - (state.ProgressAt or 0) >= 1.4 then
-		if state.ProgressPosition and (root.Position - state.ProgressPosition).Magnitude < 0.45 then
-			state.Path, state.Waypoints, state.WaypointIndex = nil, nil, nil
-			state.PathGoal, state.PathComputedAt = goal, 0
-			state.LastRaycastAt, state.DirectPathBlocked = nil, true
-			state.StuckRetries = (state.StuckRetries or 0) + 1
-			if state.MarkUnreachableEligible and state.StuckRetries >= 3 and targetModel
-				and targetModel:IsDescendantOf(MobsFolder) then
-				CombatUnreachableUntil[targetModel] = now + 12
-				state.MarkUnreachableEligible = false
-			end
-		else
-			state.StuckRetries = 0
-		end
-		state.ProgressPosition, state.ProgressAt = root.Position, now
-	elseif not state.ProgressAt then
-		state.ProgressPosition, state.ProgressAt = root.Position, now
-	end
-	local flatOffset = Vector3.new(root.Position.X - goal.X, 0, root.Position.Z - goal.Z)
-	if flatOffset.Magnitude <= (stopRadius or 1.9) then
-		if state.Active then humanoid:MoveTo(root.Position) end
-		state.PathRequestId = (state.PathRequestId or 0) + 1
-		state.PathComputing = false
-		state.Active, state.Goal, state.Path, state.Waypoints = false, nil, nil, nil
-		state.WaypointIndex = nil
-		state.StuckRetries, state.ProgressPosition, state.ProgressAt = 0, root.Position, now
-		return true, "arrived"
-	end
-
-	local pathGoalChanged = not state.PathGoal or (state.PathGoal - goal).Magnitude > 4
-	local rayBlocked = state.LastRaycastAt == nil or now - state.LastRaycastAt >= 0.2
-	if rayBlocked then
-		state.LastRaycastAt = now
-		local params = RaycastParams.new()
-		params.FilterType = Enum.RaycastFilterType.Exclude
-		params.FilterDescendantsInstances = { root.Parent, targetModel }
-		params.RespectCanCollide = true
-		local direction = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
-		local ok, hit = pcall(function()
-			return workspace:Raycast(root.Position, direction, params)
-		end)
-		local needsVerticalRoute = math.abs(root.Position.Y - goal.Y) > math.max(3, root.Size.Y * 0.5)
-		state.DirectPathBlocked = (ok and hit ~= nil) or needsVerticalRoute
-	end
-
-	if not state.DirectPathBlocked then
-		if state.PathComputing then
-			state.PathRequestId = (state.PathRequestId or 0) + 1
-			state.PathComputing = false
-		end
-		state.Path, state.Waypoints, state.WaypointIndex, state.PathGoal = nil, nil, nil, nil
-		return SmoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius), "direct"
-	end
-
-	if pathGoalChanged then
-		state.Path, state.Waypoints, state.WaypointIndex = nil, nil, nil
-		state.PathGoal = goal
-		state.PathComputedAt = 0
-		state.PathRequestId = (state.PathRequestId or 0) + 1
-		state.PathComputing = false
-	end
-	if not state.Waypoints and not state.PathComputing and now - (state.PathComputedAt or 0) >= 1.2 then
-		state.PathComputedAt = now
-		state.PathComputing = true
-		local requestId = state.PathRequestId or 0
-		local routeStart = root.Position
-		local routeGoal = goal
-		task.spawn(function()
-			local path
-			local ok, result = pcall(function()
-				path = PathfindingService:CreatePath({
-					AgentRadius = math.max(1.5, root.Size.X * 0.5),
-					AgentHeight = math.max(4, root.Size.Y),
-					AgentCanJump = true,
-					WaypointSpacing = 4,
-				})
-				path:ComputeAsync(routeStart, routeGoal)
-				return path.Status == Enum.PathStatus.Success and path:GetWaypoints() or nil
-			end)
-			if state.PathRequestId ~= requestId then return end
-			state.PathComputing = false
-			if ok and result and #result >= 2 then
-				state.Path, state.Waypoints, state.WaypointIndex = path, result, 2
-			end
-		end)
-	end
-
-	local waypoints = state.Waypoints
-	if waypoints then
-		while state.WaypointIndex and state.WaypointIndex <= #waypoints do
-			local waypoint = waypoints[state.WaypointIndex]
-			local offset = Vector3.new(root.Position.X - waypoint.Position.X, 0, root.Position.Z - waypoint.Position.Z)
-			if offset.Magnitude > 2.5 then break end
-			state.WaypointIndex += 1
-		end
-		local waypoint = state.WaypointIndex and waypoints[state.WaypointIndex]
-		if waypoint then
-			local interval = minInterval or 0.25
-			local sameWaypoint = state.PathMoveGoal and (state.PathMoveGoal - waypoint.Position).Magnitude < 1
-			if not state.Active or not sameWaypoint or now - (state.LastMoveAt or 0) >= interval then
-				if waypoint.Action == Enum.PathWaypointAction.Jump then humanoid.Jump = true end
-				humanoid:MoveTo(waypoint.Position)
-				state.Active, state.LastMoveAt, state.PathMoveGoal = true, now, waypoint.Position
-			end
-			return false, "path"
-		end
-		state.Path, state.Waypoints, state.WaypointIndex = nil, nil, nil
-		state.PathComputedAt = 0
-	end
-
-	-- Route computation can fail on streamed or non-walkable geometry. Keep the
-	-- target locked and retry at a bounded rate instead of oscillating targets.
-	if not state.Active or now - (state.LastMoveAt or 0) >= 1.2 then
-		humanoid:MoveTo(Vector3.new(goal.X, root.Position.Y, goal.Z))
-		state.Active, state.LastMoveAt, state.Goal = true, now, goal
-	end
-	return false, "retrying route"
-end
-
-local function ResetNavigationState(state)
-	state.PathRequestId = (state.PathRequestId or 0) + 1
-	state.PathComputing = false
-	state.Active, state.Goal, state.Path, state.Waypoints = false, nil, nil, nil
-	state.WaypointIndex, state.PathGoal, state.PathComputedAt = nil, nil, nil
-	state.PathMoveGoal, state.LastRaycastAt, state.DirectPathBlocked = nil, nil, nil
-	state.ProgressPosition, state.ProgressAt, state.StuckRetries = nil, nil, nil
-	state.ApproachAngle, state.RepositionUntil, state.NavigationMode = nil, nil, nil
-end
-
 local function OrbitApproachPoint(localRoot, targetRoot, standoff)
 	local away = FlatUnit(localRoot.Position, targetRoot.Position, Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z))
 	return targetRoot.Position + away * standoff
-end
-
--- Only try alternate sides after navigation has stalled; normal combat keeps
--- the stable shortest approach so the character does not circle its target.
-local function SelectCombatApproachPoint(localRoot, targetRoot, standoff, targetModel, state)
-	local away = FlatUnit(localRoot.Position, targetRoot.Position,
-		Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z))
-	local now = os.clock()
-	if (state.StuckRetries or 0) > 0 and now >= (state.RepositionUntil or 0) then
-		local bestAngle, bestScore = 0, math.huge
-		for _, angle in ipairs({ 0, 45, -45, 90, -90, 135, -135, 180 }) do
-			local radians = math.rad(angle)
-			local direction = Vector3.new(
-				away.X * math.cos(radians) - away.Z * math.sin(radians),
-				0,
-				away.X * math.sin(radians) + away.Z * math.cos(radians)
-			)
-			local radius = math.max(standoff, targetRoot.Size.X * 0.5 + 1.5, targetRoot.Size.Z * 0.5 + 1.5)
-			local candidate = targetRoot.Position + direction * radius
-			local params = RaycastParams.new()
-			params.FilterType = Enum.RaycastFilterType.Exclude
-			params.FilterDescendantsInstances = { localRoot.Parent, targetModel }
-			params.RespectCanCollide = true
-			local ray = Vector3.new(candidate.X - localRoot.Position.X, 0, candidate.Z - localRoot.Position.Z)
-			local ok, hit = pcall(function() return workspace:Raycast(localRoot.Position, ray, params) end)
-			local travel = Vector3.new(candidate.X - localRoot.Position.X, 0, candidate.Z - localRoot.Position.Z).Magnitude
-			local score = travel + ((ok and hit) and 20 or 0) + math.abs(angle) * 0.015
-			if score < bestScore then bestAngle, bestScore = angle, score end
-		end
-		state.ApproachAngle = bestAngle
-		state.RepositionUntil = now + 3.5
-	elseif (state.StuckRetries or 0) == 0 then
-		state.ApproachAngle = nil
-		state.RepositionUntil = nil
-	end
-	local angle = math.rad(state.ApproachAngle or 0)
-	local direction = Vector3.new(
-		away.X * math.cos(angle) - away.Z * math.sin(angle),
-		0,
-		away.X * math.sin(angle) + away.Z * math.cos(angle)
-	)
-	local radius = math.max(standoff, targetRoot.Size.X * 0.5 + 1.5, targetRoot.Size.Z * 0.5 + 1.5)
-	return targetRoot.Position + direction * radius
-end
-
--- Face the combat target (shiftlock-like orientation without locking the mouse).
-local function FaceTargetSmooth(root, targetPos, alpha)
-	if not root or not targetPos then return end
-	local flatTarget = Vector3.new(targetPos.X, root.Position.Y, targetPos.Z)
-	local delta = flatTarget - root.Position
-	if delta.Magnitude < 0.05 then return end
-	local goal = CFrame.lookAt(root.Position, flatTarget)
-	-- Keep position; only rotate yaw so pathing stays stable.
-	local _, goalYaw, _ = goal:ToOrientation()
-	local pos = root.Position
-	local current = root.CFrame
-	local blended = current:Lerp(CFrame.new(pos) * CFrame.Angles(0, goalYaw, 0), math.clamp(alpha or 0.35, 0.05, 1))
-	root.CFrame = CFrame.new(pos) * (blended - blended.Position)
 end
 
 local virtualInputObject = nil
@@ -589,6 +385,17 @@ local configuration: {[string]: any} = {
 	IsMinimized = false,
 	Combat = {},
 }
+
+-- Combat runs from a separate source chunk to keep the main UI/farming chunk
+-- below Luau's 200-register limit. Publish CombatSystem.lua beside this file.
+configuration.CombatSystem = assert(loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua"
+)))()
+configuration.CombatSystem.Initialize(configuration, {
+	MobsFolder = MobsFolder,
+	PathfindingService = game:GetService("PathfindingService"),
+	SmoothMoveTo = SmoothMoveTo,
+})
 
 function configuration.PrepareConfigStorage()
 	local userId = tostring(Player.UserId)
@@ -3925,7 +3732,7 @@ function configuration.Combat.FindNearestCombatMob(localRoot, maxDistance, bosse
 		local cachedMob = searchCache.Mob
 		if not cachedMob then return nil, nil, nil end
 		local cachedRoot = cachedMob.PrimaryPart or cachedMob:FindFirstChild("HumanoidRootPart")
-		if configuration.Combat.IsLivingMob(cachedMob) and not IsCombatTargetCoolingDown(cachedMob)
+		if configuration.Combat.IsLivingMob(cachedMob) and not configuration.CombatSystem.IsTargetCoolingDown(cachedMob)
 			and cachedRoot and cachedRoot:IsA("BasePart") then
 			local cachedDistance = (localRoot.Position - cachedRoot.Position).Magnitude
 			if cachedDistance <= searchDistance then return cachedMob, cachedRoot, cachedDistance end
@@ -3943,7 +3750,7 @@ function configuration.Combat.FindNearestCombatMob(localRoot, maxDistance, bosse
 			entry.Humanoid = humanoid
 		end
 		if mobRoot and mobRoot:IsA("BasePart") and (not humanoid or humanoid.Health > 0)
-			and not IsCombatTargetCoolingDown(mob)
+			and not configuration.CombatSystem.IsTargetCoolingDown(mob)
 			and (not bossesOnly or entry.IsBoss == true) then
 			local distance = (localRoot.Position - mobRoot.Position).Magnitude
 			if distance <= bestDistance then
@@ -4034,7 +3841,7 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 		local searchCap = configuration.AutoAttackSearchRange
 		-- A manually pinned target always wins over boss priority.
 		local pinnedMob = configuration.AutoAttackPinnedMob
-		if pinnedMob and not IsCombatTargetCoolingDown(pinnedMob) then
+		if pinnedMob and not configuration.CombatSystem.IsTargetCoolingDown(pinnedMob) then
 			local pinnedRoot = pinnedMob.PrimaryPart or pinnedMob:FindFirstChild("HumanoidRootPart")
 			if configuration.Combat.IsLivingMob(pinnedMob) and pinnedRoot and pinnedRoot:IsA("BasePart")
 				and (not configuration.AutoAttackBossesOnly or IsBossMob(pinnedMob, pinnedMob:FindFirstChild("Config"))) then
@@ -4048,7 +3855,7 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 			local currentMob = configuration.CombatTargetMob
 			local currentRoot = currentMob and (currentMob.PrimaryPart or currentMob:FindFirstChild("HumanoidRootPart"))
 			local currentDistance = currentRoot and (localRoot.Position - currentRoot.Position).Magnitude
-			if configuration.Combat.IsLivingMob(currentMob) and not IsCombatTargetCoolingDown(currentMob)
+			if configuration.Combat.IsLivingMob(currentMob) and not configuration.CombatSystem.IsTargetCoolingDown(currentMob)
 				and IsBossMob(currentMob, currentMob:FindFirstChild("Config"))
 				and currentRoot and currentRoot:IsA("BasePart") and currentDistance <= searchCap + 15 then
 				return "Mob", currentMob, currentRoot, currentDistance
@@ -4072,7 +3879,7 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 		if lockedMob then
 			local lockedRoot = lockedMob.PrimaryPart or lockedMob:FindFirstChild("HumanoidRootPart")
 			local lockedDistance = lockedRoot and (localRoot.Position - lockedRoot.Position).Magnitude
-			if configuration.Combat.IsLivingMob(lockedMob) and not IsCombatTargetCoolingDown(lockedMob)
+			if configuration.Combat.IsLivingMob(lockedMob) and not configuration.CombatSystem.IsTargetCoolingDown(lockedMob)
 				and lockedRoot and lockedRoot:IsA("BasePart")
 				and (not configuration.AutoAttackBossesOnly or IsBossMob(lockedMob, lockedMob:FindFirstChild("Config")))
 				and lockedDistance <= searchCap + 15 then
@@ -4106,7 +3913,7 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 	local lockKind = configuration.NearbyLockKind
 	local lockTarget = configuration.NearbyLockTarget
 	if configuration.AutoAttackBossPriority or configuration.AutoAttackBossesOnly then
-		if lockKind == "Mob" and lockTarget and not IsCombatTargetCoolingDown(lockTarget)
+		if lockKind == "Mob" and lockTarget and not configuration.CombatSystem.IsTargetCoolingDown(lockTarget)
 			and IsBossMob(lockTarget, lockTarget:FindFirstChild("Config")) then
 			local bossRoot = lockTarget.PrimaryPart or lockTarget:FindFirstChild("HumanoidRootPart")
 			local bossDistance = bossRoot and (localRoot.Position - bossRoot.Position).Magnitude
@@ -4133,7 +3940,7 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 
 	if lockKind == "Mob" and lockTarget then
 		local lockRoot = lockTarget.PrimaryPart or lockTarget:FindFirstChild("HumanoidRootPart")
-		if configuration.Combat.IsLivingMob(lockTarget) and not IsCombatTargetCoolingDown(lockTarget)
+		if configuration.Combat.IsLivingMob(lockTarget) and not configuration.CombatSystem.IsTargetCoolingDown(lockTarget)
 			and lockRoot and lockRoot:IsA("BasePart") then
 			local dist = (localRoot.Position - lockRoot.Position).Magnitude
 			if dist <= searchRange + 15 then
@@ -4671,16 +4478,20 @@ task.spawn(function()
 					math.max(7, configuration.AutoAttackStandoff + 3)
 				)
 				local attackRange = targetKind == "Mob" and mobEngageRange or configuration.AutoAttackRange
+				local evadingEnemySkill = targetKind == "Mob"
+					and configuration.CombatSystem.ShouldEvadeTarget(target)
 				if attackMoveState.Target ~= target then
 					if attackMoveState.Target ~= nil and attackMoveState.Active then
 						local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 						if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
 					end
-					ResetNavigationState(attackMoveState)
+					configuration.CombatSystem.ResetNavigationState(attackMoveState)
 					attackMoveState.Target = target
 					attackMoveState.ApproachActive = (distance or math.huge) > attackRange
 				end
 				if (distance or math.huge) > attackRange + 1.25 then
+					attackMoveState.ApproachActive = true
+				elseif evadingEnemySkill then
 					attackMoveState.ApproachActive = true
 				elseif (distance or math.huge) <= attackRange then
 					attackMoveState.ApproachActive = false
@@ -4691,6 +4502,7 @@ task.spawn(function()
 					and target ~= configuration.ExpMaxCombatTarget
 					and target ~= configuration.AlertCombatTarget
 					and target ~= configuration.ServerHopKillTarget
+					and not evadingEnemySkill
 				if targetKind == "Mob" and localRoot
 					and (configuration.AutoAttackEnabled or configuration.AlertCombatPending
 						or configuration.ExpRetaliationTarget == target
@@ -4698,32 +4510,34 @@ task.spawn(function()
 						or configuration.ServerHopKillTarget == target) then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					local tookMovement = ClaimMovement("Combat", humanoid, localRoot)
-					local approachPoint = SelectCombatApproachPoint(
-						localRoot, targetRoot, configuration.AutoAttackStandoff, target, attackMoveState
+					local approachPoint = configuration.CombatSystem.SelectApproachPoint(
+						localRoot, targetRoot, configuration.AutoAttackStandoff, target, attackMoveState, attackRange
 					)
 					if attackMoveState.ApproachActive then
 						-- Far targets path more often; close range softens repathing to reduce jitter.
 						local interval = (distance or 0) > 40 and 0.16 or 0.26
-						local arrived, navigationState = NavigateMoveTo(humanoid, localRoot, approachPoint, target, attackMoveState, interval, 1.9)
+						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, approachPoint, target, attackMoveState, interval, 1.9)
 						attackMoveState.NavigationMode = navigationState
 						chasingMob = not arrived
 						if not configuration.Farming or configuration.AlertCombatPending or configuration.ExpRetaliationTarget == target then
-							StateLabel.Text = navigationState == "path" and "Routing to target"
-								or (navigationState == "retrying route" and "Finding path" or "Moving to target")
-							MiniState.Text = navigationState == "path" and "Walking around an obstacle"
-								or (navigationState == "retrying route" and "Blocked route; retrying" or "Closing distance to attack")
+							StateLabel.Text = evadingEnemySkill and "Avoiding enemy skill"
+								or (navigationState == "path" and "Routing to target"
+								or (navigationState == "retrying route" and "Finding path" or "Moving to target"))
+							MiniState.Text = evadingEnemySkill and "Dodging active BladePart"
+								or (navigationState == "path" and "Walking around an obstacle"
+								or (navigationState == "retrying route" and "Blocked route; retrying" or "Closing distance to attack"))
 						end
 					elseif chasingMob or attackMoveState.Active or tookMovement then
 						if humanoid then humanoid:MoveTo(localRoot.Position) end
 						attackMoveState.Active = false
 						attackMoveState.Goal = nil
-						ResetNavigationState(attackMoveState)
+						configuration.CombatSystem.ResetNavigationState(attackMoveState)
 						attackMoveState.NavigationMode = "holding"
 						chasingMob = false
 					end
 					-- Start facing early so attacks land cleaner during approach.
 					if configuration.FaceTargetEnabled and (distance or 999) <= configuration.AutoAttackRange + 15 then
-						FaceTargetSmooth(localRoot, targetRoot.Position, 0.22)
+						configuration.CombatSystem.FaceTargetSmooth(localRoot, targetRoot.Position, 0.22)
 					end
 				elseif targetKind == "Player" and configuration.AutoAttackEnabled and localRoot then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -4733,7 +4547,7 @@ task.spawn(function()
 						local standoff = math.min(configuration.AutoAttackStandoff, math.max(1, attackRange - 1))
 						local approachPoint = OrbitApproachPoint(localRoot, targetRoot, standoff)
 						local interval = (distance or 0) > 40 and 0.16 or 0.26
-						local arrived, navigationState = NavigateMoveTo(humanoid, localRoot, approachPoint, target.Character, attackMoveState, interval, 1.9)
+						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, approachPoint, target.Character, attackMoveState, interval, 1.9)
 						attackMoveState.NavigationMode = navigationState
 						chasingMob = not arrived
 						StateLabel.Text = navigationState == "path" and "Routing to target"
@@ -4741,13 +4555,13 @@ task.spawn(function()
 						MiniState.Text = navigationState == "path" and "Walking around an obstacle"
 							or (navigationState == "retrying route" and "Blocked route; retrying" or "Closing distance to attack")
 						if configuration.FaceTargetEnabled and (distance or 999) <= configuration.AutoAttackRange + 15 then
-							FaceTargetSmooth(localRoot, targetRoot.Position, 0.22)
+							configuration.CombatSystem.FaceTargetSmooth(localRoot, targetRoot.Position, 0.22)
 						end
 					elseif chasingMob or attackMoveState.Active or tookMovement then
 						if humanoid then humanoid:MoveTo(localRoot.Position) end
 						attackMoveState.Active = false
 						attackMoveState.Goal = nil
-						ResetNavigationState(attackMoveState)
+						configuration.CombatSystem.ResetNavigationState(attackMoveState)
 						attackMoveState.NavigationMode = "holding"
 						chasingMob = false
 					end
@@ -4756,7 +4570,7 @@ task.spawn(function()
 					if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
 					attackMoveState.Active = false
 					attackMoveState.Goal = nil
-					ResetNavigationState(attackMoveState)
+					configuration.CombatSystem.ResetNavigationState(attackMoveState)
 					chasingMob = false
 					attackMoveState.Target = nil
 					attackMoveState.ApproachActive = false
@@ -4770,7 +4584,7 @@ task.spawn(function()
 
 				if distance <= attackRange or chasingMob then
 					if configuration.FaceTargetEnabled and localRoot and targetRoot then
-						FaceTargetSmooth(localRoot, targetRoot.Position, distance <= 12 and 0.45 or 0.28)
+						configuration.CombatSystem.FaceTargetSmooth(localRoot, targetRoot.Position, distance <= 12 and 0.45 or 0.28)
 					end
 					local playerGui = Player:FindFirstChildOfClass("PlayerGui")
 					local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
@@ -4838,7 +4652,7 @@ task.spawn(function()
 					if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
 					attackMoveState.Active = false
 					attackMoveState.Goal = nil
-					ResetNavigationState(attackMoveState)
+					configuration.CombatSystem.ResetNavigationState(attackMoveState)
 					chasingMob = false
 				end
 				attackMoveState.Target = nil
@@ -4855,7 +4669,7 @@ task.spawn(function()
 				if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
 				attackMoveState.Active = false
 				attackMoveState.Goal = nil
-				ResetNavigationState(attackMoveState)
+				configuration.CombatSystem.ResetNavigationState(attackMoveState)
 				chasingMob = false
 			end
 			attackMoveState.Target = nil
@@ -5228,13 +5042,13 @@ task.spawn(function()
 					end
 					local goal = bestGoal or (followedRoot.Position + outward * spacing)
 					ClaimMovement("Follow", humanoid, localRoot)
-					NavigateMoveTo(humanoid, localRoot, goal, followedCharacter, followMoveState, 0.28, 2.2)
+					configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, goal, followedCharacter, followMoveState, 0.28, 2.2)
 					followGoalPosition = goal
 				else
 					ReleaseMovement("Follow", humanoid, localRoot)
 					followGoalPosition = nil
 					followEscapeDirection = 0
-					ResetNavigationState(followMoveState)
+					configuration.CombatSystem.ResetNavigationState(followMoveState)
 				end
 				lastFollowMove = now
 			end
@@ -5245,7 +5059,7 @@ task.spawn(function()
 			followGoalPosition = nil
 			lastFollowProgressPosition = nil
 			followEscapeDirection = 0
-			ResetNavigationState(followMoveState)
+			configuration.CombatSystem.ResetNavigationState(followMoveState)
 		end
 
 		-- Tap X while Auto Farm or Follow is active so contextual Interact actions can trigger.
