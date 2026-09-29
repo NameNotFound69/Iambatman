@@ -1,4 +1,4 @@
-local VERSION = "2.5.4"
+local VERSION = "2.5.5"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -212,7 +212,8 @@ local configuration: {[string]: any} = {
 	AlertsDistance = 1000,
 	FollowDistance = 8,
 	FollowTargetVisible = false,
-	FollowPlayerUserId = nil,
+	SelectedFollowUserId = nil,
+	FollowEnabled = false,
 	PlayerPanelMode = "server",
 	SelectedCombatMob = nil,
 	WaypointPosition = nil,
@@ -423,9 +424,16 @@ function configuration.LoadConfig()
 	end
 	configuration.AutoAttackInterval = math.clamp(ReadNumber("AutoAttackInterval", configuration.AutoAttackInterval, 1, false), 1, 10)
 	configuration.AutoSkillInterval = math.clamp(ReadNumber("AutoSkillInterval", configuration.AutoSkillInterval, 1, false), 1, 30)
-	local followUserId = tonumber(config.FollowPlayerUserId)
+	local followUserId = tonumber(config.FollowTargetUserId)
+	local isLegacyFollowConfig = config.FollowTargetUserId == nil
+	if not followUserId then followUserId = tonumber(config.FollowPlayerUserId) end
 	if followUserId and followUserId > 0 and followUserId % 1 == 0 then
-		configuration.FollowPlayerUserId = tostring(followUserId)
+		configuration.SelectedFollowUserId = tostring(followUserId)
+	end
+	if type(config.FollowEnabled) == "boolean" then
+		configuration.FollowEnabled = config.FollowEnabled and configuration.SelectedFollowUserId ~= nil
+	elseif isLegacyFollowConfig then
+		configuration.FollowEnabled = configuration.SelectedFollowUserId ~= nil
 	end
 	configuration.MainWidthScale = math.clamp(ReadNumber("MainWidthScale", configuration.MainWidthScale, 0.2, false), 0.2, 0.75)
 	configuration.MainHeightScale = math.clamp(ReadNumber("MainHeightScale", configuration.MainHeightScale, 0.4, false), 0.4, 0.95)
@@ -502,7 +510,8 @@ function configuration.SaveConfig()
 		AlertsDistance = configuration.AlertsDistance,
 		FollowDistance = configuration.FollowDistance,
 		FollowTargetVisible = configuration.FollowTargetVisible,
-		FollowPlayerUserId = configuration.FollowPlayerUserId,
+		FollowTargetUserId = configuration.SelectedFollowUserId,
+		FollowEnabled = configuration.FollowEnabled,
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
 		AutoBossTargetEnabled = configuration.AutoBossTargetEnabled,
 		AutoMiniBossTargetEnabled = configuration.AutoMiniBossTargetEnabled,
@@ -2645,13 +2654,31 @@ local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxE
 local AutoBlockButton = configuration.MakeToggle("Auto block", configuration.AutoBlockEnabled, RED, RED_DIM, 5, PlayersGrid, "Show the block prompt after the EXP target is defeated.")
 local PlayerListButton = configuration.MakeActionRow("Player list", 1, PlayersGrid, "View players in this server.")
 local WhitelistButton = configuration.MakeActionRow("Whitelist", 2, PlayersGrid, "Whitelisted players do not trigger alerts or auto-block.")
-FollowSelectButton = configuration.MakeActionRow("Follow player", 3, PlayersGrid, "Follow a player at the chosen spacing.")
-StopFollowButton = configuration.MakeActionRow("Stop follow", 4, PlayersGrid, "Stop following the selected player.")
+FollowSelectButton = configuration.MakeActionRow("Choose follow target", 3, PlayersGrid, "Select who to follow.")
+FollowToggleButton = configuration.MakeToggle("Follow", configuration.FollowEnabled, ACCENT, ACCENT_DIM, 4, PlayersGrid, "Follow the selected player; turn off to pause.")
 
 function configuration.UpdateFollowButtons()
-	local following = configuration.FollowPlayerUserId ~= nil
-	configuration.SetActionVisual(FollowSelectButton, following and "Change follow target" or "Follow player", following)
-	configuration.SetActionVisual(StopFollowButton, "Stop follow", following)
+	local selectedId = configuration.SelectedFollowUserId
+	local selectedPlayer = selectedId and Players:GetPlayerByUserId(tonumber(selectedId))
+	local targetLabel = selectedPlayer and ("Target: " .. selectedPlayer.DisplayName)
+		or (selectedId and "Target: offline" or "Choose follow target")
+	configuration.SetActionVisual(FollowSelectButton, targetLabel, selectedId ~= nil)
+	configuration.SetToggleVisual(FollowToggleButton, "Follow", configuration.FollowEnabled, ACCENT, ACCENT_DIM)
+end
+
+function configuration.SetFollowEnabled(enabled)
+	configuration.FollowEnabled = enabled == true and configuration.SelectedFollowUserId ~= nil
+	if not configuration.FollowEnabled then
+		local character = Player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if humanoid and root then
+			configuration.FollowSystem.Reset(humanoid, root)
+		end
+	end
+	configuration.UpdateFollowButtons()
+	configuration.SaveConfig()
+	return configuration.FollowEnabled
 end
 configuration.UpdateFollowButtons()
 
@@ -2815,14 +2842,14 @@ task.spawn(function()
 end)
 
 Players.PlayerRemoving:Connect(function(leavingPlayer)
-	if configuration.FollowPlayerUserId == tostring(leavingPlayer.UserId) then
-		configuration.FollowPlayerUserId = nil
-		local character = Player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if humanoid and root then humanoid:MoveTo(root.Position) end
-		configuration.SaveConfig()
-		if configuration.UpdateFollowButtons then configuration.UpdateFollowButtons() end
+	if configuration.SelectedFollowUserId == tostring(leavingPlayer.UserId) then
+		configuration.SetFollowEnabled(false)
+	end
+end)
+
+Players.PlayerAdded:Connect(function(joiningPlayer)
+	if configuration.SelectedFollowUserId == tostring(joiningPlayer.UserId) then
+		configuration.UpdateFollowButtons()
 	end
 end)
 
@@ -3108,15 +3135,14 @@ FollowSelectButton.MouseButton1Click:Connect(function()
 	configuration.SetActionVisual(PlayerListButton, "Player list", false)
 end)
 
-StopFollowButton.MouseButton1Click:Connect(function()
-	configuration.FollowPlayerUserId = nil
-	local character = Player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if humanoid and root then humanoid:MoveTo(root.Position) end
-	configuration.SaveConfig()
-	configuration.UpdateFollowButtons()
-	if configuration.PlayerPanelMode == "follow" then PlayerPanel.Visible = true end
+FollowToggleButton.MouseButton1Click:Connect(function()
+	if not configuration.SelectedFollowUserId then
+		configuration.PlayerPanelMode = "follow"
+		PlayerPanelTitle.Text = "Choose player to follow"
+		PlayerPanel.Visible = true
+		return
+	end
+	configuration.SetFollowEnabled(not configuration.FollowEnabled)
 end)
 
 configuration.WhitelistPanel = Instance.new("Frame")
@@ -4420,7 +4446,7 @@ task.spawn(function()
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local point = configuration.WaypointPosition
 		local paused = configuration.EmergencyStopActive
-			or configuration.FollowPlayerUserId ~= nil
+			or configuration.FollowEnabled
 			or configuration.AlertCombatPending
 			or configuration.AlertCombatHold
 			or configuration.ExpMaxCombatTarget ~= nil
@@ -4599,7 +4625,7 @@ task.spawn(function()
 		local localRoot = char and char:FindFirstChild("HumanoidRootPart")
 		local playerSnapshots = nil
 		if localRoot and not configuration.EmergencyStopActive
-			and (configuration.AlertsEnabled or configuration.FollowPlayerUserId ~= nil) then
+			and (configuration.AlertsEnabled or configuration.FollowEnabled) then
 			playerSnapshots = {}
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= Player then
@@ -4716,7 +4742,8 @@ task.spawn(function()
 			end
 		end
 
-		local followedPlayer = configuration.FollowPlayerUserId and Players:GetPlayerByUserId(tonumber(configuration.FollowPlayerUserId))
+		local followedPlayer = configuration.FollowEnabled and configuration.SelectedFollowUserId
+			and Players:GetPlayerByUserId(tonumber(configuration.SelectedFollowUserId))
 		-- Pause Follow while Auto Attack is pursuing a valid target; resume when the target clears.
 		local interruptFollow = configuration.AlertCombatPending == true
 		if not interruptFollow and (configuration.AutoAttackEnabled or configuration.AutoBossTargetEnabled
@@ -4728,7 +4755,7 @@ task.spawn(function()
 			end
 		end
 		local followHumanoid = char and char:FindFirstChildOfClass("Humanoid")
-		if not configuration.EmergencyStopActive and not configuration.Farming
+		if configuration.FollowEnabled and not configuration.EmergencyStopActive and not configuration.Farming
 			and followedPlayer and char and not interruptFollow then
 			configuration.FollowSystem.Update(localRoot, followHumanoid, followedPlayer, playerSnapshots)
 		else
@@ -4888,10 +4915,10 @@ task.spawn(function()
 			local signatureParts = { configuration.PlayerPanelMode }
 			for _, listedPlayer in ipairs(panelPlayers) do
 				table.insert(signatureParts, table.concat({
-					tostring(listedPlayer.UserId),
-					configuration.IsWhitelisted(listedPlayer) and "w" or "-",
-					configuration.IsPlayerESPEnabled(listedPlayer) and "e" or "-",
-					configuration.FollowPlayerUserId == tostring(listedPlayer.UserId) and "f" or "-",
+				tostring(listedPlayer.UserId),
+				configuration.IsWhitelisted(listedPlayer) and "w" or "-",
+				configuration.IsPlayerESPEnabled(listedPlayer) and "e" or "-",
+				configuration.SelectedFollowUserId == tostring(listedPlayer.UserId) and "f" or "-",
 				}, ":"))
 			end
 			local panelSignature = table.concat(signatureParts, "|")
@@ -4915,7 +4942,7 @@ task.spawn(function()
 					row.Size = UDim2.new(1, -4, 0, 44)
 					row.LayoutOrder = order
 					row.ZIndex = 92
-					local isFollowSelected = configuration.FollowPlayerUserId == tostring(selectedPlayer.UserId)
+					local isFollowSelected = configuration.SelectedFollowUserId == tostring(selectedPlayer.UserId)
 					row.BackgroundColor3 = isFollowSelected and SEL_BG or CARD
 					row.BorderSizePixel = 0
 					row.Text = "  " .. selectedPlayer.DisplayName
@@ -4927,7 +4954,7 @@ task.spawn(function()
 					row.Parent = PlayerScroll
 					Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
 					row.MouseButton1Click:Connect(function()
-						configuration.FollowPlayerUserId = tostring(selectedPlayer.UserId)
+						configuration.SelectedFollowUserId = tostring(selectedPlayer.UserId)
 						configuration.SaveConfig()
 						configuration.UpdateFollowButtons()
 						PlayerPanel.Visible = false
@@ -5104,40 +5131,6 @@ task.spawn(function()
 						whitelistToggle.BackgroundColor3 = enabled and Color3.fromRGB(55, 45, 22) or INPUT
 						if configuration.WhitelistPanel.Visible then configuration.RefreshWhitelist() end
 					end)
-
-					if configuration.PlayerPanelMode == "follow" then
-						local followButton = Instance.new("TextButton")
-						followButton.Name = "FollowToggle"
-						followButton.Size = UDim2.fromOffset(58, 24)
-						followButton.Position = UDim2.new(1, -70, 0, 66)
-						followButton.ZIndex = 93
-						local isFollowing = configuration.FollowPlayerUserId == tostring(otherPlayer.UserId)
-						followButton.BackgroundColor3 = isFollowing and ACCENT_DIM or INPUT
-						followButton.BorderSizePixel = 0
-						followButton.Text = isFollowing and "STOP" or "FOLLOW"
-						followButton.TextColor3 = isFollowing and ACCENT or MUTED
-						followButton.TextSize = 9
-						followButton.Font = Enum.Font.GothamBold
-						followButton.Parent = row
-						Instance.new("UICorner", followButton).CornerRadius = UDim.new(0, 6)
-						followButton.MouseButton1Click:Connect(function()
-							if isFollowing then
-								configuration.FollowPlayerUserId = nil
-								if localRoot then
-									local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-									if humanoid then humanoid:MoveTo(localRoot.Position) end
-								end
-							else
-								configuration.FollowPlayerUserId = tostring(otherPlayer.UserId)
-							end
-							configuration.SaveConfig()
-							configuration.UpdateFollowButtons()
-							PlayerPanel.Visible = false
-							configuration.PlayerPanelMode = "server"
-							PlayerPanelTitle.Text = "Players in server"
-							lastPlayerRefresh = 0
-						end)
-					end
 
 					local blockButton = Instance.new("TextButton")
 					blockButton.Name = "BlockButton"
@@ -5391,7 +5384,7 @@ task.spawn(function()
 		end
 
 		-- Alert / ESP / follow loop: stay responsive near threats, slower when quiet.
-		local alertBusy = configuration.AlertsEnabled or configuration.FollowPlayerUserId ~= nil
+		local alertBusy = configuration.AlertsEnabled or configuration.FollowEnabled
 			or configuration.AlertCombatPending or configuration.AlertCombatHold or AlarmOverlay.Visible
 		task.wait(alertBusy and 0.08 or 0.18)
 	end
