@@ -1,4 +1,5 @@
-print("[Iamrich] Starting...")
+local VERSION = "2.0.0"
+print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -67,62 +68,7 @@ local MobCache = {
 	Dirty = true,
 	LastRebuild = 0,
 }
-MobCache.SearchCaches = {
-	Boss = { LastSearchAt = 0, Range = nil, Mob = nil },
-	Mob = { LastSearchAt = 0, Range = nil, Mob = nil },
-}
-
-function MobCache.InvalidateSearchCaches()
-	for _, cache in pairs(MobCache.SearchCaches) do
-		cache.LastSearchAt = 0
-		cache.Range = nil
-		cache.Mob = nil
-	end
-end
-
-local CollectionService = game:GetService("CollectionService")
-local function ReadIsBossFlag(source)
-	if not source or typeof(source) ~= "Instance" then return nil end
-	local attribute = source:GetAttribute("IsBoss")
-	if type(attribute) == "boolean" then return attribute end
-	if type(attribute) == "number" and (attribute == 0 or attribute == 1) then return attribute == 1 end
-	if type(attribute) == "string" then
-		local normalized = string.lower(attribute)
-		if normalized == "true" or normalized == "1" then return true end
-		if normalized == "false" or normalized == "0" then return false end
-	end
-	local value = source:FindFirstChild("IsBoss", true)
-	if value and value:IsA("ValueBase") then
-		local raw = value.Value
-		if type(raw) == "boolean" then return raw end
-		if type(raw) == "number" then return raw ~= 0 end
-		if type(raw) == "string" then
-			local normalized = string.lower(raw)
-			if normalized == "true" or normalized == "1" then return true end
-			if normalized == "false" or normalized == "0" then return false end
-		end
-	end
-	return nil
-end
-
-local function IsBossMob(mob, config)
-	local entity = config and config:FindFirstChild("Entity")
-	local entityValue = entity and entity.Value
-	for _, source in ipairs({ mob, config, typeof(entityValue) == "Instance" and entityValue or nil }) do
-		local flag = ReadIsBossFlag(source)
-		if flag ~= nil then return flag end
-	end
-	if mob then
-		local ok, tagged = pcall(function()
-			return CollectionService:HasTag(mob, "Boss") or CollectionService:HasTag(mob, "IsBoss")
-		end)
-		if ok and tagged then return true end
-	end
-	return false
-end
-
 local function MobCache_ClearEntry(mob)
-	MobCache.InvalidateSearchCaches()
 	local entry = MobCache.ByInstance[mob]
 	if not entry then return end
 	MobCache.ByInstance[mob] = nil
@@ -148,7 +94,6 @@ local function MobCache_ReadEntry(mob)
 		Config = cfg,
 		EXP = exp,
 		HasEXP = exp ~= nil and (exp:IsA("IntValue") or exp:IsA("NumberValue")),
-		IsBoss = IsBossMob(mob, cfg),
 	}
 end
 
@@ -157,7 +102,6 @@ local function MobCache_Upsert(mob)
 		MobCache_ClearEntry(mob)
 		return
 	end
-	MobCache.InvalidateSearchCaches()
 	local fresh = MobCache_ReadEntry(mob)
 	if not fresh then
 		MobCache_ClearEntry(mob)
@@ -170,7 +114,6 @@ local function MobCache_Upsert(mob)
 		existing.Config = fresh.Config
 		existing.EXP = fresh.EXP
 		existing.HasEXP = fresh.HasEXP
-		existing.IsBoss = fresh.IsBoss
 	else
 		MobCache.ByInstance[mob] = fresh
 		table.insert(MobCache.List, fresh)
@@ -314,8 +257,6 @@ local configuration: {[string]: any} = {
 	FollowDistance = 8,
 	FollowPlayerUserId = nil,
 	PlayerPanelMode = "server",
-	AutoAttackTargetUserId = nil,
-	AutoAttackPinnedMob = nil,
 	SelectedCombatMob = nil,
 	WaypointPosition = nil,
 	WaypointReturnEnabled = false,
@@ -323,22 +264,14 @@ local configuration: {[string]: any} = {
 	WaypointMoveState = { Active = false, Goal = nil, LastMoveAt = 0 },
 	MovementBoostEnabled = true,
 	AutoAttackEnabled = false,
-	AutoAttackBossPriority = false,
-	AutoAttackBossesOnly = false,
-	AutoAttackUseExpTarget = false,
 	ExpTargetRetaliationEnabled = false,
 	ExpRetaliationTarget = nil,
 	AutoSkillEnabled = false,
-	AutoAttackMode = "Mob",
 	AutoAttackRange = 25,
 	AutoAttackSearchRange = 1000,
 	AutoAttackInterval = 1,
 	AutoSkillInterval = 3,
 	AutoAttackStandoff = 4,
-	CombatDiagnosticsEnabled = false,
-	CombatTargetMob = nil,
-	NearbyLockKind = nil,
-	NearbyLockTarget = nil,
 	Farming = false,
 	CurrentTarget = nil,
 	ExpMaxCombatTarget = nil,
@@ -367,7 +300,6 @@ local configuration: {[string]: any} = {
 	LastAlertCombatUserId = nil,
 	PendingServerHop = false,
 	ServerHopKillTarget = nil,
-	FaceTargetEnabled = true,
 	ESPEnabled = true,
 	ESPLineEnabled = true,
 	ESPBoxEnabled = true,
@@ -495,13 +427,6 @@ function configuration.LoadConfig()
 	end
 	configuration.AutoAttackInterval = math.clamp(ReadNumber("AutoAttackInterval", configuration.AutoAttackInterval, 1, false), 1, 10)
 	configuration.AutoSkillInterval = math.clamp(ReadNumber("AutoSkillInterval", configuration.AutoSkillInterval, 1, false), 1, 30)
-	if config.AutoAttackMode == "Mob" or config.AutoAttackMode == "Player" or config.AutoAttackMode == "Nearby" then
-		configuration.AutoAttackMode = config.AutoAttackMode
-	end
-	local attackUserId = tonumber(config.AutoAttackTargetUserId)
-	if attackUserId and attackUserId > 0 and attackUserId % 1 == 0 then
-		configuration.AutoAttackTargetUserId = tostring(attackUserId)
-	end
 	local followUserId = tonumber(config.FollowPlayerUserId)
 	if followUserId and followUserId > 0 and followUserId % 1 == 0 then
 		configuration.FollowPlayerUserId = tostring(followUserId)
@@ -535,9 +460,6 @@ function configuration.LoadConfig()
 	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
 	if type(config.AutoAttackEnabled) == "boolean" then configuration.AutoAttackEnabled = config.AutoAttackEnabled end
 	if type(config.WaypointReturnEnabled) == "boolean" then configuration.WaypointReturnEnabled = config.WaypointReturnEnabled end
-	if type(config.AutoAttackBossPriority) == "boolean" then configuration.AutoAttackBossPriority = config.AutoAttackBossPriority end
-	if type(config.AutoAttackBossesOnly) == "boolean" then configuration.AutoAttackBossesOnly = config.AutoAttackBossesOnly end
-	if type(config.AutoAttackUseExpTarget) == "boolean" then configuration.AutoAttackUseExpTarget = config.AutoAttackUseExpTarget end
 	if type(config.ExpTargetRetaliationEnabled) == "boolean" then configuration.ExpTargetRetaliationEnabled = config.ExpTargetRetaliationEnabled end
 	if type(config.AutoSkillEnabled) == "boolean" then configuration.AutoSkillEnabled = config.AutoSkillEnabled end
 	if type(config.ESPEnabled) == "boolean" then configuration.ESPEnabled = config.ESPEnabled end
@@ -580,13 +502,8 @@ function configuration.SaveConfig()
 		AlertsDistance = configuration.AlertsDistance,
 		FollowDistance = configuration.FollowDistance,
 		FollowPlayerUserId = configuration.FollowPlayerUserId,
-		AutoAttackTargetUserId = configuration.AutoAttackTargetUserId,
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
-		AutoAttackBossPriority = configuration.AutoAttackBossPriority,
-		AutoAttackBossesOnly = configuration.AutoAttackBossesOnly,
-		AutoAttackUseExpTarget = configuration.AutoAttackUseExpTarget,
 		ExpTargetRetaliationEnabled = configuration.ExpTargetRetaliationEnabled,
-		AutoAttackMode = configuration.AutoAttackMode,
 		AutoAttackRange = configuration.AutoAttackRange,
 		AutoAttackSearchRange = configuration.AutoAttackSearchRange,
 		WaypointPosition = configuration.WaypointPosition and {
@@ -631,14 +548,6 @@ configuration.LoadConfig()
 if configuration.MigratedLegacyConfig then
 	configuration.SaveConfig()
 end
-if configuration.AutoAttackUseExpTarget then
-	configuration.AutoAttackMode = "Mob"
-end
-if configuration.AutoAttackBossesOnly then
-	configuration.AutoAttackMode = "Mob"
-	configuration.AutoAttackUseExpTarget = false
-end
-
 function configuration.IsWhitelisted(otherPlayer)
 	return configuration.WhitelistIds[tostring(otherPlayer.UserId)] == true
 end
@@ -1978,7 +1887,6 @@ end
 local AlertsGrid = configuration.MakeToggleGrid(AlertsPage, 2)
 local PlayersGrid = configuration.MakeToggleGrid(PlayerPage, 2)
 local CombatGrid = configuration.MakeToggleGrid(CombatPage, 2)
-local AttackModeGrid = configuration.MakeToggleGrid(CombatPage, 3)
 
 local AlertsDistanceCard = Instance.new("Frame")
 AlertsDistanceCard.Size = UDim2.new(1, 0, 0, 48)
@@ -2325,33 +2233,9 @@ local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
 	function(value) configuration.FollowDistance = value end
 )
 
-local AutoAttackButton = configuration.MakeToggle("Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid, "Attack the selected target automatically.")
-local AutoSkillButton = configuration.MakeToggle("Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid, "Use skills on an interval while attacking.")
-CombatTargetButton = configuration.MakeActionRow("Select player target", 3, CombatGrid, "Pick which player to focus in Player mode.")
-local ExpMobTargetButton = configuration.MakeToggle("Attack EXP target", configuration.AutoAttackUseExpTarget, ACCENT, ACCENT_DIM, 4, CombatGrid, "Force combat onto the current EXP farm mob.")
-local ExpTargetRetaliationButton = configuration.MakeToggle("Fight back if EXP mob is hit", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM, 5, CombatGrid, "If your EXP mob takes damage, kill it first.")
-local BossPriorityButton = configuration.MakeToggle("Prioritize bosses", configuration.AutoAttackBossPriority, ACCENT, ACCENT_DIM, 6, CombatGrid,
-	"Choose a nearby boss before ordinary mobs. Manual and EXP targets stay locked.")
-configuration.BossesOnlyButton = configuration.MakeToggle("Bosses only", configuration.AutoAttackBossesOnly, ACCENT, ACCENT_DIM, 7, CombatGrid,
-	"Only select bosses for normal Auto Attack. Alert and active EXP safety targets may still take priority.")
-local CombatDiagnosticsButton = configuration.MakeToggle("Combat diagnostics", false, ACCENT, ACCENT_DIM, 8, CombatGrid,
-	"Show the locked target, current route and detected attack hitboxes.")
-
-local AutoAttackModeButtons = {
-	Mob = configuration.MakeToggle("Target: Mobs", configuration.AutoAttackMode == "Mob", ACCENT, ACCENT_DIM, 1, AttackModeGrid, "Only attack monsters."),
-	Player = configuration.MakeToggle("Target: Players", configuration.AutoAttackMode == "Player", ACCENT, ACCENT_DIM, 2, AttackModeGrid, "Only attack the selected player."),
-	Nearby = configuration.MakeToggle("Target: Nearest (mob or player)", configuration.AutoAttackMode == "Nearby", ACCENT, ACCENT_DIM, 3, AttackModeGrid, "Lock the nearest mob or player until it dies."),
-}
-
--- Combat is intentionally limited to the mob selected in the list below.
-CombatTargetButton.Visible = false
-ExpMobTargetButton.Visible = false
-ExpTargetRetaliationButton.Visible = false
-BossPriorityButton.Visible = false
-configuration.BossesOnlyButton.Visible = false
-CombatDiagnosticsButton.Visible = false
-AutoAttackModeButtons.Player.Visible = false
-AutoAttackModeButtons.Nearby.Visible = false
+local AutoAttackButton = configuration.MakeToggle("Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid, "Move to and attack the selected mob.")
+local AutoSkillButton = configuration.MakeToggle("Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid, "Use skills while attacking the selected mob.")
+local ExpTargetRetaliationButton = configuration.MakeToggle("EXP retaliation", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM, 3, CombatGrid, "Attack the EXP mob if it is hit.")
 
 local AutoAttackRangeCard, AutoAttackRangeInput = configuration.MakeNumberCard(
 	CombatPage, "Attack target range (studs)", function() return configuration.AutoAttackRange end, 4, 5, 500,
@@ -2484,7 +2368,6 @@ function configuration.RefreshCombatMobs()
 				Key = key,
 				EXP = exp and tonumber(exp.Value) or -math.huge,
 				Level = readLevel(mob) or readLevel(cfg) or readLevel(entityValue),
-				IsBoss = IsBossMob(mob, cfg),
 			}
 			table.insert(entries, entry)
 			groupCounts[key] = (groupCounts[key] or 0) + 1
@@ -2494,7 +2377,6 @@ function configuration.RefreshCombatMobs()
 	end
 
 	table.sort(entries, function(a, b)
-		if a.IsBoss ~= b.IsBoss then return a.IsBoss end
 		local aUnique = groupCounts[a.Key] == 1
 		local bUnique = groupCounts[b.Key] == 1
 		if aUnique ~= bUnique then return aUnique end
@@ -2514,7 +2396,7 @@ function configuration.RefreshCombatMobs()
 		row.LayoutOrder = order
 		row.BackgroundColor3 = isSelectedMob and ACCENT_DIM or INPUT
 		row.BorderSizePixel = 0
-		local baseText = string.format("%s%s  •  Lv %s  •  EXP %s", entry.IsBoss and "BOSS  •  " or "", entry.Name,
+		local baseText = string.format("%s  •  Lv %s  •  EXP %s", entry.Name,
 			entry.Level and tostring(entry.Level) or "—", entry.EXP > -math.huge and tostring(entry.EXP) or "—")
 		row:SetAttribute("BaseText", baseText)
 		row:SetAttribute("SelectedText", "✓  " .. baseText)
@@ -2532,13 +2414,7 @@ function configuration.RefreshCombatMobs()
 				configuration.RefreshCombatMobs()
 				return
 			end
-			configuration.AutoAttackUseExpTarget = false
-			configuration.UpdateExpMobTargetButton()
 			configuration.SelectedCombatMob = selectedMob
-			configuration.AutoAttackPinnedMob = selectedMob
-			configuration.CombatTargetMob = selectedMob
-			configuration.AutoAttackMode = "Mob"
-			configuration.UpdateAutoAttackModeButtons()
 			configuration.SaveConfig()
 			configuration.RefreshCombatMobs()
 		end)
@@ -2622,220 +2498,24 @@ configuration.CombatInfo.TextXAlignment = Enum.TextXAlignment.Left
 configuration.CombatInfo.TextYAlignment = Enum.TextYAlignment.Top
 configuration.CombatInfo.Parent = configuration.CombatStatusCard
 
-configuration.HitboxCountCache = setmetatable({}, { __mode = "k" })
-configuration.TargetHealthCache = setmetatable({}, { __mode = "k" })
-configuration.CombatDebugFolder = nil
-configuration.CombatDebugBillboard = nil
-configuration.CombatDebugText = nil
-configuration.CombatDebugMarkers = {}
-configuration.LastCombatDiagnosticsUpdate = 0
+configuration.LastCombatStatusUpdate = 0
 
-function configuration.CountExposedAttackHitboxes(model)
-	if not model or not model:IsA("Model") then return 0 end
+function configuration.UpdateCombatStatus(target, targetRoot, distance, navigationState, moveState)
 	local now = os.clock()
-	local cached = configuration.HitboxCountCache[model]
-	if cached and now - cached.At < 1 then return cached.Count end
-	local count = 0
-	for _, item in ipairs(model:GetDescendants()) do
-		if item:IsA("BasePart") then
-			local explicitlyMarked = item:GetAttribute("CombatHitbox") == true
-			local tagged = false
-			pcall(function() tagged = CollectionService:HasTag(item, "EnemyAttackHitbox") end)
-			local namedWeaponPart = item.Name == "BladePart" and item.Parent
-				and (item.Parent.Name == "Sword" or item.Parent.Name == "EnemySword")
-			if explicitlyMarked or tagged or namedWeaponPart then count += 1 end
-		end
-	end
-	configuration.HitboxCountCache[model] = { At = now, Count = count }
-	return count
-end
-
-function configuration.SetCombatDiagnosticsEnabled(enabled)
-	configuration.CombatDiagnosticsEnabled = enabled == true
-	configuration.SetToggleVisual(CombatDiagnosticsButton, "Combat diagnostics", configuration.CombatDiagnosticsEnabled, ACCENT, ACCENT_DIM)
-	if configuration.CombatDiagnosticsEnabled then
-		local folderName = "_IamrichCombatDebug_" .. tostring(Player.UserId)
-		local oldFolder = workspace:FindFirstChild(folderName)
-		if oldFolder then oldFolder:Destroy() end
-		configuration.CombatDebugFolder = Instance.new("Folder")
-		configuration.CombatDebugFolder.Name = folderName
-		configuration.CombatDebugFolder.Parent = workspace
-		for index = 1, 8 do
-			local marker = Instance.new("Part")
-			marker.Name = "RoutePoint" .. index
-			marker.Shape = Enum.PartType.Ball
-			marker.Size = Vector3.new(index == 1 and 0.9 or 0.55, index == 1 and 0.9 or 0.55, index == 1 and 0.9 or 0.55)
-			marker.Anchored = true
-			marker.CanCollide = false
-			marker.CanTouch = false
-			marker.CanQuery = false
-			marker.Material = Enum.Material.Neon
-			marker.Color = index == 1 and ACCENT or Color3.fromRGB(67, 205, 184)
-			marker.Transparency = 1
-			marker.Parent = configuration.CombatDebugFolder
-			configuration.CombatDebugMarkers[index] = marker
-		end
-		local playerGui = Player:FindFirstChildOfClass("PlayerGui") or ScreenGui
-		local billboardName = "_IamrichCombatDiagnostics_" .. tostring(Player.UserId)
-		local oldBillboard = playerGui:FindFirstChild(billboardName)
-		if oldBillboard then oldBillboard:Destroy() end
-		configuration.CombatDebugBillboard = Instance.new("BillboardGui")
-		configuration.CombatDebugBillboard.Name = billboardName
-		configuration.CombatDebugBillboard.Size = UDim2.fromOffset(230, 66)
-		configuration.CombatDebugBillboard.StudsOffset = Vector3.new(0, 4, 0)
-		configuration.CombatDebugBillboard.AlwaysOnTop = true
-		configuration.CombatDebugBillboard.MaxDistance = 1200
-		configuration.CombatDebugBillboard.Enabled = false
-		configuration.CombatDebugBillboard.Parent = playerGui
-		local background = Instance.new("Frame")
-		background.Size = UDim2.fromScale(1, 1)
-		background.BackgroundColor3 = BG
-		background.BackgroundTransparency = 0.12
-		background.BorderSizePixel = 0
-		background.Parent = configuration.CombatDebugBillboard
-		Instance.new("UICorner", background).CornerRadius = UDim.new(0, 7)
-		local stroke = Instance.new("UIStroke", background)
-		stroke.Color = ACCENT
-		stroke.Transparency = 0.2
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.new(1, -12, 1, -8)
-		label.Position = UDim2.fromOffset(6, 4)
-		label.BackgroundTransparency = 1
-		label.TextColor3 = TEXT
-		label.TextSize = 10
-		label.Font = Enum.Font.GothamMedium
-		label.TextWrapped = true
-		label.TextXAlignment = Enum.TextXAlignment.Left
-		label.TextYAlignment = Enum.TextYAlignment.Center
-		label.Parent = background
-		configuration.CombatDebugText = label
-	else
-		if configuration.CombatDebugBillboard then configuration.CombatDebugBillboard:Destroy() end
-		if configuration.CombatDebugFolder then configuration.CombatDebugFolder:Destroy() end
-		configuration.CombatDebugBillboard, configuration.CombatDebugText, configuration.CombatDebugFolder = nil, nil, nil
-		table.clear(configuration.CombatDebugMarkers)
-	end
-end
-
-CombatDiagnosticsButton.MouseButton1Click:Connect(function()
-	configuration.SetCombatDiagnosticsEnabled(not configuration.CombatDiagnosticsEnabled)
-end)
-
-function configuration.UpdateCombatDiagnostics(target, targetRoot, distance, attackRange, navigationState, moveState)
-	local now = os.clock()
-	if now - configuration.LastCombatDiagnosticsUpdate < 0.18 then return end
-	configuration.LastCombatDiagnosticsUpdate = now
-	local hitboxCount = target and target:IsA("Model") and configuration.CountExposedAttackHitboxes(target) or 0
-	local mode = navigationState or "holding"
-	if target and targetRoot then
-		local name = target.Name
-		local kind = target:IsA("Model") and "Mob" or "Player"
-		local distanceText = string.format("%.1f / %.1f studs", distance or 0, attackRange or 0)
-		local action = (distance or math.huge) <= (attackRange or 0) and "in range · holding/attacking"
-			or (moveState and moveState.Active and "approaching · attack input active" or "outside range · route needed")
-		local targetModel = target:IsA("Model") and target or target.Character
-		local targetHumanoid = targetModel and targetModel:FindFirstChildOfClass("Humanoid")
-		local healthState = targetModel and configuration.TargetHealthCache[targetModel]
-		if targetHumanoid then
-			if not healthState then
-				healthState = { Health = targetHumanoid.Health, LastDamageAt = 0 }
-				configuration.TargetHealthCache[targetModel] = healthState
-			elseif targetHumanoid.Health < healthState.Health - 0.01 then
-				healthState.LastDamageAt = now
-			end
-			if healthState then healthState.Health = targetHumanoid.Health end
-		end
-		local attackFeedback = "no recent attack input"
-		if moveState and moveState.LastAttackTarget == target and moveState.LastAttackSentAt then
-			if healthState and healthState.LastDamageAt >= moveState.LastAttackSentAt then
-				attackFeedback = "HP drop observed"
-			elseif now - moveState.LastAttackSentAt > 1.5 then
-				attackFeedback = "no HP drop observed"
-			else
-				attackFeedback = "waiting for HP response"
-			end
-		end
-		local weaponReady, needsEquip = configuration.Combat.GetWeaponEquipState(Player.Character)
-		local weaponStatus = weaponReady and attackFeedback or (needsEquip and "equipping weapon" or "weapon unavailable")
-		local statusText = string.format("%s: %s\n%s · %s (%s)\nHitboxes %d · %s", kind, name, distanceText, action, mode, hitboxCount, weaponStatus)
-		configuration.CombatInfo.Text = statusText
-		if configuration.CombatDebugBillboard then
-			configuration.CombatDebugBillboard.Adornee = targetRoot
-			configuration.CombatDebugBillboard.Enabled = configuration.CombatDiagnosticsEnabled
-			if configuration.CombatDebugText then configuration.CombatDebugText.Text = statusText end
-		end
-	else
+	if now - configuration.LastCombatStatusUpdate < 0.18 then return end
+	configuration.LastCombatStatusUpdate = now
+	if not target or not targetRoot then
 		configuration.CombatInfo.Text = configuration.Farming and "Combat paused during EXP firing."
-			or (configuration.AutoAttackEnabled and "Combat: searching for an eligible target."
-				or "Combat is idle. Enable Auto Attack and select a target mode.")
-		if configuration.CombatDebugBillboard then configuration.CombatDebugBillboard.Enabled = false end
-	end
-
-	if configuration.CombatDiagnosticsEnabled and configuration.CombatDebugFolder then
-		local points = {}
-		if target and targetRoot and moveState and moveState.Waypoints and moveState.WaypointIndex then
-			for index = moveState.WaypointIndex, math.min(#moveState.Waypoints, moveState.WaypointIndex + 6) do
-				table.insert(points, moveState.Waypoints[index].Position)
-			end
-		elseif target and targetRoot and moveState and (moveState.PathGoal or moveState.Goal or moveState.PathMoveGoal) then
-			table.insert(points, moveState.PathGoal or moveState.Goal or moveState.PathMoveGoal)
-		end
-		for index, marker in ipairs(configuration.CombatDebugMarkers) do
-			local point = points[index]
-			marker.Transparency = point and 0.18 or 1
-			if point then marker.Position = point end
-		end
-	end
-end
-
-function configuration.UpdateAttackTargetButton()
-	local targetPlayer = configuration.AutoAttackTargetUserId and Players:GetPlayerByUserId(tonumber(configuration.AutoAttackTargetUserId))
-	configuration.SetActionVisual(CombatTargetButton, targetPlayer and ("Target: @" .. targetPlayer.Name) or "Select player target", targetPlayer ~= nil)
-end
-configuration.UpdateAttackTargetButton()
-
-function configuration.UpdateAutoAttackModeButtons()
-	local titles = {
-		Mob = "Target: Mobs",
-		Player = "Target: Players",
-		Nearby = "Target: Nearest (mob or player)",
-	}
-	for mode, button in pairs(AutoAttackModeButtons) do
-		local selected = configuration.AutoAttackMode == mode
-		configuration.SetToggleVisual(button, titles[mode] or mode, selected, ACCENT, ACCENT_DIM)
-	end
-	if configuration.RefreshCombatMobs then configuration.RefreshCombatMobs() end
-end
-configuration.UpdateAutoAttackModeButtons()
-
-function configuration.UpdateExpMobTargetButton()
-	configuration.SetToggleVisual(ExpMobTargetButton, "Attack EXP target", configuration.AutoAttackUseExpTarget, ACCENT, ACCENT_DIM)
-end
-
-ExpMobTargetButton.MouseButton1Click:Connect(function()
-	if configuration.AutoAttackBossesOnly then
-		configuration.CombatInfo.Text = "Bosses only is active; EXP target selection is disabled."
+			or (configuration.AutoAttackEnabled and "Select a mob from the list to start moving and attacking."
+				or "Auto attack is off.")
 		return
 	end
-	configuration.AutoAttackUseExpTarget = not configuration.AutoAttackUseExpTarget
-	if configuration.AutoAttackUseExpTarget then
-		configuration.AutoAttackMode = "Mob"
-		local target = configuration.CurrentTarget
-		if configuration.Combat.IsLivingMob(target) then
-			configuration.AutoAttackPinnedMob = target
-			configuration.CombatTargetMob = target
-		else
-			configuration.AutoAttackPinnedMob = nil
-			configuration.CombatTargetMob = nil
-		end
-	else
-		configuration.AutoAttackPinnedMob = nil
-		configuration.CombatTargetMob = nil
-	end
-	configuration.UpdateAutoAttackModeButtons()
-	configuration.UpdateExpMobTargetButton()
-	configuration.SaveConfig()
-end)
+	local action = navigationState == "detouring" and "going around obstacle"
+		or (moveState and moveState.Active and "moving to mob" or "tracking selected mob")
+	local ready, needsEquip = configuration.Combat.GetWeaponEquipState(Player.Character)
+	local weapon = ready and "weapon ready" or (needsEquip and "equipping weapon" or "weapon unavailable")
+	configuration.CombatInfo.Text = string.format("Mob: %s\n%.0f studs · %s · %s", target.Name, distance or 0, action, weapon)
+end
 
 AutoAttackButton.MouseButton1Click:Connect(function()
 	configuration.AutoAttackEnabled = not configuration.AutoAttackEnabled
@@ -2843,72 +2523,11 @@ AutoAttackButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
-BossPriorityButton.MouseButton1Click:Connect(function()
-	configuration.AutoAttackBossPriority = not configuration.AutoAttackBossPriority
-	configuration.SetToggleVisual(BossPriorityButton, "Prioritize bosses", configuration.AutoAttackBossPriority, ACCENT, ACCENT_DIM)
-	if not configuration.AutoAttackBossPriority and configuration.AutoAttackPinnedMob == nil then
-		configuration.CombatTargetMob = nil
-		configuration.NearbyLockKind = nil
-		configuration.NearbyLockTarget = nil
-	end
-	configuration.SaveConfig()
-end)
-
-configuration.BossesOnlyButton.MouseButton1Click:Connect(function()
-	configuration.AutoAttackBossesOnly = not configuration.AutoAttackBossesOnly
-	configuration.SetToggleVisual(configuration.BossesOnlyButton, "Bosses only", configuration.AutoAttackBossesOnly, ACCENT, ACCENT_DIM)
-	if configuration.AutoAttackBossesOnly then
-		configuration.AutoAttackMode = "Mob"
-		configuration.AutoAttackUseExpTarget = false
-		configuration.UpdateExpMobTargetButton()
-		if configuration.AutoAttackPinnedMob and not IsBossMob(configuration.AutoAttackPinnedMob, configuration.AutoAttackPinnedMob:FindFirstChild("Config")) then
-			configuration.AutoAttackPinnedMob = nil
-		end
-		configuration.CombatTargetMob = nil
-		configuration.NearbyLockKind = nil
-		configuration.NearbyLockTarget = nil
-		configuration.UpdateAutoAttackModeButtons()
-	else
-		configuration.CombatTargetMob = nil
-		configuration.NearbyLockKind = nil
-		configuration.NearbyLockTarget = nil
-	end
-	configuration.SaveConfig()
-end)
-
 AutoSkillButton.MouseButton1Click:Connect(function()
 	configuration.AutoSkillEnabled = not configuration.AutoSkillEnabled
 	configuration.SetToggleVisual(AutoSkillButton, "Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM)
-	if configuration.AutoSkillEnabled and not configuration.Farming and configuration.CurrentTarget
-		and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
-		configuration.AutoAttackPinnedMob = configuration.CurrentTarget
-		configuration.CombatTargetMob = configuration.CurrentTarget
-	end
 	configuration.SaveConfig()
 end)
-
-for mode, button in pairs(AutoAttackModeButtons) do
-	button.MouseButton1Click:Connect(function()
-		if configuration.AutoAttackBossesOnly and mode ~= "Mob" then return end
-		configuration.AutoAttackMode = mode
-		configuration.NearbyLockKind = nil
-		configuration.NearbyLockTarget = nil
-		if mode ~= "Mob" then
-			if configuration.AutoAttackUseExpTarget then
-				configuration.AutoAttackUseExpTarget = false
-				configuration.AutoAttackPinnedMob = nil
-				configuration.CombatTargetMob = nil
-				configuration.UpdateExpMobTargetButton()
-			end
-		end
-		if mode == "Player" then
-			configuration.AutoAttackPinnedMob = nil
-			configuration.CombatTargetMob = nil
-		end
-		configuration.UpdateAutoAttackModeButtons()
-		configuration.SaveConfig()
-	end)
-end
 
 local AlertToggleButton = configuration.MakeToggle("Player alert", configuration.AlertsEnabled, GREEN, GREEN_DIM, 1, AlertsGrid, "Alert when a non-whitelisted player gets close.")
 local AlertFlashButton = configuration.MakeToggle("Screen flash", configuration.AlertFlashEnabled, RED, RED_DIM, 2, AlertsGrid, "Flash the screen when an alert triggers.")
@@ -2956,12 +2575,7 @@ ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
 	configuration.ExpTargetRetaliationEnabled = not configuration.ExpTargetRetaliationEnabled
 	configuration.SetToggleVisual(ExpTargetRetaliationButton, "Fight back if EXP mob is hit", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM)
 	if not configuration.ExpTargetRetaliationEnabled then
-		local previousTarget = configuration.ExpRetaliationTarget
 		configuration.ExpRetaliationTarget = nil
-		if configuration.AutoAttackPinnedMob == previousTarget then
-			configuration.AutoAttackPinnedMob = nil
-		end
-		if configuration.CombatTargetMob == previousTarget then configuration.CombatTargetMob = nil end
 	end
 	configuration.SaveConfig()
 end)
@@ -3114,11 +2728,6 @@ Players.PlayerRemoving:Connect(function(leavingPlayer)
 		if humanoid and root then humanoid:MoveTo(root.Position) end
 		configuration.SaveConfig()
 		if configuration.UpdateFollowButtons then configuration.UpdateFollowButtons() end
-	end
-	if configuration.AutoAttackTargetUserId == tostring(leavingPlayer.UserId) then
-		configuration.AutoAttackTargetUserId = nil
-		configuration.SaveConfig()
-		if configuration.UpdateAttackTargetButton then configuration.UpdateAttackTargetButton() end
 	end
 end)
 
@@ -3351,17 +2960,6 @@ FollowSelectButton.MouseButton1Click:Connect(function()
 	PlayerPanelTitle.Text = "Choose player to follow"
 	PlayerPanel.Visible = true
 	configuration.SetActionVisual(PlayerListButton, "Player list", false)
-end)
-
-CombatTargetButton.MouseButton1Click:Connect(function()
-	configuration.PlayerPanelMode = "attack"
-	PlayerPanelTitle.Text = "Choose player to attack"
-	PlayerPanel.Visible = true
-	configuration.AutoAttackUseExpTarget = false
-	configuration.UpdateExpMobTargetButton()
-	configuration.AutoAttackMode = "Player"
-	configuration.UpdateAutoAttackModeButtons()
-	configuration.SaveConfig()
 end)
 
 StopFollowButton.MouseButton1Click:Connect(function()
@@ -3747,8 +3345,6 @@ function configuration.SetIdle(finishCurrentExpTarget)
 	local finishTarget = finishCurrentExpTarget and configuration.CurrentTarget
 	if finishTarget and configuration.Combat.IsLivingMob(finishTarget) then
 		configuration.ExpFinishTarget = finishTarget
-		configuration.AutoAttackPinnedMob = finishTarget
-		configuration.CombatTargetMob = finishTarget
 	else
 		configuration.ExpFinishTarget = nil
 	end
@@ -3757,8 +3353,6 @@ function configuration.SetIdle(finishCurrentExpTarget)
 	end
 	if configuration.Farming and not configuration.AlertCombatPending and configuration.AutoSkillEnabled
 		and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
-		configuration.AutoAttackPinnedMob = configuration.CurrentTarget
-		configuration.CombatTargetMob = configuration.CurrentTarget
 	end
 	configuration.Farming = false
 	if configuration.StopExpMovement then configuration.StopExpMovement() end
@@ -3781,7 +3375,6 @@ function configuration.SetRunning()
 	configuration.Farming = true
 	configuration.ExpMaxCombatTarget = nil
 	configuration.ExpFinishTarget = nil
-	configuration.AutoAttackPinnedMob = nil
 	configuration.IsPaused = false
 	configuration.SessionExpGained = 0
 	configuration.SessionFarmSeconds = 0
@@ -3893,88 +3486,34 @@ function configuration.Combat.GetWeaponEquipState(character)
 	return false, false
 end
 
-function configuration.Combat.FindNearestCombatMob(localRoot, maxDistance, bossesOnly)
-	MobCache_Rebuild(false)
-	local searchDistance = maxDistance or configuration.AutoAttackSearchRange
-	local now = os.clock()
-	local searchCache = bossesOnly and MobCache.SearchCaches.Boss or MobCache.SearchCaches.Mob
-	if searchCache.Range == searchDistance and now - searchCache.LastSearchAt < 0.25 then
-		local cachedMob = searchCache.Mob
-		if not cachedMob then return nil, nil, nil end
-		local cachedRoot = cachedMob.PrimaryPart or cachedMob:FindFirstChild("HumanoidRootPart")
-		if configuration.Combat.IsLivingMob(cachedMob) and not configuration.CombatSystem.IsTargetCoolingDown(cachedMob)
-			and cachedRoot and cachedRoot:IsA("BasePart") then
-			local cachedDistance = (localRoot.Position - cachedRoot.Position).Magnitude
-			if cachedDistance <= searchDistance then return cachedMob, cachedRoot, cachedDistance end
-		end
-	end
-	local bestMob, bestRoot, bestDistance = nil, nil, searchDistance
-	for _, entry in ipairs(MobCache.List) do
-		local mob, mobRoot, humanoid = entry.Mob, entry.Root, entry.Humanoid
-		if not mobRoot or not mobRoot.Parent then
-			mobRoot = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
-			entry.Root = mobRoot
-		end
-		if not humanoid or not humanoid.Parent then
-			humanoid = mob:FindFirstChildOfClass("Humanoid")
-			entry.Humanoid = humanoid
-		end
-		if mobRoot and mobRoot:IsA("BasePart") and (not humanoid or humanoid.Health > 0)
-			and not configuration.CombatSystem.IsTargetCoolingDown(mob)
-			and (not bossesOnly or entry.IsBoss == true) then
-			local distance = (localRoot.Position - mobRoot.Position).Magnitude
-			if distance <= bestDistance then
-				bestMob, bestRoot, bestDistance = mob, mobRoot, distance
-			end
-		end
-	end
-	searchCache.LastSearchAt = now
-	searchCache.Range = searchDistance
-	searchCache.Mob = bestMob
-	return bestMob, bestRoot, bestDistance
-end
-
-function configuration.Combat.FindCombatPlayer(userId)
-	local targetPlayer = userId and Players:GetPlayerByUserId(tonumber(userId))
-	if not targetPlayer or targetPlayer == Player or configuration.IsWhitelisted(targetPlayer) then return nil, nil end
-	local character = targetPlayer.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local targetRoot = character and character:FindFirstChild("HumanoidRootPart")
-	if not targetRoot or (humanoid and humanoid.Health <= 0) then return nil, nil end
-	return targetPlayer, targetRoot
-end
-
-function configuration.Combat.FindAutoAttackTarget(localRoot)
+function configuration.Combat.GetSelectedCombatMob(localRoot)
+	if not localRoot then return nil end
 	local function horizontalDistance(a, b)
 		local offset = b - a
 		return Vector3.new(offset.X, 0, offset.Z).Magnitude
 	end
-	-- Alert and EXP-cap handling are deliberate exceptions to list selection:
-	-- they may only attack the active EXP mob and always take priority.
+	local function resolve(mob, maxDistance)
+		if not configuration.Combat.IsLivingMob(mob) or not mob:IsDescendantOf(MobsFolder) then return nil end
+		local root = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
+		if not root or not root:IsA("BasePart") then return nil end
+		local distance = horizontalDistance(localRoot.Position, root.Position)
+		if maxDistance and distance > maxDistance then return nil end
+		return mob, root, distance
+	end
+	-- Safety flows may temporarily replace list selection, but still target only a mob.
 	local priorityMob = configuration.AlertCombatPending and configuration.AlertCombatTarget
 		or configuration.ExpMaxCombatTarget
 		or configuration.ExpRetaliationTarget
-	if priorityMob and configuration.Combat.IsLivingMob(priorityMob) then
-		local priorityRoot = priorityMob.PrimaryPart or priorityMob:FindFirstChild("HumanoidRootPart")
-		if priorityRoot and priorityRoot:IsA("BasePart") then
-			return "Mob", priorityMob, priorityRoot, horizontalDistance(localRoot.Position, priorityRoot.Position)
-		end
+	if priorityMob then
+		local mob, root, distance = resolve(priorityMob)
+		if mob then return mob, root, distance end
 	end
 	local selectedMob = configuration.SelectedCombatMob
-	if not selectedMob or not selectedMob:IsDescendantOf(MobsFolder)
-		or not configuration.Combat.IsLivingMob(selectedMob) then
+	if not selectedMob or not selectedMob:IsDescendantOf(MobsFolder) then
 		configuration.SelectedCombatMob = nil
-		configuration.CombatTargetMob = nil
-		configuration.AutoAttackPinnedMob = nil
 		return nil
 	end
-	-- Temporary navigation cooldowns must not erase the user's list selection.
-	if configuration.CombatSystem.IsTargetCoolingDown(selectedMob) then return nil end
-	local targetRoot = selectedMob.PrimaryPart or selectedMob:FindFirstChild("HumanoidRootPart")
-	if not targetRoot or not targetRoot:IsA("BasePart") then return nil end
-	local distance = horizontalDistance(localRoot.Position, targetRoot.Position)
-	if distance > configuration.AutoAttackSearchRange then return nil end
-	return "Mob", selectedMob, targetRoot, distance
+	return resolve(selectedMob, configuration.AutoAttackSearchRange)
 end
 
 function configuration.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, currentExp)
@@ -4021,8 +3560,6 @@ task.spawn(function()
 	local engagedFireTarget = nil
 	local function StartExpRetaliation(mob, currentHealth)
 		configuration.ExpRetaliationTarget = mob
-		configuration.AutoAttackPinnedMob = mob
-		configuration.CombatTargetMob = mob
 		lastObservedTargetHealth = currentHealth
 		StateLabel.Text = "EXP target hit"
 		MiniState.Text = "Attacking the damaged EXP target until it dies"
@@ -4058,12 +3595,6 @@ task.spawn(function()
 				continue
 			end
 			configuration.ExpRetaliationTarget = nil
-			if configuration.AutoAttackPinnedMob == retaliationTarget then
-				configuration.AutoAttackPinnedMob = nil
-			end
-			if configuration.CombatTargetMob == retaliationTarget then
-				configuration.CombatTargetMob = nil
-			end
 			watchedHealthTarget = nil
 			lastObservedTargetHealth = nil
 			if healthChangedConnection then
@@ -4349,11 +3880,6 @@ task.spawn(function()
 				MiniState.Text = string.format("Out of standoff (%.0f); firing while closing in", firingDistance)
 			end
 
-			-- Sync Auto Attack's mob target to EXP when the target toggle is enabled.
-			if configuration.AutoAttackUseExpTarget then
-				configuration.AutoAttackPinnedMob = target
-				configuration.CombatTargetMob = target
-			end
 			InitClashing:FireServer(2, exp)
 			callsSent += 1
 
@@ -4443,26 +3969,15 @@ task.spawn(function()
 	local lastAttackAt = 0
 	local lastSkillAt = 0
 	local lastEquipAt = 0
-	local attackMoveState = { Active = false, Goal = nil, LastMoveAt = 0, Target = nil, ApproachActive = false }
+	local attackMoveState = { Active = false, Goal = nil, LastMoveAt = 0, Target = nil }
 	local chasingMob = false
 	local lastFinishHandoffTarget = nil
 	local lastRetaliationAttackTarget = nil
-	local lastUiSync = 0
-	local function FaceTargetWhenStill(root, targetPosition, alpha)
-		if not root or not targetPosition then return end
-		local character = Player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		-- Humanoid.AutoRotate already faces movement input. Writing CFrame while
-		-- walking fights that rotation and makes the character twitch toward mobs.
-		if humanoid and humanoid.MoveDirection.Magnitude > 0.05 then return end
-		configuration.CombatSystem.FaceTargetSmooth(root, targetPosition, alpha)
-	end
 	while true do
 	local canCombatDuringExp = configuration.Farming
 			and (configuration.ExpMaxCombatTarget ~= nil or configuration.ExpRetaliationTarget ~= nil
 				or configuration.PendingServerHop)
 		local forceFinishExp = configuration.PendingServerHop and configuration.ServerHopKillTarget ~= nil
-		local finishStoppedExp = configuration.ExpFinishTarget ~= nil
 		local priorityCombat = configuration.AlertCombatPending or configuration.ExpMaxCombatTarget ~= nil
 			or configuration.ExpRetaliationTarget ~= nil or configuration.PendingServerHop
 		if not configuration.EmergencyStopActive
@@ -4472,9 +3987,10 @@ task.spawn(function()
 			and not configuration.AlertCombatBlockReady then
 			local character = Player.Character
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
-			local targetKind, target, targetRoot, distance
+			local target, targetRoot, distance
 			if localRoot then
-				targetKind, target, targetRoot, distance = configuration.Combat.FindAutoAttackTarget(localRoot)
+				local selectedMob, selectedRoot, selectedDistance = configuration.Combat.GetSelectedCombatMob(localRoot)
+				target, targetRoot, distance = selectedMob, selectedRoot, selectedDistance
 			end
 			if target == configuration.ExpRetaliationTarget and target then
 				if lastRetaliationAttackTarget ~= target then
@@ -4491,19 +4007,15 @@ task.spawn(function()
 					attackMoveState.Goal = nil
 					attackMoveState.LastMoveAt = 0
 					attackMoveState.Target = nil
-					attackMoveState.ApproachActive = (distance or math.huge) > configuration.AutoAttackRange
 					chasingMob = false
 					lastFinishHandoffTarget = target
 				elseif target ~= configuration.ExpFinishTarget then
 					lastFinishHandoffTarget = nil
 				end
-				local mobEngageRange = math.min(
+				local attackRange = math.min(
 					configuration.AutoAttackRange,
 					math.max(7, configuration.AutoAttackStandoff + 3)
 				)
-				local attackRange = targetKind == "Mob" and mobEngageRange or configuration.AutoAttackRange
-				local evadingEnemySkill = targetKind == "Mob"
-					and configuration.CombatSystem.ShouldEvadeTarget(target, localRoot and localRoot.Position)
 				if attackMoveState.Target ~= target then
 					if attackMoveState.Target ~= nil and attackMoveState.Active then
 						local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -4511,100 +4023,30 @@ task.spawn(function()
 					end
 					configuration.CombatSystem.ResetNavigationState(attackMoveState)
 					attackMoveState.Target = target
-					attackMoveState.ApproachActive = (distance or math.huge) > attackRange
 				end
-				if (distance or math.huge) > attackRange + 1.25 then
-					attackMoveState.ApproachActive = true
-				elseif evadingEnemySkill then
-					attackMoveState.ApproachActive = true
-				elseif (distance or math.huge) <= attackRange then
-					attackMoveState.ApproachActive = false
-				end
-				-- Mob combat keeps steering even inside attack range; the approach
-				-- point moves around the live target so attacks happen while moving.
-				if targetKind == "Mob" then attackMoveState.ApproachActive = true end
-				attackMoveState.MarkUnreachableEligible = targetKind == "Mob"
-					and target ~= configuration.SelectedCombatMob
-					and target ~= configuration.CurrentTarget
-					and target ~= configuration.ExpRetaliationTarget
-					and target ~= configuration.ExpMaxCombatTarget
-					and target ~= configuration.ExpFinishTarget
-					and target ~= configuration.AlertCombatTarget
-					and target ~= configuration.ServerHopKillTarget
-					and not evadingEnemySkill
+				-- Keep steering toward the selected mob while attacking, including at close range.
 				local forcedExpCombat = target == configuration.AlertCombatTarget and configuration.AlertCombatPending
 					or target == configuration.ExpMaxCombatTarget
 					or target == configuration.ExpRetaliationTarget
 					or target == configuration.ServerHopKillTarget and configuration.PendingServerHop
-				if targetKind == "Mob" and localRoot and (configuration.AutoAttackEnabled or forcedExpCombat) then
+				if localRoot and (configuration.AutoAttackEnabled or forcedExpCombat) then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-					local tookMovement = ClaimMovement("Combat", humanoid, localRoot)
+					ClaimMovement("Combat", humanoid, localRoot)
 					local approachPoint = configuration.CombatSystem.SelectApproachPoint(
 						localRoot, targetRoot, configuration.AutoAttackStandoff, target, attackMoveState, attackRange
 					)
-					attackMoveState.ApproachTarget = target
-					attackMoveState.LastApproachPoint = approachPoint
-					-- Combat navigation is horizontal; using the mob root's Y can
-					-- request an impossible vertical path when standing on a large mob.
-					approachPoint = Vector3.new(approachPoint.X, localRoot.Position.Y, approachPoint.Z)
-					if attackMoveState.ApproachActive then
-						-- Far targets path more often; close range softens repathing to reduce jitter.
-						local interval = (distance or 0) > 40 and 0.12 or 0.10
-						local stopRadius = (distance or math.huge) <= attackRange + 2 and 0.15 or 1.9
-						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, approachPoint, target, attackMoveState, interval, stopRadius)
-						attackMoveState.NavigationMode = navigationState
-						chasingMob = not arrived
-						if configuration.ExpFinishTarget == target then
-							StateLabel.Text = navigationState == "direct" and "Moving to finish EXP target"
-								or "Walking to finish EXP target"
-							MiniState.Text = navigationState == "path" and "Following a path to the locked EXP target"
-								or (navigationState == "retrying route" and "Route blocked — retrying toward locked target" or "Moving toward the EXP target while attacking")
-						elseif not configuration.Farming or configuration.AlertCombatPending or configuration.ExpRetaliationTarget == target then
-							StateLabel.Text = evadingEnemySkill and "Avoiding enemy skill"
-								or (navigationState == "direct" and "Moving to target"
-								or "Moving to target")
-							MiniState.Text = evadingEnemySkill and "Dodging active BladePart"
-								or (navigationState == "direct" and "Walking to target"
-								or "Closing distance to attack")
-						end
-					elseif chasingMob or attackMoveState.Active or tookMovement then
-						if humanoid then humanoid:MoveTo(localRoot.Position) end
-						attackMoveState.Active = false
-						attackMoveState.Goal = nil
-						configuration.CombatSystem.ResetNavigationState(attackMoveState)
-						attackMoveState.NavigationMode = "holding"
-						chasingMob = false
-					end
-					-- Start facing early so attacks land cleaner during approach.
-					if configuration.FaceTargetEnabled and (distance or 999) <= configuration.AutoAttackRange + 15 then
-						FaceTargetWhenStill(localRoot, targetRoot.Position, 0.22)
-					end
-				elseif targetKind == "Player" and configuration.AutoAttackEnabled and localRoot then
-					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-					local tookMovement = ClaimMovement("Combat", humanoid, localRoot)
-					if attackMoveState.ApproachActive then
-						-- Keep chasing a moving player until they enter attack range; attacks still fire during movement when in range.
-						local standoff = math.min(configuration.AutoAttackStandoff, math.max(1, attackRange - 1))
-						local approachPoint = OrbitApproachPoint(localRoot, targetRoot, standoff)
-						local interval = (distance or 0) > 40 and 0.16 or 0.26
-						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, approachPoint, target.Character, attackMoveState, interval, 1.9)
-						attackMoveState.NavigationMode = navigationState
-						chasingMob = not arrived
-						StateLabel.Text = navigationState == "direct" and "Moving to target"
-							or "Moving to target"
-						MiniState.Text = navigationState == "direct" and "Walking to target"
-							or "Closing distance to attack"
-						if configuration.FaceTargetEnabled and (distance or 999) <= configuration.AutoAttackRange + 15 then
-							FaceTargetWhenStill(localRoot, targetRoot.Position, 0.22)
-						end
-					elseif chasingMob or attackMoveState.Active or tookMovement then
-						if humanoid then humanoid:MoveTo(localRoot.Position) end
-						attackMoveState.Active = false
-						attackMoveState.Goal = nil
-						configuration.CombatSystem.ResetNavigationState(attackMoveState)
-						attackMoveState.NavigationMode = "holding"
-						chasingMob = false
-					end
+					approachPoint = configuration.CombatSystem.GroundAlignGoal(localRoot, approachPoint, target)
+					local interval = (distance or 0) > 40 and 0.24 or 0.14
+					local stopRadius = 1.8
+					local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(
+						humanoid, localRoot, approachPoint, target, attackMoveState, interval, stopRadius, true
+					)
+					attackMoveState.NavigationMode = navigationState
+					chasingMob = not arrived
+					StateLabel.Text = navigationState == "detouring" and "Going around obstacle"
+						or (configuration.ExpFinishTarget == target and "Moving to EXP target" or "Moving to target")
+					MiniState.Text = navigationState == "detouring" and "Steering around the obstacle"
+						or (distance > attackRange and "Moving into attack range" or "Moving around target while attacking")
 				elseif chasingMob or attackMoveState.Active then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
@@ -4613,19 +4055,14 @@ task.spawn(function()
 					configuration.CombatSystem.ResetNavigationState(attackMoveState)
 					chasingMob = false
 					attackMoveState.Target = nil
-					attackMoveState.ApproachActive = false
 					ReleaseMovement("Combat", humanoid, localRoot)
 				else
 					attackMoveState.Target = nil
-					attackMoveState.ApproachActive = false
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					ReleaseMovement("Combat", humanoid, localRoot)
 				end
 
 				if distance <= attackRange or chasingMob then
-					if configuration.FaceTargetEnabled and localRoot and targetRoot then
-						FaceTargetWhenStill(localRoot, targetRoot.Position, distance <= 12 and 0.45 or 0.28)
-					end
 					local playerGui = Player:FindFirstChildOfClass("PlayerGui")
 					local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
 					if inputFunction and inputFunction:IsA("BindableFunction") then
@@ -4686,7 +4123,7 @@ task.spawn(function()
 					or target == configuration.ExpRetaliationTarget or target == configuration.ExpMaxCombatTarget
 					or target == configuration.ExpFinishTarget
 					or target == configuration.ServerHopKillTarget then
-					configuration.UpdateCombatDiagnostics(target, targetRoot, distance, attackRange, attackMoveState.NavigationMode, attackMoveState)
+					configuration.UpdateCombatStatus(target, targetRoot, distance, attackMoveState.NavigationMode, attackMoveState)
 				end
 			else
 				if chasingMob or attackMoveState.Active then
@@ -4698,10 +4135,9 @@ task.spawn(function()
 					chasingMob = false
 				end
 				attackMoveState.Target = nil
-				attackMoveState.ApproachActive = false
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				ReleaseMovement("Combat", humanoid, localRoot)
-				configuration.UpdateCombatDiagnostics(nil, nil, nil, nil, "searching", attackMoveState)
+				configuration.UpdateCombatStatus(nil, nil, nil, "searching", attackMoveState)
 			end
 		else
 			if chasingMob or attackMoveState.Active then
@@ -4715,18 +4151,11 @@ task.spawn(function()
 				chasingMob = false
 			end
 			attackMoveState.Target = nil
-			attackMoveState.ApproachActive = false
 			local character = Player.Character
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			ReleaseMovement("Combat", humanoid, localRoot)
-			configuration.UpdateCombatDiagnostics(nil, nil, nil, nil, "paused", attackMoveState)
-		end
-		-- Throttle button label sync; combat loop no longer needs full UI work every tick.
-		local nowUi = os.clock()
-		if nowUi - lastUiSync >= 0.35 then
-			lastUiSync = nowUi
-			configuration.UpdateExpMobTargetButton()
+			configuration.UpdateCombatStatus(nil, nil, nil, "paused", attackMoveState)
 		end
 		task.wait(0.08)
 	end
@@ -4750,40 +4179,41 @@ task.spawn(function()
 			or configuration.ExpFinishTarget ~= nil
 			or configuration.PendingServerHop
 		if not paused and root and configuration.AutoAttackEnabled and not configuration.Farming then
-			local targetKind = configuration.Combat.FindAutoAttackTarget(root)
-			paused = targetKind ~= nil
+			local selectedMob = configuration.Combat.GetSelectedCombatMob(root)
+			paused = selectedMob ~= nil
 		end
 		if configuration.Farming and configuration.ExpAutoApproachEnabled then
 			paused = true
 		end
 
-		if configuration.WaypointReturnEnabled and point and root and humanoid and not paused and MovementOwner ~= "Combat" then
-			local distance = (root.Position - point).Magnitude
-			if distance > configuration.WaypointReturnRadius then
-				ClaimMovement("Waypoint", humanoid, root)
-				local _, navigationState = configuration.CombatSystem.NavigateMoveTo(
-					humanoid,
-					root,
-					point,
-					nil,
-					moveState,
-					0.18,
-					configuration.WaypointReturnRadius,
-					true
-				)
-				moveState.NavigationMode = navigationState
+		-- Combat has exclusive ownership of Humanoid movement while attacking.
+		-- Never let waypoint-return navigation issue MoveTo calls over combat pursuit.
+		if MovementOwner == "Combat" then
+			configuration.CombatSystem.ResetNavigationState(moveState)
+		else
+			if configuration.WaypointReturnEnabled and point and root and humanoid and not paused then
+				local distance = (root.Position - point).Magnitude
+				if distance > configuration.WaypointReturnRadius then
+					ClaimMovement("Waypoint", humanoid, root)
+					local _, navigationState = configuration.CombatSystem.NavigateMoveTo(
+						humanoid,
+						root,
+						point,
+						nil,
+						moveState,
+						0.18,
+						configuration.WaypointReturnRadius,
+						true
+					)
+					moveState.NavigationMode = navigationState
+				else
+					ReleaseMovement("Waypoint", humanoid, root)
+					configuration.CombatSystem.ResetNavigationState(moveState)
+				end
 			else
-				ReleaseMovement("Waypoint", humanoid, root)
+				if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
 				configuration.CombatSystem.ResetNavigationState(moveState)
 			end
-		elseif MovementOwner == "Combat" then
-			-- Combat owns Humanoid movement. Waypoint must not issue MoveTo or stop it.
-			moveState.Active = false
-			moveState.Goal = nil
-			moveState.NavigationMode = "blocked by combat"
-		else
-			if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
-			configuration.CombatSystem.ResetNavigationState(moveState)
 		end
 	end
 end)
@@ -4986,8 +4416,6 @@ task.spawn(function()
 				end
 				configuration.AlertCombatTarget = mob
 				if mob then
-					configuration.AutoAttackPinnedMob = mob
-					configuration.CombatTargetMob = mob
 					StateLabel.Text = "Alert"
 					MiniState.Text = "Attacking locked EXP target before Block"
 				else
@@ -5031,8 +4459,6 @@ task.spawn(function()
 					StateLabel.Text = configuration.AutoBlockEnabled and "Block" or "Alert hold"
 					MiniState.Text = configuration.AutoBlockEnabled and "EXP target defeated; opening Block prompt" or "EXP target defeated; waiting for player to leave"
 				else
-					configuration.AutoAttackPinnedMob = alertMob
-					configuration.CombatTargetMob = alertMob
 				end
 			end
 		end
@@ -5042,17 +4468,9 @@ task.spawn(function()
 		local interruptFollow = configuration.AlertCombatPending == true
 		if not interruptFollow and (configuration.AutoAttackEnabled or configuration.ExpFinishTarget ~= nil)
 			and not configuration.Farming and localRoot then
-			local kind = configuration.Combat.FindAutoAttackTarget(localRoot)
-			if kind then
+			local selectedMob = configuration.Combat.GetSelectedCombatMob(localRoot)
+			if selectedMob then
 				interruptFollow = true
-			else
-				if not configuration.AutoAttackPinnedMob then
-					configuration.CombatTargetMob = nil
-				end
-				if configuration.AutoAttackMode == "Nearby" and not kind then
-					configuration.NearbyLockKind = nil
-					configuration.NearbyLockTarget = nil
-				end
 			end
 		end
 		-- Follow with spacing while steering around nearby players and stalled movement.
@@ -5235,8 +4653,6 @@ task.spawn(function()
 				if configuration.Combat.IsLivingMob(killMob) then
 					configuration.PendingServerHop = true
 					configuration.ServerHopKillTarget = killMob
-					configuration.AutoAttackPinnedMob = killMob
-					configuration.CombatTargetMob = killMob
 					configuration.ExpMaxCombatTarget = killMob
 					-- Stop EXP firing; focus on killing, then hop.
 					if configuration.Farming then
@@ -5296,8 +4712,6 @@ task.spawn(function()
 			local hopMob = configuration.ServerHopKillTarget
 			local stillAlive = configuration.Combat.IsLivingMob(hopMob)
 			if stillAlive then
-				configuration.AutoAttackPinnedMob = hopMob
-				configuration.CombatTargetMob = hopMob
 				StateLabel.Text = "Finish EXP"
 				MiniState.Text = "Killing EXP mob before server hop"
 			else
@@ -5331,7 +4745,6 @@ task.spawn(function()
 					configuration.IsWhitelisted(listedPlayer) and "w" or "-",
 					configuration.IsPlayerESPEnabled(listedPlayer) and "e" or "-",
 					configuration.FollowPlayerUserId == tostring(listedPlayer.UserId) and "f" or "-",
-					configuration.AutoAttackTargetUserId == tostring(listedPlayer.UserId) and "a" or "-",
 				}, ":"))
 			end
 			local panelSignature = table.concat(signatureParts, "|")
@@ -5545,41 +4958,23 @@ task.spawn(function()
 						if configuration.WhitelistPanel.Visible then configuration.RefreshWhitelist() end
 					end)
 
-					if configuration.PlayerPanelMode == "follow" or configuration.PlayerPanelMode == "attack" then
+					if configuration.PlayerPanelMode == "follow" then
 						local followButton = Instance.new("TextButton")
-						local selectingAttackTarget = configuration.PlayerPanelMode == "attack"
-						followButton.Name = selectingAttackTarget and "AttackTargetSelect" or "FollowToggle"
+						followButton.Name = "FollowToggle"
 						followButton.Size = UDim2.fromOffset(58, 24)
 						followButton.Position = UDim2.new(1, -70, 0, 66)
 						followButton.ZIndex = 93
 						local isFollowing = configuration.FollowPlayerUserId == tostring(otherPlayer.UserId)
 						followButton.BackgroundColor3 = isFollowing and ACCENT_DIM or INPUT
 						followButton.BorderSizePixel = 0
-						local isSelected = isFollowing
-						if selectingAttackTarget then
-							isSelected = configuration.AutoAttackTargetUserId == tostring(otherPlayer.UserId)
-						end
-						followButton.Text = selectingAttackTarget and (isSelected and "TARGET" or "SELECT") or (isSelected and "STOP" or "FOLLOW")
-						followButton.TextColor3 = isSelected and ACCENT or MUTED
+						followButton.Text = isFollowing and "STOP" or "FOLLOW"
+						followButton.TextColor3 = isFollowing and ACCENT or MUTED
 						followButton.TextSize = 9
 						followButton.Font = Enum.Font.GothamBold
 						followButton.Parent = row
 						Instance.new("UICorner", followButton).CornerRadius = UDim.new(0, 6)
 						followButton.MouseButton1Click:Connect(function()
-							if selectingAttackTarget then
-								if configuration.AutoAttackBossesOnly then
-									configuration.CombatInfo.Text = "Bosses only is active; player targets are disabled."
-									return
-								end
-								if configuration.IsWhitelisted(otherPlayer) then
-									configuration.CombatInfo.Text = "Whitelisted players are skipped by Auto Attack."
-									return
-								end
-								configuration.AutoAttackTargetUserId = tostring(otherPlayer.UserId)
-								configuration.AutoAttackMode = "Player"
-								configuration.UpdateAutoAttackModeButtons()
-								configuration.UpdateAttackTargetButton()
-							elseif isFollowing then
+							if isFollowing then
 								configuration.FollowPlayerUserId = nil
 								if localRoot then
 									local humanoid = char and char:FindFirstChildOfClass("Humanoid")
@@ -5856,4 +5251,4 @@ task.spawn(function()
 end)
 
 getgenv().IamrichLoaded = true
-print("[Iamrich] Loaded successfully.")
+print("[Iamrich] Version " .. VERSION .. " loaded successfully.")
