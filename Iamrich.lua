@@ -1,4 +1,4 @@
-local VERSION = "2.3.0"
+local VERSION = "2.3.3"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -279,6 +279,7 @@ local configuration: {[string]: any} = {
 	CurrentTarget = nil,
 	ExpMaxCombatTarget = nil,
 	ExpFinishTarget = nil,
+	ExpLastShotTarget = nil,
 	LastTarget = nil,
 	TargetStartTime = 0,
 	AccumulatedTime = 0,
@@ -1431,7 +1432,7 @@ configuration.AddPageHeading(ExpPage, "Experience", "Track your level, EXP and a
 configuration.AddPageHeading(ESPPage, "ESP", "Show other players on screen")
 configuration.AddPageHeading(PlayerPage, "Players", "Follow, block, whitelist and server list")
 configuration.AddPageHeading(AlertsPage, "Alerts", "Warn when other players come nearby")
-configuration.AddPageHeading(FarmPage, "Farm settings", "EXP per cycle, range, interval and goal")
+configuration.AddPageHeading(FarmPage, "Farm settings", "EXP cycle, range, timing and target behavior")
 configuration.AddPageHeading(CombatPage, "Combat", "Auto attack, skills and mob targeting")
 configuration.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
 
@@ -2167,6 +2168,61 @@ WaypointInfo.TextWrapped = true
 WaypointInfo.TextXAlignment = Enum.TextXAlignment.Left
 WaypointInfo.Parent = WaypointPage
 
+local WaypointMarker = Instance.new("Part")
+WaypointMarker.Name = "IamrichWaypoint"
+WaypointMarker.Anchored = true
+WaypointMarker.CanCollide = false
+WaypointMarker.CanTouch = false
+WaypointMarker.CanQuery = false
+WaypointMarker.Size = Vector3.new(0.8, 0.8, 0.8)
+WaypointMarker.Shape = Enum.PartType.Ball
+WaypointMarker.Material = Enum.Material.Neon
+WaypointMarker.Color = ACCENT
+WaypointMarker.Transparency = 0.15
+WaypointMarker.CastShadow = false
+WaypointMarker.Parent = workspace
+
+local WaypointBillboard = Instance.new("BillboardGui")
+WaypointBillboard.Name = "WaypointBillboard"
+WaypointBillboard.Adornee = WaypointMarker
+WaypointBillboard.AlwaysOnTop = true
+WaypointBillboard.LightInfluence = 0
+WaypointBillboard.MaxDistance = 2000
+WaypointBillboard.Size = UDim2.fromOffset(150, 38)
+WaypointBillboard.StudsOffsetWorldSpace = Vector3.new(0, 1.6, 0)
+WaypointBillboard.Parent = WaypointMarker
+
+local WaypointBillboardText = Instance.new("TextLabel")
+WaypointBillboardText.BackgroundColor3 = Color3.fromRGB(17, 20, 29)
+WaypointBillboardText.BackgroundTransparency = 0.12
+WaypointBillboardText.BorderSizePixel = 0
+WaypointBillboardText.Size = UDim2.fromScale(1, 1)
+WaypointBillboardText.Font = Enum.Font.GothamBold
+WaypointBillboardText.Text = "WAYPOINT"
+WaypointBillboardText.TextColor3 = ACCENT
+WaypointBillboardText.TextSize = 13
+WaypointBillboardText.Parent = WaypointBillboard
+
+local WaypointBillboardCorner = Instance.new("UICorner")
+WaypointBillboardCorner.CornerRadius = UDim.new(0, 8)
+WaypointBillboardCorner.Parent = WaypointBillboardText
+
+local WaypointBillboardStroke = Instance.new("UIStroke")
+WaypointBillboardStroke.Color = ACCENT
+WaypointBillboardStroke.Transparency = 0.25
+WaypointBillboardStroke.Thickness = 1
+WaypointBillboardStroke.Parent = WaypointBillboardText
+
+local function UpdateWaypointMarker()
+ local point = configuration.WaypointPosition
+ WaypointMarker.Position = point or Vector3.zero
+ WaypointMarker.Transparency = point and 0.15 or 1
+ WaypointBillboard.Enabled = point ~= nil
+ if point then
+  WaypointBillboardText.Text = string.format("WAYPOINT  •  %.0f, %.0f, %.0f", point.X, point.Y, point.Z)
+ end
+end
+
 local ReturnToWaypointButton = configuration.MakeToggle(
 	"Return to waypoint",
 	configuration.WaypointReturnEnabled,
@@ -2179,6 +2235,7 @@ local ReturnToWaypointButton = configuration.MakeToggle(
 
 local function UpdateWaypointInfo()
 	local point = configuration.WaypointPosition
+	UpdateWaypointMarker()
 	WaypointInfo.Text = point and string.format("Pinned at  %.1f, %.1f, %.1f", point.X, point.Y, point.Z)
 		or "No waypoint set"
 	configuration.SetToggleVisual(
@@ -2247,7 +2304,6 @@ local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
 
 local AutoAttackButton = configuration.MakeToggle("Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid, "Move to and attack selected or marked mobs.")
 local AutoSkillButton = configuration.MakeToggle("Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid, "Use skills while attacking the current target.")
-local ExpTargetRetaliationButton = configuration.MakeToggle("EXP retaliation", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM, 3, CombatGrid, "Attack the EXP mob if it is hit.")
 local AutoBossTargetButton = configuration.MakeToggle("IsBoss target", configuration.AutoBossTargetEnabled, RED, RED_DIM, 4, CombatGrid, "Find mobs with a direct IsBoss child and move in to attack.")
 local AutoMiniBossTargetButton = configuration.MakeToggle("IsMiniBoss target", configuration.AutoMiniBossTargetEnabled, RED, RED_DIM, 5, CombatGrid, "Find mobs with a direct IsMiniBoss child and move in to attack.")
 
@@ -2599,15 +2655,6 @@ AutoResumeButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
-ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
-	configuration.ExpTargetRetaliationEnabled = not configuration.ExpTargetRetaliationEnabled
-	configuration.SetToggleVisual(ExpTargetRetaliationButton, "Fight back if EXP mob is hit", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM)
-	if not configuration.ExpTargetRetaliationEnabled then
-		configuration.ExpRetaliationTarget = nil
-	end
-	configuration.SaveConfig()
-end)
-
 ESPToggleButton.MouseButton1Click:Connect(function()
 	configuration.ESPEnabled = not configuration.ESPEnabled
 	configuration.SetToggleVisual(ESPToggleButton, "Player ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM)
@@ -2651,6 +2698,7 @@ EmergencyStopButton.MouseButton1Click:Connect(function()
 		if configuration.StopExpMovement then configuration.StopExpMovement() end
 		configuration.PauseTimer()
 		configuration.ExpMaxCombatTarget = nil
+		configuration.ExpLastShotTarget = nil
 		configuration.AlertCombatPending = false
 		configuration.AlertCombatTarget = nil
 		configuration.AlertCombatHold = false
@@ -2844,8 +2892,8 @@ local AutoExecuteButton = configuration.MakeToggle(
 	configuration.AutoExecuteEnabled,
 	RED,
 	RED_DIM,
-	5,
-	ExpPage,
+	4,
+	FarmPage,
 	"Stop EXP firing and finish the locked mob at EXP Max, manual stop, or Alert."
 )
 AutoExecuteButton.MouseButton1Click:Connect(function()
@@ -2854,6 +2902,7 @@ AutoExecuteButton.MouseButton1Click:Connect(function()
 	if not configuration.AutoExecuteEnabled then
 		configuration.ExpFinishTarget = nil
 		configuration.ExpMaxCombatTarget = nil
+		configuration.ExpLastShotTarget = nil
 		if configuration.AlertCombatPending then
 			configuration.AlertCombatPending = false
 			configuration.AlertCombatTarget = nil
@@ -2861,6 +2910,30 @@ AutoExecuteButton.MouseButton1Click:Connect(function()
 			configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
 			if not configuration.AutoBlockEnabled then configuration.AlertBlockTarget = nil end
 		end
+	end
+	configuration.SaveConfig()
+end)
+
+local ExpTargetRetaliationButton = configuration.MakeToggle(
+	"EXP retaliation",
+	configuration.ExpTargetRetaliationEnabled,
+	RED,
+	RED_DIM,
+	5,
+	FarmPage,
+	"Attack the EXP mob if it is hit."
+)
+ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
+	configuration.ExpTargetRetaliationEnabled = not configuration.ExpTargetRetaliationEnabled
+	configuration.SetToggleVisual(
+		ExpTargetRetaliationButton,
+		"EXP retaliation",
+		configuration.ExpTargetRetaliationEnabled,
+		RED,
+		RED_DIM
+	)
+	if not configuration.ExpTargetRetaliationEnabled then
+		configuration.ExpRetaliationTarget = nil
 	end
 	configuration.SaveConfig()
 end)
@@ -3428,6 +3501,7 @@ function configuration.SetRunning()
 	configuration.AlertResumeRequired = false
 	configuration.AlertWasFarming = false
 	configuration.AlertBlockPromptShown = false
+	configuration.ExpLastShotTarget = nil
 	configuration.EmergencyStopActive = false
 	if configuration.UpdateEmergencyStopButton then configuration.UpdateEmergencyStopButton() end
 	configuration.Farming = true
@@ -3533,6 +3607,23 @@ function configuration.Combat.IsLivingMob(mob)
 	if not mob or not mob:IsDescendantOf(MobsFolder) then return false end
 	local humanoid = mob:FindFirstChildOfClass("Humanoid")
 	return not humanoid or humanoid.Health > 0
+end
+
+function configuration.Combat.GetExpExecutionTarget()
+	local candidates = {}
+	if configuration.ExpLastShotTarget then table.insert(candidates, configuration.ExpLastShotTarget) end
+	if configuration.CurrentTarget then table.insert(candidates, configuration.CurrentTarget) end
+	if configuration.LastTarget then table.insert(candidates, configuration.LastTarget) end
+	for _, mob in ipairs(candidates) do
+		if configuration.Combat.IsLivingMob(mob) then
+			local cfg = mob:FindFirstChild("Config")
+			local exp = cfg and cfg:FindFirstChild("EXP")
+			if exp and (exp:IsA("IntValue") or exp:IsA("NumberValue")) then
+				return mob
+			end
+		end
+	end
+	return nil
 end
 
 function configuration.Combat.GetWeaponEquipState(character)
@@ -3719,6 +3810,9 @@ task.spawn(function()
 			end
 			if configuration.ExpMaxCombatTarget == target then
 				configuration.ExpMaxCombatTarget = nil
+			end
+			if configuration.ExpLastShotTarget == target and not configuration.Combat.IsLivingMob(target) then
+				configuration.ExpLastShotTarget = nil
 			end
 			configuration.ClearBillboard()
 			configuration.CurrentTarget = nil
@@ -3983,6 +4077,7 @@ task.spawn(function()
 				MiniState.Text = string.format("Out of standoff (%.0f); firing while closing in", firingDistance)
 			end
 
+			configuration.ExpLastShotTarget = target
 			InitClashing:FireServer(2, exp)
 			callsSent += 1
 
@@ -4558,10 +4653,8 @@ task.spawn(function()
 				configuration.AlertBlockPromptShown = false
 				configuration.AlertCombatPending = true
 				configuration.AlertBlockTarget = nearbyPlayer
-				local mob = configuration.AutoExecuteEnabled and configuration.CurrentTarget or nil
-				if not configuration.Combat.IsLivingMob(mob) then
-					mob = nil
-				end
+				local mob = configuration.AutoExecuteEnabled and configuration.Combat.GetExpExecutionTarget() or nil
+				if not configuration.Combat.IsLivingMob(mob) then mob = nil end
 				configuration.AlertCombatTarget = mob
 				if mob then
 					StateLabel.Text = "Alert"
@@ -4572,7 +4665,13 @@ task.spawn(function()
 					configuration.AlertCombatHold = true
 					configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
 					StateLabel.Text = configuration.AutoBlockEnabled and "Block" or "Alert hold"
-					MiniState.Text = configuration.AutoBlockEnabled and "No EXP target; opening Block prompt" or "No EXP target; waiting for player to leave"
+					if not configuration.AutoExecuteEnabled then
+						MiniState.Text = "Auto Execute is off; waiting for player to leave"
+					else
+						MiniState.Text = configuration.AutoBlockEnabled
+							and "No live EXP target; opening Block prompt"
+							or "No live EXP target; waiting for player to leave"
+					end
 					if not configuration.AutoBlockEnabled then
 						configuration.AlertBlockTarget = nil
 					end
