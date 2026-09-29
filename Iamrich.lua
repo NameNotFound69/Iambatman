@@ -483,7 +483,12 @@ function configuration.LoadConfig()
 	configuration.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configuration.AlertsDistance, 0, true), 0, 100000)
 	configuration.FollowDistance = math.clamp(ReadNumber("FollowDistance", configuration.FollowDistance, 2, false), 2, 100)
 	configuration.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configuration.AutoAttackRange, 5, false), 5, 500)
-	configuration.AutoAttackSearchRange = math.clamp(ReadNumber("AutoAttackSearchRange", configuration.AutoAttackSearchRange, 5, false), 5, 1000)
+	local savedMobSearchRange = ReadNumber("AutoAttackSearchRange", configuration.AutoAttackSearchRange, 5, false)
+	-- Earlier builds defaulted mob visibility to 100 studs. The intended default
+	-- is 1000, so migrate that legacy default instead of silently keeping targets
+	-- such as the 955-stud mob outside the eligible-target search.
+	if savedMobSearchRange == 100 then savedMobSearchRange = 1000 end
+	configuration.AutoAttackSearchRange = math.clamp(savedMobSearchRange, 5, 1000)
 	configuration.WaypointReturnRadius = math.clamp(ReadNumber("WaypointReturnRadius", configuration.WaypointReturnRadius, 2, false), 2, 100)
 	local waypoint = config.WaypointPosition
 	if type(waypoint) == "table" then
