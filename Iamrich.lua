@@ -1,8 +1,9 @@
-local VERSION = "2.5.6"
+local VERSION = "2.5.9"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
@@ -214,6 +215,7 @@ local configuration: {[string]: any} = {
 	FollowTargetVisible = false,
 	SelectedFollowUserId = nil,
 	FollowEnabled = false,
+	FPSBoostEnabled = false,
 	PlayerPanelMode = "server",
 	SelectedCombatMob = nil,
 	WaypointPosition = nil,
@@ -310,8 +312,8 @@ local function InvokeFollowInteract()
 	return ok
 end
 
--- Movement controllers are separate source chunks. Publish both modules beside
--- this file so the runtime loaders can fetch them from the same branch.
+-- Runtime controllers are separate source chunks. Publish the modules beside
+-- this file so the loaders can fetch them from the same branch.
 configuration.CombatSystem = assert(loadstring(game:HttpGet(
 	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua?v=2.2.2"
 )))()
@@ -326,6 +328,12 @@ configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration
 	ClaimMovement = ClaimMovement,
 	ReleaseMovement = ReleaseMovement,
 	Interact = InvokeFollowInteract,
+})
+configuration.FPSBoostSystem = assert(loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.1.0"
+)))()
+configuration.FPSBoostSystem = configuration.FPSBoostSystem.Initialize(configuration, {
+	Lighting = Lighting,
 })
 
 function configuration.PrepareConfigStorage()
@@ -409,6 +417,9 @@ function configuration.LoadConfig()
 	configuration.FollowDistance = math.clamp(ReadNumber("FollowDistance", configuration.FollowDistance, 2, false), 2, 100)
 	if type(config.FollowTargetVisible) == "boolean" then
 		configuration.FollowTargetVisible = config.FollowTargetVisible
+	end
+	if type(config.FPSBoostEnabled) == "boolean" then
+		configuration.FPSBoostEnabled = config.FPSBoostEnabled
 	end
 	configuration.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configuration.AutoAttackRange, 5, false), 5, 500)
 	local savedMobSearchRange = ReadNumber("AutoAttackSearchRange", configuration.AutoAttackSearchRange, 5, false)
@@ -512,6 +523,7 @@ function configuration.SaveConfig()
 		FollowTargetVisible = configuration.FollowTargetVisible,
 		FollowTargetUserId = configuration.SelectedFollowUserId,
 		FollowEnabled = configuration.FollowEnabled,
+		FPSBoostEnabled = configuration.FPSBoostEnabled,
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
 		AutoBossTargetEnabled = configuration.AutoBossTargetEnabled,
 		AutoMiniBossTargetEnabled = configuration.AutoMiniBossTargetEnabled,
@@ -556,7 +568,17 @@ function configuration.SaveConfig()
 	return ok
 end
 
+function configuration.SetFPSBoost(enabled)
+	enabled = enabled == true
+	if configuration.FPSBoostEnabled == enabled then return enabled end
+	configuration.FPSBoostEnabled = enabled
+	configuration.FPSBoostSystem.SetEnabled(enabled)
+	configuration.SaveConfig()
+	return enabled
+end
+
 configuration.LoadConfig()
+if configuration.FPSBoostEnabled then configuration.FPSBoostSystem.SetEnabled(true) end
 configuration.FollowSystem.SetTargetLineVisible(configuration.FollowTargetVisible)
 if configuration.MigratedLegacyConfig then
 	configuration.SaveConfig()
@@ -1398,6 +1420,7 @@ local AlertsPage = configuration.CreatePage("Alerts", false)
 local FarmPage = configuration.CreatePage("Farm", false)
 local CombatPage = configuration.CreatePage("Combat", false)
 local WaypointPage = configuration.CreatePage("Waypoint", false)
+local PerformancePage = configuration.CreatePage("Performance", false)
 
 function configuration.AddPageHeading(page, title, description)
 	local heading = Instance.new("Frame")
@@ -1435,6 +1458,7 @@ configuration.AddPageHeading(AlertsPage, "Alerts", "Warn when other players come
 configuration.AddPageHeading(FarmPage, "Farm settings", "EXP cycle, range, timing and target behavior")
 configuration.AddPageHeading(CombatPage, "Combat", "Auto attack, skills and mob targeting")
 configuration.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
+configuration.AddPageHeading(PerformancePage, "Performance", "Reduce graphics load while playing")
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
@@ -1543,6 +1567,7 @@ NavButtons.Alerts = configuration.MakeNavButton("Alerts", nil, 7)
 NavButtons.Player = configuration.MakeNavButton("Players", nil, 8)
 configuration.MakeNavSection("Display", 9)
 NavButtons.ESP = configuration.MakeNavButton("ESP", nil, 10)
+NavButtons.Performance = configuration.MakeNavButton("Performance", nil, 11)
 
 function configuration.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -1900,6 +1925,7 @@ end
 local AlertsGrid = configuration.MakeToggleGrid(AlertsPage, 2)
 local PlayersGrid = configuration.MakeToggleGrid(PlayerPage, 2)
 local CombatGrid = configuration.MakeToggleGrid(CombatPage, 2)
+local PerformanceGrid = configuration.MakeToggleGrid(PerformancePage, 2)
 
 local AlertsDistanceCard = Instance.new("Frame")
 AlertsDistanceCard.Size = UDim2.new(1, 0, 0, 48)
@@ -2651,6 +2677,7 @@ local AutoResumeButton = configuration.MakeToggle("Auto resume", configuration.A
 local ESPToggleButton = configuration.MakeToggle("Player ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2, nil, "Show markers for other players.")
 local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw lines to players.")
 local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw boxes around players.")
+local FPSBoostButton = configuration.MakeToggle("Boost FPS", configuration.FPSBoostEnabled, ACCENT, ACCENT_DIM, 1, PerformanceGrid, "Reduce visual effects and idle script work; restore visuals when disabled.")
 local AutoBlockButton = configuration.MakeToggle("Auto block", configuration.AutoBlockEnabled, RED, RED_DIM, 5, PlayersGrid, "Show the block prompt after the EXP target is defeated.")
 local PlayerListButton = configuration.MakeActionRow("Player list", 1, PlayersGrid, "View players in this server.")
 local WhitelistButton = configuration.MakeActionRow("Whitelist", 2, PlayersGrid, "Whitelisted players do not trigger alerts or auto-block.")
@@ -2721,6 +2748,11 @@ ESPBoxButton.MouseButton1Click:Connect(function()
 	configuration.ESPBoxEnabled = not configuration.ESPBoxEnabled
 	configuration.SetToggleVisual(ESPBoxButton, "ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM)
 	configuration.SaveConfig()
+end)
+
+FPSBoostButton.MouseButton1Click:Connect(function()
+	configuration.SetFPSBoost(not configuration.FPSBoostEnabled)
+	configuration.SetToggleVisual(FPSBoostButton, "Boost FPS", configuration.FPSBoostEnabled, ACCENT, ACCENT_DIM)
 end)
 
 AutoBlockButton.MouseButton1Click:Connect(function()
@@ -4214,6 +4246,7 @@ task.spawn(function()
 	local lastFinishHandoffTarget = nil
 	local lastRetaliationAttackTarget = nil
 	while true do
+		local combatTargetPresent = false
 		local autoMarkedTarget = configuration.AutoBossTargetEnabled or configuration.AutoMiniBossTargetEnabled
 		local canCombatDuringExp = configuration.Farming
 			and (configuration.ExpMaxCombatTarget ~= nil or configuration.ExpRetaliationTarget ~= nil
@@ -4243,6 +4276,7 @@ task.spawn(function()
 				lastRetaliationAttackTarget = nil
 			end
 			if target and targetRoot then
+				combatTargetPresent = true
 				if target == configuration.ExpFinishTarget and target ~= lastFinishHandoffTarget then
 					configuration.CombatSystem.ResetNavigationState(attackMoveState)
 					attackMoveState.Active = false
@@ -4432,7 +4466,13 @@ task.spawn(function()
 			ReleaseMovement("Combat", humanoid, localRoot)
 			configuration.UpdateCombatStatus(nil, nil, nil, "paused", attackMoveState)
 		end
-		task.wait(0.08)
+		local combatBusy = not configuration.EmergencyStopActive and not configuration.AlertCombatHold and (
+			combatTargetPresent or configuration.AlertCombatPending or configuration.ExpMaxCombatTarget ~= nil
+			or configuration.ExpRetaliationTarget ~= nil or configuration.ExpFinishTarget ~= nil
+			or configuration.PendingServerHop
+		)
+		local combatWait = configuration.FPSBoostEnabled and not combatBusy and 0.3 or 0.08
+		task.wait(combatWait)
 	end
 end)
 
@@ -4440,7 +4480,6 @@ end)
 task.spawn(function()
 	local moveState = configuration.WaypointMoveState
 	while true do
-		task.wait(0.12)
 		local character = Player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -4491,6 +4530,11 @@ task.spawn(function()
 				configuration.CombatSystem.ResetNavigationState(moveState)
 			end
 		end
+		local waypointBusy = MovementOwner == "Combat"
+			or (configuration.WaypointReturnEnabled and point and root and humanoid and not paused
+				and (root.Position - point).Magnitude > 0.75)
+		local waypointWait = configuration.FPSBoostEnabled and not waypointBusy and 0.35 or 0.12
+		task.wait(waypointWait)
 	end
 end)
 
@@ -4601,7 +4645,9 @@ task.spawn(function()
 
 		-- Faster while farming/combat feedback matters; slower when idle to cut CPU.
 		local uiBusy = configuration.Farming or configuration.AutoAttackEnabled or configuration.AlertCombatPending
-		task.wait(uiBusy and 0.12 or 0.28)
+		local uiWait = uiBusy and 0.12 or 0.28
+		if configuration.FPSBoostEnabled then uiWait = uiBusy and 0.2 or 0.45 end
+		task.wait(uiWait)
 	end
 end)
 
@@ -5384,9 +5430,20 @@ task.spawn(function()
 		end
 
 		-- Alert / ESP / follow loop: stay responsive near threats, slower when quiet.
-		local alertBusy = configuration.AlertsEnabled or configuration.FollowEnabled
-			or configuration.AlertCombatPending or configuration.AlertCombatHold or AlarmOverlay.Visible
-		task.wait(alertBusy and 0.08 or 0.18)
+		local followBusy = configuration.FollowEnabled
+		local alertBusy = configuration.AlertsEnabled or configuration.AlertCombatPending
+			or configuration.AlertCombatHold or AlarmOverlay.Visible
+		local alertWait = alertBusy and 0.08 or 0.18
+		if configuration.FPSBoostEnabled then
+			if followBusy then
+				alertWait = 0.08
+			elseif alertBusy then
+				alertWait = 0.12
+			else
+				alertWait = 0.4
+			end
+		end
+		task.wait(alertWait)
 	end
 end)
 
