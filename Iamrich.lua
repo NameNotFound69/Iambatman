@@ -1,4 +1,4 @@
-local VERSION = "2.3.6"
+local VERSION = "2.3.7"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4534,10 +4534,11 @@ end)
 task.spawn(function()
 	local lastPlayerRefresh = 0
 	local lastFollowMove = 0
-	local lastFollowProgressCheck = 0
-	local lastFollowProgressPosition = nil
-	local followEscapeDirection = 0
 	local followGoalPosition = nil
+	local followDirection = nil
+	local followAvoidOffset = nil
+	local followAvoidUserId = nil
+	local followTargetUserId = nil
 	local followMoveState = { Active = false, Goal = nil, LastMoveAt = 0 }
 	local lastAutoBlockCheck = 0
 	local nextAutoBlockPromptAt = 0
@@ -4548,7 +4549,6 @@ task.spawn(function()
 	local PlayerVisuals = {}
 	local ThumbnailCache = {}
 	local PlayerPanelBuildSignature = nil
-	local FollowTurnAngles = { 0, 45, -45, 90, -90, 135, -135, 180 }
 
 	while true do
 		local char = Player.Character
@@ -4673,6 +4673,15 @@ task.spawn(function()
 		end
 
 		local followedPlayer = configuration.FollowPlayerUserId and Players:GetPlayerByUserId(tonumber(configuration.FollowPlayerUserId))
+		local selectedFollowUserId = followedPlayer and tostring(followedPlayer.UserId) or nil
+		if selectedFollowUserId ~= followTargetUserId then
+			followTargetUserId = selectedFollowUserId
+			followDirection = nil
+			followAvoidOffset = nil
+			followAvoidUserId = nil
+			followGoalPosition = nil
+			configuration.CombatSystem.ResetNavigationState(followMoveState)
+		end
 		-- Pause Follow while Auto Attack is pursuing a valid target; resume when the target clears.
 		local interruptFollow = configuration.AlertCombatPending == true
 		if not interruptFollow and (configuration.AutoAttackEnabled or configuration.AutoBossTargetEnabled
@@ -4683,7 +4692,7 @@ task.spawn(function()
 				interruptFollow = true
 			end
 		end
-		-- Follow with spacing while steering around nearby players and stalled movement.
+		-- Follow with a stable side and only make a single temporary sidestep when crowded.
 		if not configuration.EmergencyStopActive and not configuration.Farming
 			and followedPlayer and char and not interruptFollow and os.clock() - lastFollowMove >= 0.25 then
 			local humanoid = char:FindFirstChildOfClass("Humanoid")
@@ -4695,86 +4704,77 @@ task.spawn(function()
 				local delta = localRoot.Position - followedRoot.Position
 				local flat = Vector3.new(delta.X, 0, delta.Z)
 				local dist = flat.Magnitude
-				-- Prefer staying on the current side of the target; if overlapping, fall back behind them.
-				local outward = flat
-				if outward.Magnitude < 0.35 then
-					local behind = -followedRoot.CFrame.LookVector
-					outward = Vector3.new(behind.X, 0, behind.Z)
-					if outward.Magnitude < 0.1 then
-						outward = Vector3.new(0, 0, -1)
+				if not followDirection then
+					local outward = flat
+					if outward.Magnitude < 0.35 then
+						local behind = -followedRoot.CFrame.LookVector
+						outward = Vector3.new(behind.X, 0, behind.Z)
 					end
+					if outward.Magnitude < 0.1 then outward = Vector3.new(0, 0, -1) end
+					followDirection = outward.Unit
 				end
-				outward = outward.Unit
-				local clearRadius = spacing
-				local otherPlayerPositions = {}
-				local currentClearance = math.huge
+
+				local baseGoal = followedRoot.Position + followDirection * spacing
+				baseGoal = Vector3.new(baseGoal.X, followedRoot.Position.Y, baseGoal.Z)
+				local nearestOther, nearestClearance, nearestAvoidFromSlot = nil, math.huge, false
 				for _, snapshot in ipairs(playerSnapshots or {}) do
 					local otherPlayer = snapshot.Player
-					if otherPlayer ~= Player and otherPlayer ~= followedPlayer then
-						local otherRoot = snapshot.Root
-						if otherRoot.Parent then
-							local otherPosition = otherRoot.Position
-							table.insert(otherPlayerPositions, otherPosition)
-							local dx = localRoot.Position.X - otherPosition.X
-							local dz = localRoot.Position.Z - otherPosition.Z
-							currentClearance = math.min(currentClearance, math.sqrt(dx * dx + dz * dz))
+					local otherRoot = snapshot.Root
+					if otherPlayer ~= Player and otherPlayer ~= followedPlayer and otherRoot.Parent then
+						local rootOffset = localRoot.Position - otherRoot.Position
+						local slotOffset = baseGoal - otherRoot.Position
+						local rootClearance = Vector3.new(rootOffset.X, 0, rootOffset.Z).Magnitude
+						local slotClearance = Vector3.new(slotOffset.X, 0, slotOffset.Z).Magnitude
+						local clearance = math.min(rootClearance, slotClearance)
+						if clearance < nearestClearance then
+							nearestOther, nearestClearance = otherPlayer, clearance
+							nearestAvoidFromSlot = slotClearance <= rootClearance
 						end
 					end
 				end
 
-				local followStuck = false
-				if now - lastFollowProgressCheck >= 1.4 then
-					if lastFollowProgressPosition and followGoalPosition
-						and (localRoot.Position - followGoalPosition).Magnitude > 3
-						and (localRoot.Position - lastFollowProgressPosition).Magnitude < 0.45 then
-						followStuck = true
-						followEscapeDirection = (followEscapeDirection + 1) % 8
+				-- Lock the sidestep to the player who crowded us. Resume the normal
+				-- follow line only after there's a clear buffer around our character.
+				if followAvoidUserId then
+					local avoidingPlayer = Players:GetPlayerByUserId(tonumber(followAvoidUserId))
+					local avoidingCharacter = avoidingPlayer and avoidingPlayer.Character
+					local avoidingRoot = avoidingCharacter and avoidingCharacter:FindFirstChild("HumanoidRootPart")
+					if not avoidingRoot then
+						followAvoidUserId, followAvoidOffset = nil, nil
+					else
+						local rootOffset = localRoot.Position - avoidingRoot.Position
+						local slotOffset = baseGoal - avoidingRoot.Position
+						local rootClearance = Vector3.new(rootOffset.X, 0, rootOffset.Z).Magnitude
+						local slotClearance = Vector3.new(slotOffset.X, 0, slotOffset.Z).Magnitude
+						if math.min(rootClearance, slotClearance) >= 10 then
+							followAvoidUserId, followAvoidOffset = nil, nil
+						end
 					end
-					lastFollowProgressPosition = localRoot.Position
-					lastFollowProgressCheck = now
+				end
+				if not followAvoidUserId and nearestOther and nearestClearance < 5 then
+					local otherCharacter = nearestOther.Character
+					local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
+					if otherRoot then
+						local away = nearestAvoidFromSlot and (baseGoal - otherRoot.Position)
+							or (localRoot.Position - otherRoot.Position)
+						away = Vector3.new(away.X, 0, away.Z)
+						if away.Magnitude < 0.1 then away = Vector3.new(-followDirection.Z, 0, followDirection.X) end
+						followAvoidOffset = away.Unit * 5
+						followAvoidUserId = tostring(nearestOther.UserId)
+					end
 				end
 
-				-- Hysteresis: only path when too far or too close; hold still inside the comfort band.
-				local tooFar = dist > spacing + 1.25
+				local goal = baseGoal + (followAvoidOffset or Vector3.zero)
+				local tooFar = dist > spacing + 1.5
 				local tooClose = dist < spacing * 0.72
-				local needsFollowMove = tooFar or tooClose or currentClearance < clearRadius or followStuck
+				local needsFollowMove = tooFar or tooClose or followAvoidOffset ~= nil
 				if needsFollowMove then
-					local bestGoal, bestScore = nil, -math.huge
-					for offset = 0, #FollowTurnAngles - 1 do
-						local angleIndex = (offset + followEscapeDirection) % #FollowTurnAngles + 1
-						local angle = FollowTurnAngles[angleIndex]
-						local radians = math.rad(angle)
-						local direction = Vector3.new(
-							outward.X * math.cos(radians) - outward.Z * math.sin(radians),
-							0,
-							outward.X * math.sin(radians) + outward.Z * math.cos(radians)
-						)
-						for radiusStep = 0, 2 do
-							local radius = spacing + clearRadius * 0.5 * radiusStep
-							local candidate = followedRoot.Position + direction * radius
-							candidate = Vector3.new(candidate.X, followedRoot.Position.Y, candidate.Z)
-							local nearestOther = math.huge
-							for _, otherPosition in ipairs(otherPlayerPositions) do
-								local dx = candidate.X - otherPosition.X
-								local dz = candidate.Z - otherPosition.Z
-								nearestOther = math.min(nearestOther, math.sqrt(dx * dx + dz * dz))
-							end
-							local score = math.min(nearestOther, spacing * 3)
-								- math.abs(angle) * 0.01
-								- (radius - spacing) * 0.7
-							if score > bestScore then
-								bestGoal, bestScore = candidate, score
-							end
-						end
-					end
-					local goal = bestGoal or (followedRoot.Position + outward * spacing)
 					ClaimMovement("Follow", humanoid, localRoot)
-					configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, goal, followedCharacter, followMoveState, 0.28, 2.2)
+					configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, goal, followedCharacter, followMoveState, 0.45, 2.2)
 					followGoalPosition = goal
 				else
 					ReleaseMovement("Follow", humanoid, localRoot)
 					followGoalPosition = nil
-					followEscapeDirection = 0
 					configuration.CombatSystem.ResetNavigationState(followMoveState)
 				end
 				lastFollowMove = now
@@ -4784,8 +4784,9 @@ task.spawn(function()
 			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
 			ReleaseMovement("Follow", humanoid, localRoot)
 			followGoalPosition = nil
-			lastFollowProgressPosition = nil
-			followEscapeDirection = 0
+			followDirection = nil
+			followAvoidOffset = nil
+			followAvoidUserId = nil
 			configuration.CombatSystem.ResetNavigationState(followMoveState)
 		end
 
