@@ -80,6 +80,7 @@ return {
 			state.ApproachAngle, state.RepositionUntil, state.NavigationMode = nil, nil, nil
 			state.PursuitOrbitAngle, state.PursuitOrbitAt = nil, nil
 			state.LastApproachPoint, state.ApproachTarget = nil, nil
+			state.DetourGoal, state.DetourFor = nil, nil
 		end
 
 		-- AIC probes low and high before jumping, so flat path waypoints do not
@@ -105,7 +106,65 @@ return {
 			return false
 		end
 
-		function combat.NavigateMoveTo(humanoid, root, goal, targetModel, state, minInterval, stopRadius, checkVertical)
+		local function makeRaycastParams(root, targetModel)
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			local filter = { root.Parent }
+			if mobsFolder then table.insert(filter, mobsFolder) end
+			if targetModel then table.insert(filter, targetModel) end
+			params.FilterDescendantsInstances = filter
+			params.RespectCanCollide = true
+			return params
+		end
+
+		function combat.GroundAlignGoal(root, goal, targetModel)
+			if not root or not goal then return goal end
+			local params = makeRaycastParams(root, targetModel)
+			local castHeight = math.max(root.Position.Y, goal.Y) + 32
+			local rootFloor = workspace:Raycast(
+				Vector3.new(root.Position.X, root.Position.Y + 8, root.Position.Z),
+				Vector3.new(0, -160, 0), params
+			)
+			local goalFloor = workspace:Raycast(
+				Vector3.new(goal.X, castHeight, goal.Z), Vector3.new(0, -256, 0), params
+			)
+			if not rootFloor or not goalFloor then return goal end
+			local rootHeight = math.max(root.Position.Y - rootFloor.Position.Y, root.Size.Y * 0.5)
+			return Vector3.new(goal.X, goalFloor.Position.Y + rootHeight, goal.Z)
+		end
+
+		local function findDirectDetour(root, goal, targetModel)
+			local toward = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
+			if toward.Magnitude < 0.1 then return nil end
+			toward = toward.Unit
+			local params = makeRaycastParams(root, targetModel)
+			local rootFloor = workspace:Raycast(
+				root.Position + Vector3.new(0, 8, 0), Vector3.new(0, -160, 0), params
+			)
+			local rootHeight = rootFloor and math.max(root.Position.Y - rootFloor.Position.Y, root.Size.Y * 0.5) or root.Size.Y
+			local best, bestScore = nil, math.huge
+			for _, degrees in ipairs({ 35, -35, 65, -65, 95, -95, 125, -125, 155, -155, 180 }) do
+				local angle = math.rad(degrees)
+				local direction = Vector3.new(
+					toward.X * math.cos(angle) - toward.Z * math.sin(angle), 0,
+					toward.X * math.sin(angle) + toward.Z * math.cos(angle)
+				)
+				local candidateXZ = root.Position + direction * 8
+				local obstruction = workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), direction * 8, params)
+				if not obstruction then
+					local floor = workspace:Raycast(candidateXZ + Vector3.new(0, 12, 0), Vector3.new(0, -96, 0), params)
+					if floor and math.abs(floor.Position.Y - (root.Position.Y - rootHeight)) <= 12 then
+						local candidate = Vector3.new(candidateXZ.X, floor.Position.Y + rootHeight, candidateXZ.Z)
+						local remaining = Vector3.new(goal.X - candidate.X, 0, goal.Z - candidate.Z).Magnitude
+						local score = remaining + math.abs(degrees) * 0.035
+						if score < bestScore then best, bestScore = candidate, score end
+					end
+				end
+			end
+			return best
+		end
+
+		function combat.NavigateMoveTo(humanoid, root, goal, targetModel, state, minInterval, stopRadius, checkVertical, allowPathfinding)
 			if not humanoid or not root or not goal then return false, "unavailable" end
 			local now = os.clock()
 			if state.Active and now - (state.ProgressAt or 0) >= 1.4 then
@@ -142,26 +201,52 @@ return {
 			local pathGoalChanged = not state.PathGoal or (state.PathGoal - goal).Magnitude > 4
 			if state.LastRaycastAt == nil or now - state.LastRaycastAt >= 0.2 then
 				state.LastRaycastAt = now
-				local params = RaycastParams.new()
-				params.FilterType = Enum.RaycastFilterType.Exclude
-				local filter = { root.Parent }
-				if targetModel then table.insert(filter, targetModel) end
-				params.FilterDescendantsInstances = filter
-				params.RespectCanCollide = true
+				local params = makeRaycastParams(root, targetModel)
 				local direction = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
 				local ok, hit = pcall(function() return workspace:Raycast(root.Position, direction, params) end)
 				local verticalDelta = math.abs(root.Position.Y - goal.Y)
-				local needsVerticalRoute = verticalDelta > math.max(checkVertical and 0.5 or 3, root.Size.Y * 0.5)
+				local needsVerticalRoute = allowPathfinding == true
+					and verticalDelta > math.max(checkVertical and 0.5 or 3, root.Size.Y * 0.5)
 				state.DirectPathBlocked = (ok and hit ~= nil) or needsVerticalRoute
 			end
 
 			if not state.DirectPathBlocked then
+				state.DetourGoal, state.DetourFor = nil, nil
 				if state.PathComputing then
 					state.PathRequestId = (state.PathRequestId or 0) + 1
 					state.PathComputing = false
 				end
 				state.Path, state.Waypoints, state.WaypointIndex, state.PathGoal = nil, nil, nil, nil
-				return smoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius), "direct"
+				return smoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius, checkVertical), "direct"
+			end
+
+			if allowPathfinding ~= true then
+				local sameDestination = state.DetourFor and (state.DetourFor - goal).Magnitude < 5
+				local detour = state.DetourGoal
+				if detour and sameDestination then
+					local offset = Vector3.new(root.Position.X - detour.X, 0, root.Position.Z - detour.Z)
+					if offset.Magnitude <= 2.5 then detour = nil end
+				else
+					detour = nil
+				end
+				if not detour then
+					detour = findDirectDetour(root, goal, targetModel)
+					state.DetourGoal, state.DetourFor = detour, goal
+				end
+				if detour then
+					if not state.Active or not state.PathMoveGoal or (state.PathMoveGoal - detour).Magnitude > 1
+						or now - (state.LastMoveAt or 0) >= (minInterval or 0.25) then
+						humanoid:MoveTo(detour)
+						state.Active, state.LastMoveAt, state.PathMoveGoal = true, now, detour
+					end
+					return false, "detouring"
+				end
+				state.DetourGoal, state.DetourFor = nil, nil
+				if not state.Active or now - (state.LastMoveAt or 0) >= 0.4 then
+					humanoid:MoveTo(goal)
+					state.Active, state.LastMoveAt, state.Goal = true, now, goal
+				end
+				return false, "direct"
 			end
 
 			if pathGoalChanged then
