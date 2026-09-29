@@ -1,4 +1,4 @@
-local VERSION = "2.6.0"
+local VERSION = "2.6.1"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -330,7 +330,7 @@ configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration
 	Interact = InvokeFollowInteract,
 })
 configuration.FPSBoostSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.1.0"
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.2.0"
 )))()
 configuration.FPSBoostSystem = configuration.FPSBoostSystem.Initialize(configuration, {
 	Lighting = Lighting,
@@ -2677,7 +2677,7 @@ local AutoResumeButton = configuration.MakeToggle("Auto resume", configuration.A
 local ESPToggleButton = configuration.MakeToggle("Player ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2, nil, "Show markers for other players.")
 local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw lines to players.")
 local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw boxes around players.")
-local FPSBoostButton = configuration.MakeToggle("Boost FPS", configuration.FPSBoostEnabled, ACCENT, ACCENT_DIM, 1, PerformanceGrid, "Reduce visual effects and idle script work; restore visuals when disabled.")
+local FPSBoostButton = configuration.MakeToggle("Boost FPS", configuration.FPSBoostEnabled, ACCENT, ACCENT_DIM, 1, PerformanceGrid, "Reduce visual effects while keeping scene lights and color correction.")
 local AutoBlockButton = configuration.MakeToggle("Auto block", configuration.AutoBlockEnabled, RED, RED_DIM, 5, PlayersGrid, "Show the block prompt after the EXP target is defeated.")
 local PlayerListButton = configuration.MakeActionRow("Player list", 1, PlayersGrid, "View players in this server.")
 local WhitelistButton = configuration.MakeActionRow("Whitelist", 2, PlayersGrid, "Whitelisted players do not trigger alerts or auto-block.")

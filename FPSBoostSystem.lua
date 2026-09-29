@@ -1,6 +1,6 @@
 -- Reversible client-side graphics reductions for lower rendering load.
-local VERSION = "1.1.0"
-print("[FPSBoostSystem] Version " .. VERSION .. " (reversible visual reductions + scoped listeners)")
+local VERSION = "1.2.0"
+print("[FPSBoostSystem] Version " .. VERSION .. " (reversible visual reductions + preserved scene lighting)")
 
 return {
 	Initialize = function(_, dependencies)
@@ -26,7 +26,9 @@ return {
 		local function reduceVisuals(instance)
 			if instance:IsA("BasePart") then
 				setTrackedProperty(instance, "CastShadow", false)
-			elseif instance:IsA("PostEffect")
+			elseif (instance:IsA("PostEffect")
+				and not instance:IsA("BloomEffect")
+				and not instance:IsA("ColorCorrectionEffect"))
 				or instance:IsA("ParticleEmitter")
 				or instance:IsA("Beam")
 				or instance:IsA("Trail")
@@ -39,8 +41,6 @@ return {
 
 		local function apply()
 			setTrackedProperty(Lighting, "GlobalShadows", false)
-			setTrackedProperty(Lighting, "EnvironmentDiffuseScale", 0)
-			setTrackedProperty(Lighting, "EnvironmentSpecularScale", 0)
 			for _, instance in ipairs(Lighting:GetDescendants()) do
 				reduceVisuals(instance)
 			end
@@ -51,7 +51,9 @@ return {
 				local function onDescendantAdded(instance)
 					if not enabled then return end
 					if instance:IsA("BasePart")
-						or instance:IsA("PostEffect")
+					or (instance:IsA("PostEffect")
+						and not instance:IsA("BloomEffect")
+						and not instance:IsA("ColorCorrectionEffect"))
 						or instance:IsA("ParticleEmitter")
 						or instance:IsA("Beam")
 						or instance:IsA("Trail")
