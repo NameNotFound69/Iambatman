@@ -1,6 +1,6 @@
 -- Direct-movement controller for selected-mob combat.
-local VERSION = "2.1.0"
-print("[CombatSystem] Version " .. VERSION .. " (MoveTo)")
+local VERSION = "2.2.2"
+print("[CombatSystem] Version " .. VERSION .. " (MoveTo + adaptive detours)")
 return {
 	Initialize = function(configuration, dependencies)
 		local combat = configuration.CombatSystem
@@ -9,9 +9,9 @@ return {
 			local offset = b - a
 			return Vector3.new(offset.X, 0, offset.Z).Magnitude
 		end
-		local function raycastParams(root, target)
+		local function raycastParams(root, target, includeMobs)
 			local filter = { root.Parent }
-			if mobsFolder then table.insert(filter, mobsFolder) end
+			if mobsFolder and not includeMobs then table.insert(filter, mobsFolder) end
 			if target then table.insert(filter, target) end
 			local params = RaycastParams.new()
 			params.FilterType = Enum.RaycastFilterType.Exclude
@@ -27,6 +27,7 @@ return {
 		function combat.ResetNavigationState(state)
 			state.Active, state.Goal, state.LastMoveAt = false, nil, 0
 			state.DetourGoal, state.DetourFor = nil, nil
+			state.DetourSearchAt = nil
 			state.PursuitOrbitAngle, state.PursuitOrbitAt = nil, nil
 			state.NavigationMode = nil
 		end
@@ -63,45 +64,61 @@ return {
 			return targetRoot.Position + away * radius
 		end
 
-		local function chooseDetour(root, goal, target)
+		local function chooseDetour(root, goal, target, state, includeMobs)
 			local toward = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
 			if toward.Magnitude < 0.1 then return nil end
 			toward = toward.Unit
-			local params = raycastParams(root, target)
+			local params = raycastParams(root, target, includeMobs)
 			local rootFloor = floorAt(root, root.Position, target)
 			local rootHeight = rootFloor and math.max(root.Position.Y - rootFloor.Position.Y, root.Size.Y * 0.5) or root.Size.Y
 			local best, bestScore = nil, math.huge
-			for _, degrees in ipairs({ 40, -40, 75, -75, 110, -110, 145, -145, 180 }) do
-				local angle = math.rad(degrees)
-				local direction = Vector3.new(
-					toward.X * math.cos(angle) - toward.Z * math.sin(angle), 0,
-					toward.X * math.sin(angle) + toward.Z * math.cos(angle)
-				)
-				local candidateXZ = root.Position + direction * 8
-				local obstacle = workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), direction * 8, params)
-				local floor = not obstacle and floorAt(root, candidateXZ, target) or nil
-				if floor and (not rootFloor or math.abs(floor.Position.Y - rootFloor.Position.Y) <= 12) then
-					local candidate = Vector3.new(candidateXZ.X, floor.Position.Y + rootHeight, candidateXZ.Z)
-					local remaining = flatDistance(candidate, goal)
-					local score = remaining + math.abs(degrees) * 0.035
-					if score < bestScore then best, bestScore = candidate, score end
+			local preferredDistance = math.clamp(state and tonumber(state.DetourDistance) or 8, 8, 20)
+			local preferredSide = state and state.DetourSideBias or 0
+			for _, extraDistance in ipairs({ 0, 4, 8, 12 }) do
+				local radius = preferredDistance + extraDistance
+				for _, degrees in ipairs({ 40, -40, 75, -75, 110, -110, 145, -145, 180 }) do
+					local angle = math.rad(degrees)
+					local direction = Vector3.new(
+						toward.X * math.cos(angle) - toward.Z * math.sin(angle), 0,
+						toward.X * math.sin(angle) + toward.Z * math.cos(angle)
+					)
+					local candidateXZ = root.Position + direction * radius
+					local obstacle = workspace:Raycast(
+						root.Position + Vector3.new(0, 1.5, 0),
+						direction * radius,
+						params
+					)
+					local floor = not obstacle and floorAt(root, candidateXZ, target) or nil
+					if floor and (not rootFloor or math.abs(floor.Position.Y - rootFloor.Position.Y) <= 12) then
+						local candidate = Vector3.new(candidateXZ.X, floor.Position.Y + rootHeight, candidateXZ.Z)
+						local remaining = flatDistance(candidate, goal)
+						local candidateSide = degrees > 0 and 1 or -1
+						local sidePenalty = preferredSide ~= 0 and degrees ~= 180
+							and candidateSide ~= preferredSide and 6 or 0
+						local distancePenalty = (radius - preferredDistance) * 0.25
+						local score = remaining + math.abs(degrees) * 0.035 + sidePenalty + distancePenalty
+						if score < bestScore then best, bestScore = candidate, score end
+					end
 				end
+				if best then return best end
 			end
 			return best
 		end
 
-		function combat.NavigateMoveTo(humanoid, root, goal, target, state, minInterval, stopRadius, checkVertical)
+		function combat.NavigateMoveTo(humanoid, root, goal, target, state, minInterval, stopRadius, checkVertical, includeMobs)
 			if not humanoid or not root or not goal then return false, "unavailable" end
 			local now = os.clock()
+			local interval = minInterval or 0.2
 			local offset = root.Position - goal
 			local distance = checkVertical and offset.Magnitude or flatDistance(root.Position, goal)
 			if distance <= (stopRadius or 1.8) then
 				if state.Active then humanoid:MoveTo(root.Position) end
 				state.Active, state.Goal, state.DetourGoal = false, nil, nil
+				state.DetourFor, state.DetourSearchAt = nil, nil
 				return true, "arrived"
 			end
 
-			local params = raycastParams(root, target)
+			local params = raycastParams(root, target, includeMobs)
 			local direction = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
 			local obstruction = direction.Magnitude > 0.1
 				and workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), direction, params)
@@ -122,24 +139,36 @@ return {
 					destination = sameGoal and state.DetourGoal or nil
 					if destination and flatDistance(root.Position, destination) <= 2.5 then destination = nil end
 					if not destination then
-						destination = chooseDetour(root, goal, target)
-						state.DetourGoal, state.DetourFor = destination, goal
+						local canSearch = not state.DetourSearchAt
+							or now - state.DetourSearchAt >= interval
+						if canSearch then
+							destination = chooseDetour(root, goal, target, state, includeMobs)
+							state.DetourGoal, state.DetourFor = destination, goal
+							state.DetourSearchAt = now
+						else
+							destination = state.DetourGoal
+								and state.DetourFor
+								and flatDistance(state.DetourFor, goal) < 5
+								and state.DetourGoal
+							or goal
+						end
 					end
 					if destination then
 						mode = "detouring"
 					else
-						-- Keep pressing toward the mob if no safe local sidestep is available.
+						-- Keep pressing toward the target if no safe local sidestep is available.
 						state.DetourGoal, state.DetourFor = nil, nil
 						destination = goal
 					end
 				end
 			else
 				state.DetourGoal, state.DetourFor = nil, nil
+				state.DetourSearchAt = nil
 			end
 
-			local interval = minInterval or 0.2
-			local goalChanged = not state.Goal or (state.Goal - destination).Magnitude > 1.5
-			if not state.Active or goalChanged or now - (state.LastMoveAt or 0) >= interval then
+			-- Treat minInterval as an actual MoveTo rate limit. A moving follow target
+			-- can shift every frame; issuing a new command for each shift causes jitter.
+			if not state.Active or now - (state.LastMoveAt or 0) >= interval then
 				humanoid:MoveTo(destination)
 				state.Active, state.Goal, state.LastMoveAt = true, destination, now
 			end

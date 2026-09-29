@@ -1,6 +1,6 @@
--- Breadcrumb follow controller. Uses MoveTo through CombatSystem.Navigation.
-local VERSION = "1.11.0"
-print("[FollowSystem] Version " .. VERSION .. " (distance-ranked stable queue + jump recovery)")
+-- Direct player follow controller. Uses MoveTo through CombatSystem.Navigation.
+local VERSION = "1.13.0"
+print("[FollowSystem] Version " .. VERSION .. " (direct follow + stuck jump + detour retry)")
 
 return {
 	Initialize = function(configuration, dependencies)
@@ -8,32 +8,36 @@ return {
 		local CombatSystem = configuration.CombatSystem
 		local ClaimMovement = dependencies.ClaimMovement
 		local ReleaseMovement = dependencies.ReleaseMovement
-		local trailFolderName = "IamrichFollowTrail_" .. tostring(Players.LocalPlayer.UserId)
-		local oldTrailFolder = workspace:FindFirstChild(trailFolderName)
-		if oldTrailFolder then oldTrailFolder:Destroy() end
-		local trailFolder = Instance.new("Folder")
-		trailFolder.Name = trailFolderName
-		trailFolder.Parent = workspace
+		local targetLineFolderName = "IamrichFollowTargetLine_" .. tostring(Players.LocalPlayer.UserId)
+		for _, oldName in ipairs({
+			"IamrichFollowTrail_" .. tostring(Players.LocalPlayer.UserId),
+			targetLineFolderName,
+		}) do
+			local oldFolder = workspace:FindFirstChild(oldName)
+			if oldFolder then oldFolder:Destroy() end
+		end
+		local targetLineFolder = Instance.new("Folder")
+		targetLineFolder.Name = targetLineFolderName
+		targetLineFolder.Parent = workspace
 		local state = {
-			Trail = {},
-			Cursor = 1,
 			TargetUserId = nil,
 			FormationOrder = {},
 			FormationSignature = nil,
 			FormationCandidateSignature = nil,
 			FormationCandidateSince = 0,
-			LastSampleAt = 0,
 			LastUpdateAt = 0,
 			LastProgressAt = 0,
 			ProgressPosition = nil,
 			RecoveryAttempts = 0,
 			RecoveryGoal = nil,
 			RecoveryUntil = 0,
+			LastJumpRecoveryAt = 0,
+			FollowDirection = nil,
+			LastHeadingAt = 0,
 			AvoidUserId = nil,
 			AvoidOffset = nil,
-			TrailVisible = configuration.FollowTrailVisible == true,
-			VisualPointCount = 0,
-			VisualNeedsRebuild = false,
+			TargetLineVisible = configuration.FollowTargetVisible == true,
+			TargetLine = nil,
 			Interaction = {
 				LeaderMoved = false,
 				LeaderMovingSince = nil,
@@ -43,7 +47,7 @@ return {
 				StopEventCreated = false,
 				LastAttemptAt = 0,
 			},
-			Navigation = { Active = false, Goal = nil, LastMoveAt = 0 },
+			Navigation = { Active = false, Goal = nil, LastMoveAt = 0, DetourSideBias = 1, DetourDistance = 8 },
 		}
 
 		local FOLLOW_INTERACTION_INTERVAL = 1.5
@@ -53,70 +57,54 @@ return {
 		local FOLLOWER_GAP = 5.5
 		local FORMATION_RECHECK_DELAY = 2
 
-		local function clearVisualTrail()
-			for _, segment in ipairs(trailFolder:GetChildren()) do
-				segment:Destroy()
+		local function clearTargetLine()
+			if state.TargetLine then
+				state.TargetLine:Destroy()
+				state.TargetLine = nil
 			end
-			state.VisualPointCount = 0
-			state.VisualNeedsRebuild = false
 		end
 
-		local function createVisualSegment(fromPosition, toPosition, index)
-			-- Keep the route near foot level instead of drawing it through the leader's torso.
-			fromPosition -= Vector3.new(0, 2.4, 0)
-			toPosition -= Vector3.new(0, 2.4, 0)
-			local delta = toPosition - fromPosition
-			local length = delta.Magnitude
-			if length < 0.1 then return end
-			local segment = Instance.new("Part")
-			segment.Name = string.format("Trail_%03d", index)
-			segment.Anchored = true
-			segment.CanCollide = false
-			segment.CanTouch = false
-			segment.CanQuery = false
-			segment.CastShadow = false
-			segment.Material = Enum.Material.Neon
-			segment.Color = Color3.fromRGB(70, 190, 255)
-			segment.Transparency = 0.18
-			segment.Size = Vector3.new(0.16, 0.16, length)
-			segment.CFrame = CFrame.lookAt((fromPosition + toPosition) * 0.5, toPosition)
-			segment.Parent = trailFolder
-		end
-
-		local function renderTrail()
-			local visible = configuration.FollowTrailVisible == true
-			if visible ~= state.TrailVisible then
-				state.TrailVisible = visible
-				state.VisualNeedsRebuild = true
-			end
-			if not state.TrailVisible then
-				if state.VisualPointCount > 0 or #trailFolder:GetChildren() > 0 then clearVisualTrail() end
+		local function renderTargetLine(root, goal)
+			if state.TargetLineVisible ~= true or not root or not goal then
+				clearTargetLine()
 				return
 			end
-			if state.VisualNeedsRebuild then clearVisualTrail() end
-			local trail = state.Trail
-			local firstSegment = math.max(1, state.VisualPointCount)
-			for index = firstSegment, #trail - 1 do
-				local fromPoint, toPoint = trail[index], trail[index + 1]
-				-- The first breadcrumb is a synthetic spacing seed, not a place the
-				-- leader actually walked through.
-				if not fromPoint.Synthetic and not toPoint.Synthetic then
-					createVisualSegment(fromPoint.Position, toPoint.Position, index)
-				end
+			local fromPosition = root.Position - Vector3.new(0, 2.4, 0)
+			local toPosition = goal - Vector3.new(0, 2.4, 0)
+			local delta = toPosition - fromPosition
+			local length = delta.Magnitude
+			if length < 0.1 then
+				clearTargetLine()
+				return
 			end
-			state.VisualPointCount = #trail
+			local line = state.TargetLine
+			if not line or not line.Parent then
+				line = Instance.new("Part")
+				line.Name = "FollowTargetLine"
+				line.Anchored = true
+				line.CanCollide = false
+				line.CanTouch = false
+				line.CanQuery = false
+				line.CastShadow = false
+				line.Material = Enum.Material.Neon
+				line.Color = Color3.fromRGB(70, 190, 255)
+				line.Transparency = 0.18
+				line.Parent = targetLineFolder
+				state.TargetLine = line
+			end
+			line.Size = Vector3.new(0.16, 0.16, length)
+			line.CFrame = CFrame.lookAt((fromPosition + toPosition) * 0.5, toPosition)
 		end
 
-		local function clearTrail()
-			table.clear(state.Trail)
-			state.VisualNeedsRebuild = true
-			state.Cursor = 1
-			state.LastSampleAt = 0
+		local function clearFollowState()
 			state.LastProgressAt = 0
 			state.ProgressPosition = nil
 			state.RecoveryAttempts = 0
 			state.RecoveryGoal = nil
 			state.RecoveryUntil = 0
+			state.LastJumpRecoveryAt = 0
+			state.FollowDirection = nil
+			state.LastHeadingAt = 0
 			state.AvoidUserId = nil
 			state.AvoidOffset = nil
 		end
@@ -128,9 +116,12 @@ return {
 		local function reset(humanoid, root)
 			ReleaseMovement("Follow", humanoid, root)
 			resetNavigation()
-			clearTrail()
+			clearFollowState()
+			clearTargetLine()
 			state.TargetUserId = nil
 			state.LastUpdateAt = 0
+			state.Navigation.DetourSideBias = 1
+			state.Navigation.DetourDistance = 8
 			state.FormationOrder = {}
 			state.FormationSignature = nil
 			state.FormationCandidateSignature = nil
@@ -146,60 +137,6 @@ return {
 		local function flatDistance(a, b)
 			local delta = a - b
 			return Vector3.new(delta.X, 0, delta.Z).Magnitude
-		end
-
-		local function pushTrailPoint(position, now)
-			local trail = state.Trail
-			local last = trail[#trail]
-			if last then
-				local moved = (position - last.Position).Magnitude
-				local elapsed = now - last.Time
-				if moved > 120 then
-					clearTrail()
-					trail = state.Trail
-					last = nil
-				elseif moved < 1.25 or elapsed < 0.12 then
-					return
-				end
-			end
-			table.insert(trail, { Position = position, Time = now })
-			state.LastSampleAt = now
-			while #trail > 160 or (#trail > 2 and now - trail[1].Time > 45) do
-				table.remove(trail, 1)
-				state.Cursor = math.max(1, state.Cursor - 1)
-				state.VisualNeedsRebuild = true
-			end
-		end
-
-		local function seedTrail(root, leaderRoot, spacing, now)
-			local outward = root.Position - leaderRoot.Position
-			outward = Vector3.new(outward.X, 0, outward.Z)
-			if outward.Magnitude < 0.35 then
-				local behind = -leaderRoot.CFrame.LookVector
-				outward = Vector3.new(behind.X, 0, behind.Z)
-			end
-			if outward.Magnitude < 0.1 then outward = Vector3.new(0, 0, -1) end
-			local slot = leaderRoot.Position + outward.Unit * spacing
-			table.insert(state.Trail, { Position = slot, Time = now, Synthetic = true })
-			table.insert(state.Trail, { Position = leaderRoot.Position, Time = now })
-			state.LastSampleAt = now
-		end
-
-		-- Return the point at a given path distance behind the leader and the
-		-- last trail sample that the follower may walk toward before that point.
-		local function pointBehindLeader(distance)
-			local trail = state.Trail
-			local remaining = distance
-			for index = #trail, 2, -1 do
-				local newer = trail[index].Position
-				local older = trail[index - 1].Position
-				local segment = (newer - older).Magnitude
-				if segment >= remaining and segment > 0.01 then
-					return newer:Lerp(older, remaining / segment), index - 1
-				end
-				remaining -= segment
-			end
-			return nil, nil
 		end
 
 		local function getFormationCandidates(root, followedPlayer, snapshots, baseSpacing, leaderRoot)
@@ -309,69 +246,31 @@ return {
 			return spacingForLocalOrder()
 		end
 
-		local function trailGoal(root, leaderRoot, spacing)
-			local trail = state.Trail
-			local endpoint, endIndex = pointBehindLeader(spacing)
-			if not endpoint then
-				if #trail > 1 then return trail[1].Position end
+		local function getDirectFollowGoal(leaderRoot, spacing, now)
+			local velocity = leaderRoot.AssemblyLinearVelocity
+			local flatVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+			local desiredDirection = nil
+			if flatVelocity.Magnitude > 2 then
+				desiredDirection = flatVelocity.Unit
+			elseif state.FollowDirection then
+				desiredDirection = state.FollowDirection
+			else
 				local look = leaderRoot.CFrame.LookVector
-				local backward = Vector3.new(-look.X, 0, -look.Z)
-				if backward.Magnitude < 0.1 then backward = Vector3.new(0, 0, -1) end
-				return leaderRoot.Position + backward.Unit * spacing
+				desiredDirection = Vector3.new(look.X, 0, look.Z)
 			end
+			if desiredDirection.Magnitude < 0.1 then desiredDirection = Vector3.new(0, 0, -1) end
+			desiredDirection = desiredDirection.Unit
 
-			state.Cursor = math.clamp(state.Cursor, 1, math.max(1, endIndex))
-			while state.Cursor <= endIndex and flatDistance(root.Position, trail[state.Cursor].Position) <= 2.6 do
-				state.Cursor += 1
+			if state.FollowDirection then
+				local elapsed = state.LastHeadingAt > 0 and (now - state.LastHeadingAt) or 0.14
+				local alpha = math.clamp(elapsed * 3.5, 0.12, 0.5)
+				local blended = state.FollowDirection:Lerp(desiredDirection, alpha)
+				state.FollowDirection = blended.Magnitude > 0.15 and blended.Unit or desiredDirection
+			else
+				state.FollowDirection = desiredDirection
 			end
-			if state.Cursor > endIndex then return endpoint end
-
-			-- Keep a long lead on straight segments, but cap it at an upcoming bend.
-			-- Otherwise MoveTo cuts across curves and can strand the follower outside
-			-- the route where the trail cursor never advances.
-			local lookAhead = math.clamp(spacing * 1.25, 8, 14)
-			local turnTotal = 0
-			local distanceToVertex = flatDistance(root.Position, trail[state.Cursor].Position)
-			for index = state.Cursor, endIndex - 1 do
-				if index > state.Cursor then
-					distanceToVertex += flatDistance(trail[index - 1].Position, trail[index].Position)
-				end
-				if distanceToVertex > lookAhead + 2.2 then break end
-
-				local before = trail[index - 1]
-				local vertex = trail[index]
-				local after = trail[index + 1]
-				if before and not before.Synthetic and not vertex.Synthetic and not after.Synthetic then
-					local incoming = vertex.Position - before.Position
-					local outgoing = after.Position - vertex.Position
-					incoming = Vector3.new(incoming.X, 0, incoming.Z)
-					outgoing = Vector3.new(outgoing.X, 0, outgoing.Z)
-					if incoming.Magnitude > 0.1 and outgoing.Magnitude > 0.1 then
-						local dot = math.clamp(incoming.Unit:Dot(outgoing.Unit), -1, 1)
-						turnTotal += math.acos(dot)
-						if dot < 0.72 or turnTotal >= math.rad(40) then
-							return vertex.Position
-						end
-					end
-				end
-			end
-
-			local remaining = lookAhead
-			local from = root.Position
-			for index = state.Cursor, endIndex do
-				local point = trail[index].Position
-				local segmentLength = flatDistance(from, point)
-				if segmentLength >= remaining and segmentLength > 0.01 then
-					return from:Lerp(point, remaining / segmentLength)
-				end
-				remaining -= segmentLength
-				from = point
-			end
-			local finalLength = flatDistance(from, endpoint)
-			if finalLength >= remaining and finalLength > 0.01 then
-				return from:Lerp(endpoint, remaining / finalLength)
-			end
-			return endpoint
+			state.LastHeadingAt = now
+			return leaderRoot.Position - state.FollowDirection * spacing
 		end
 
 		local function findCrowdingPlayer(root, goal, followedPlayer, snapshots)
@@ -379,7 +278,7 @@ return {
 			for _, snapshot in ipairs(snapshots or {}) do
 				local player = snapshot.Player
 				local otherRoot = snapshot.Root
-				if player ~= Players.LocalPlayer and player ~= followedPlayer and otherRoot.Parent then
+				if player ~= Players.LocalPlayer and player ~= followedPlayer and otherRoot and otherRoot.Parent then
 					local rootDistance = flatDistance(root.Position, otherRoot.Position)
 					local goalDistance = flatDistance(goal, otherRoot.Position)
 					local distance = math.min(rootDistance, goalDistance)
@@ -430,40 +329,7 @@ return {
 			return goal + (state.AvoidOffset or Vector3.zero)
 		end
 
-		local function findForwardClearWaypoint(root, spacing)
-			local _, endIndex = pointBehindLeader(spacing)
-			if not endIndex then return nil, nil end
-			local firstIndex = math.clamp(state.Cursor, 1, endIndex)
-			local params = RaycastParams.new()
-			params.FilterType = Enum.RaycastFilterType.Exclude
-			local filter = { root.Parent, trailFolder }
-			for _, player in ipairs(Players:GetPlayers()) do
-				if player.Character then table.insert(filter, player.Character) end
-			end
-			params.FilterDescendantsInstances = filter
-			params.RespectCanCollide = true
-
-			local routeDistance = 0
-			local previous = root.Position
-			for index = firstIndex, endIndex do
-				local point = state.Trail[index].Position
-				routeDistance += flatDistance(previous, point)
-				previous = point
-				local directDistance = flatDistance(root.Position, point)
-				if routeDistance >= 6.5 and routeDistance <= 32
-					and directDistance >= 5 and directDistance <= 32 then
-					local origin = root.Position + Vector3.new(0, 1.5, 0)
-					local destination = point + Vector3.new(0, 1.5, 0)
-					if not workspace:Raycast(origin, destination - origin, params) then
-						return point, index
-					end
-				end
-				if routeDistance > 32 then break end
-			end
-			return nil, nil
-		end
-
-		local function updateRecovery(root, humanoid, leaderRoot, goal, now, spacing)
+		local function updateRecovery(root, humanoid, goal, now)
 			if state.RecoveryGoal then
 				if now <= state.RecoveryUntil
 					and flatDistance(root.Position, state.RecoveryGoal) > 2.2 then
@@ -488,9 +354,11 @@ return {
 			state.RecoveryAttempts += 1
 			if state.RecoveryAttempts == 1 then
 				-- A grounded jump can clear short barriers or get the character out of
-				-- a player pile. Never force a jump while already airborne.
-				if humanoid.FloorMaterial ~= Enum.Material.Air then
+				-- a player pile. Apply a cooldown so a persistent wall does not cause hopping.
+				if humanoid.FloorMaterial ~= Enum.Material.Air
+					and (state.LastJumpRecoveryAt == 0 or now - state.LastJumpRecoveryAt >= 4.5) then
 					humanoid.Jump = true
+					state.LastJumpRecoveryAt = now
 				end
 				state.RecoveryGoal = goal
 				state.RecoveryUntil = now + 0.85
@@ -500,8 +368,7 @@ return {
 				local forward = goal - root.Position
 				forward = Vector3.new(forward.X, 0, forward.Z)
 				if forward.Magnitude < 0.1 then
-					forward = leaderRoot.Position - root.Position
-					forward = Vector3.new(forward.X, 0, forward.Z)
+					forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
 				end
 				if forward.Magnitude < 0.1 then forward = Vector3.new(0, 0, -1) end
 				forward = forward.Unit
@@ -512,24 +379,15 @@ return {
 				return state.RecoveryGoal
 			end
 
-			-- After jumping and one sidestep fail, look farther along the recorded trail
-			-- for a waypoint with a clear direct approach, without invoking Pathfinding.
-			local alternateGoal, alternateIndex = findForwardClearWaypoint(root, spacing)
-			if alternateGoal then
-				state.Cursor = math.max(state.Cursor, alternateIndex)
-				state.RecoveryGoal = alternateGoal
-				state.RecoveryUntil = now + 2.5
-				state.RecoveryAttempts = 0
-				resetNavigation()
-				return alternateGoal
-			end
-
-			-- If no forward waypoint has a clear approach, advance one breadcrumb and
-			-- let the normal MoveTo detour logic try again.
-			state.Cursor = math.min(state.Cursor + 1, #state.Trail)
+			-- Force MoveTo to choose a fresh detour on the opposite side of the
+			-- obstruction, then keep following the player's live position.
+			state.Navigation.DetourSideBias = -(state.Navigation.DetourSideBias or 1)
+			state.Navigation.DetourDistance = math.min((state.Navigation.DetourDistance or 8) + 4, 20)
 			resetNavigation()
 			state.RecoveryAttempts = 0
-			return trailGoal(root, leaderRoot, math.max(3, spacing or configuration.FollowDistance or 8))
+			state.RecoveryGoal = goal
+			state.RecoveryUntil = now + 1.2
+			return goal
 		end
 
 		local function updateFollowInteraction(root, followedCharacter, leaderRoot, spacing, now)
@@ -597,20 +455,15 @@ return {
 		end
 
 		local api = {}
-		function api.SetTrailVisible(enabled)
-			configuration.FollowTrailVisible = enabled == true
-			state.TrailVisible = configuration.FollowTrailVisible
-			if state.TrailVisible then
-				state.VisualNeedsRebuild = true
-				renderTrail()
-			else
-				clearVisualTrail()
-			end
+		function api.SetTargetLineVisible(enabled)
+			configuration.FollowTargetVisible = enabled == true
+			state.TargetLineVisible = configuration.FollowTargetVisible
+			if not state.TargetLineVisible then clearTargetLine() end
 		end
 
 		function api.Reset(humanoid, root)
 			reset(humanoid, root)
-			clearVisualTrail()
+			clearTargetLine()
 		end
 
 		function api.Update(root, humanoid, followedPlayer, snapshots)
@@ -639,16 +492,11 @@ return {
 				leaderRoot,
 				now
 			)
-			if #state.Trail == 0 then
-				seedTrail(root, leaderRoot, spacing, now)
-			else
-				pushTrailPoint(leaderRoot.Position, now)
-			end
 			updateFollowInteraction(root, followedCharacter, leaderRoot, baseSpacing, now)
-			renderTrail()
-			local goal = trailGoal(root, leaderRoot, spacing)
-			goal = updateRecovery(root, humanoid, leaderRoot, goal, now, spacing)
+			local goal = getDirectFollowGoal(leaderRoot, spacing, now)
+			goal = updateRecovery(root, humanoid, goal, now)
 			goal = updateAvoidance(root, goal, followedPlayer, snapshots)
+			renderTargetLine(root, goal)
 
 			ClaimMovement("Follow", humanoid, root)
 			local _, navigationState = CombatSystem.NavigateMoveTo(
@@ -658,7 +506,9 @@ return {
 				followedCharacter,
 				state.Navigation,
 				0.32,
-				2.2
+				2.2,
+				false,
+				true
 			)
 			state.Navigation.NavigationMode = navigationState
 			return true, navigationState

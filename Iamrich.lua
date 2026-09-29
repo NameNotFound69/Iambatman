@@ -1,4 +1,4 @@
-local VERSION = "2.4.8"
+local VERSION = "2.5.4"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -211,7 +211,7 @@ local configuration: {[string]: any} = {
 	AutoExecuteEnabled = true,
 	AlertsDistance = 1000,
 	FollowDistance = 8,
-	FollowTrailVisible = false,
+	FollowTargetVisible = false,
 	FollowPlayerUserId = nil,
 	PlayerPanelMode = "server",
 	SelectedCombatMob = nil,
@@ -312,13 +312,13 @@ end
 -- Movement controllers are separate source chunks. Publish both modules beside
 -- this file so the runtime loaders can fetch them from the same branch.
 configuration.CombatSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua"
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua?v=2.2.2"
 )))()
 configuration.CombatSystem.Initialize(configuration, {
 	MobsFolder = MobsFolder,
 })
 configuration.FollowSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.11.0"
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.13.0"
 )))()
 configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration, {
 	Players = Players,
@@ -406,7 +406,9 @@ function configuration.LoadConfig()
 	if type(config.AutoExecuteEnabled) == "boolean" then configuration.AutoExecuteEnabled = config.AutoExecuteEnabled end
 	configuration.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configuration.AlertsDistance, 0, true), 0, 100000)
 	configuration.FollowDistance = math.clamp(ReadNumber("FollowDistance", configuration.FollowDistance, 2, false), 2, 100)
-	if type(config.FollowTrailVisible) == "boolean" then configuration.FollowTrailVisible = config.FollowTrailVisible end
+	if type(config.FollowTargetVisible) == "boolean" then
+		configuration.FollowTargetVisible = config.FollowTargetVisible
+	end
 	configuration.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configuration.AutoAttackRange, 5, false), 5, 500)
 	local savedMobSearchRange = ReadNumber("AutoAttackSearchRange", configuration.AutoAttackSearchRange, 5, false)
 	-- Earlier builds defaulted mob visibility to 100 studs. The intended default
@@ -499,7 +501,7 @@ function configuration.SaveConfig()
 		AutoExecuteEnabled = configuration.AutoExecuteEnabled,
 		AlertsDistance = configuration.AlertsDistance,
 		FollowDistance = configuration.FollowDistance,
-		FollowTrailVisible = configuration.FollowTrailVisible,
+		FollowTargetVisible = configuration.FollowTargetVisible,
 		FollowPlayerUserId = configuration.FollowPlayerUserId,
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
 		AutoBossTargetEnabled = configuration.AutoBossTargetEnabled,
@@ -546,7 +548,7 @@ function configuration.SaveConfig()
 end
 
 configuration.LoadConfig()
-configuration.FollowSystem.SetTrailVisible(configuration.FollowTrailVisible)
+configuration.FollowSystem.SetTargetLineVisible(configuration.FollowTargetVisible)
 if configuration.MigratedLegacyConfig then
 	configuration.SaveConfig()
 end
@@ -2307,19 +2309,19 @@ local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
 	PlayerPage, "Follow spacing (studs)", function() return configuration.FollowDistance end, 3, 2, 100,
 	function(value) configuration.FollowDistance = value end
 )
-local FollowTrailButton = configuration.MakeToggle(
-	"Show follow trail",
-	configuration.FollowTrailVisible,
+local FollowTargetButton = configuration.MakeToggle(
+	"Show follow target",
+	configuration.FollowTargetVisible,
 	ACCENT,
 	ACCENT_DIM,
 	6,
 	PlayersGrid,
-	"Draw the leader's recent route while following."
+	"Draw a line to the current follow position."
 )
-FollowTrailButton.MouseButton1Click:Connect(function()
-	configuration.FollowTrailVisible = not configuration.FollowTrailVisible
-	configuration.SetToggleVisual(FollowTrailButton, "Show follow trail", configuration.FollowTrailVisible, ACCENT, ACCENT_DIM)
-	configuration.FollowSystem.SetTrailVisible(configuration.FollowTrailVisible)
+FollowTargetButton.MouseButton1Click:Connect(function()
+	configuration.FollowTargetVisible = not configuration.FollowTargetVisible
+	configuration.SetToggleVisual(FollowTargetButton, "Show follow target", configuration.FollowTargetVisible, ACCENT, ACCENT_DIM)
+	configuration.FollowSystem.SetTargetLineVisible(configuration.FollowTargetVisible)
 	configuration.SaveConfig()
 end)
 
