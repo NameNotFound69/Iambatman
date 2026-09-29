@@ -1,4 +1,4 @@
-local VERSION = "2.3.3"
+local VERSION = "2.3.6"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -198,51 +198,6 @@ local function OrbitApproachPoint(localRoot, targetRoot, standoff)
 	return targetRoot.Position + away * standoff
 end
 
-local virtualInputObject = nil
-local virtualInputManager = nil
-local warnedInteractInputUnavailable = false
-local function TapInteractX()
-	-- Prefer executor keyboard helpers when present, then Roblox's virtual input APIs.
-	if typeof(keypress) == "function" and typeof(keyrelease) == "function" then
-		local ok = pcall(function()
-			keypress(0x58)
-			task.wait(0.05)
-			keyrelease(0x58)
-		end)
-		if ok then return true end
-	end
-
-	if not virtualInputObject then
-		pcall(function() virtualInputObject = UserInputService:CreateVirtualInput() end)
-	end
-	if virtualInputObject then
-		local ok = pcall(function()
-			virtualInputObject:SendKey(true, Enum.KeyCode.X, false)
-			task.wait(0.05)
-			virtualInputObject:SendKey(false, Enum.KeyCode.X, false)
-		end)
-		if ok then return true end
-	end
-
-	if not virtualInputManager then
-		pcall(function() virtualInputManager = game:GetService("VirtualInputManager") end)
-	end
-	if virtualInputManager then
-		local ok = pcall(function()
-			virtualInputManager:SendKeyEvent(true, Enum.KeyCode.X, false, game)
-			task.wait(0.05)
-			virtualInputManager:SendKeyEvent(false, Enum.KeyCode.X, false, game)
-		end)
-		if ok then return true end
-	end
-
-	if not warnedInteractInputUnavailable then
-		warnedInteractInputUnavailable = true
-		warn("[Iamrich] Could not send the Interact X key in this client environment.")
-	end
-	return false
-end
-
 --==================================================
 -- CONFIG
 --==================================================
@@ -261,7 +216,7 @@ local configuration: {[string]: any} = {
 	SelectedCombatMob = nil,
 	WaypointPosition = nil,
 	WaypointReturnEnabled = false,
-	WaypointReturnRadius = 8,
+	WaypointBillboardEnabled = true,
 	WaypointMoveState = { Active = false, Goal = nil, LastMoveAt = 0 },
 	MovementBoostEnabled = true,
 	AutoAttackEnabled = false,
@@ -427,7 +382,6 @@ function configuration.LoadConfig()
 	-- such as the 955-stud mob outside the eligible-target search.
 	if savedMobSearchRange == 100 then savedMobSearchRange = 1000 end
 	configuration.AutoAttackSearchRange = math.clamp(savedMobSearchRange, 5, 1000)
-	configuration.WaypointReturnRadius = math.clamp(ReadNumber("WaypointReturnRadius", configuration.WaypointReturnRadius, 2, false), 2, 100)
 	local waypoint = config.WaypointPosition
 	if type(waypoint) == "table" then
 		local x, y, z = tonumber(waypoint.X), tonumber(waypoint.Y), tonumber(waypoint.Z)
@@ -470,6 +424,7 @@ function configuration.LoadConfig()
 	if type(config.AutoBossTargetEnabled) == "boolean" then configuration.AutoBossTargetEnabled = config.AutoBossTargetEnabled end
 	if type(config.AutoMiniBossTargetEnabled) == "boolean" then configuration.AutoMiniBossTargetEnabled = config.AutoMiniBossTargetEnabled end
 	if type(config.WaypointReturnEnabled) == "boolean" then configuration.WaypointReturnEnabled = config.WaypointReturnEnabled end
+	if type(config.WaypointBillboardEnabled) == "boolean" then configuration.WaypointBillboardEnabled = config.WaypointBillboardEnabled end
 	if type(config.ExpTargetRetaliationEnabled) == "boolean" then configuration.ExpTargetRetaliationEnabled = config.ExpTargetRetaliationEnabled end
 	if type(config.AutoSkillEnabled) == "boolean" then configuration.AutoSkillEnabled = config.AutoSkillEnabled end
 	if type(config.ESPEnabled) == "boolean" then configuration.ESPEnabled = config.ESPEnabled end
@@ -525,7 +480,7 @@ function configuration.SaveConfig()
 			Z = configuration.WaypointPosition.Z,
 		} or nil,
 		WaypointReturnEnabled = configuration.WaypointReturnEnabled,
-		WaypointReturnRadius = configuration.WaypointReturnRadius,
+		WaypointBillboardEnabled = configuration.WaypointBillboardEnabled,
 		AutoAttackInterval = configuration.AutoAttackInterval,
 		AutoSkillEnabled = configuration.AutoSkillEnabled,
 		AutoSkillInterval = configuration.AutoSkillInterval,
@@ -2187,57 +2142,75 @@ WaypointBillboard.Name = "WaypointBillboard"
 WaypointBillboard.Adornee = WaypointMarker
 WaypointBillboard.AlwaysOnTop = true
 WaypointBillboard.LightInfluence = 0
-WaypointBillboard.MaxDistance = 2000
-WaypointBillboard.Size = UDim2.fromOffset(150, 38)
-WaypointBillboard.StudsOffsetWorldSpace = Vector3.new(0, 1.6, 0)
-WaypointBillboard.Parent = WaypointMarker
+WaypointBillboard.MaxDistance = 250
+WaypointBillboard.Size = UDim2.fromOffset(40, 40)
+WaypointBillboard.StudsOffset = Vector3.new(0, 1.6, 0)
+WaypointBillboard.ResetOnSpawn = false
+WaypointBillboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+WaypointBillboard.Parent = Player:FindFirstChildOfClass("PlayerGui")
 
-local WaypointBillboardText = Instance.new("TextLabel")
-WaypointBillboardText.BackgroundColor3 = Color3.fromRGB(17, 20, 29)
-WaypointBillboardText.BackgroundTransparency = 0.12
-WaypointBillboardText.BorderSizePixel = 0
-WaypointBillboardText.Size = UDim2.fromScale(1, 1)
-WaypointBillboardText.Font = Enum.Font.GothamBold
-WaypointBillboardText.Text = "WAYPOINT"
-WaypointBillboardText.TextColor3 = ACCENT
-WaypointBillboardText.TextSize = 13
-WaypointBillboardText.Parent = WaypointBillboard
+local WaypointBillboardFrame = Instance.new("Frame")
+WaypointBillboardFrame.Name = "Frame"
+WaypointBillboardFrame.Size = UDim2.fromScale(1, 1)
+WaypointBillboardFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+WaypointBillboardFrame.BackgroundTransparency = 0.12
+WaypointBillboardFrame.BorderSizePixel = 0
+WaypointBillboardFrame.Parent = WaypointBillboard
 
 local WaypointBillboardCorner = Instance.new("UICorner")
 WaypointBillboardCorner.CornerRadius = UDim.new(0, 8)
-WaypointBillboardCorner.Parent = WaypointBillboardText
+WaypointBillboardCorner.Parent = WaypointBillboardFrame
 
 local WaypointBillboardStroke = Instance.new("UIStroke")
 WaypointBillboardStroke.Color = ACCENT
-WaypointBillboardStroke.Transparency = 0.25
-WaypointBillboardStroke.Thickness = 1
-WaypointBillboardStroke.Parent = WaypointBillboardText
+WaypointBillboardStroke.Name = "Stroke"
+WaypointBillboardStroke.Thickness = 1.5
+WaypointBillboardStroke.Parent = WaypointBillboardFrame
+
+local WaypointBillboardDot = Instance.new("Frame")
+WaypointBillboardDot.Name = "Dot"
+WaypointBillboardDot.AnchorPoint = Vector2.new(0.5, 0.5)
+WaypointBillboardDot.Position = UDim2.fromScale(0.5, 0.5)
+WaypointBillboardDot.Size = UDim2.fromOffset(12, 12)
+WaypointBillboardDot.BackgroundColor3 = ACCENT
+WaypointBillboardDot.BorderSizePixel = 0
+WaypointBillboardDot.Parent = WaypointBillboardFrame
+local WaypointBillboardDotCorner = Instance.new("UICorner")
+WaypointBillboardDotCorner.CornerRadius = UDim.new(1, 0)
+WaypointBillboardDotCorner.Parent = WaypointBillboardDot
 
 local function UpdateWaypointMarker()
- local point = configuration.WaypointPosition
- WaypointMarker.Position = point or Vector3.zero
- WaypointMarker.Transparency = point and 0.15 or 1
- WaypointBillboard.Enabled = point ~= nil
- if point then
-  WaypointBillboardText.Text = string.format("WAYPOINT  •  %.0f, %.0f, %.0f", point.X, point.Y, point.Z)
- end
+	local point = configuration.WaypointPosition
+	local visible = point ~= nil and configuration.WaypointBillboardEnabled
+	WaypointMarker.Position = point or Vector3.zero
+	WaypointMarker.Transparency = visible and 0.15 or 1
+	WaypointBillboard.Enabled = visible
 end
+
+local WaypointBillboardButton = configuration.MakeToggle(
+	"Show waypoint marker",
+	configuration.WaypointBillboardEnabled,
+	ACCENT,
+	ACCENT_DIM,
+	3,
+	WaypointPage,
+	"Show or hide the pinned point in the world."
+)
 
 local ReturnToWaypointButton = configuration.MakeToggle(
 	"Return to waypoint",
 	configuration.WaypointReturnEnabled,
 	ACCENT,
 	ACCENT_DIM,
-	3,
+	4,
 	WaypointPage,
-	"Walk back when you move outside the radius."
+	"Walk back to the pinned position when displaced."
 )
 
 local function UpdateWaypointInfo()
 	local point = configuration.WaypointPosition
 	UpdateWaypointMarker()
-	WaypointInfo.Text = point and string.format("Pinned at  %.1f, %.1f, %.1f", point.X, point.Y, point.Z)
-		or "No waypoint set"
+	WaypointInfo.Text = point and "Waypoint set" or "No waypoint set"
 	configuration.SetToggleVisual(
 		ReturnToWaypointButton,
 		"Return to waypoint",
@@ -2245,11 +2218,18 @@ local function UpdateWaypointInfo()
 		ACCENT,
 		ACCENT_DIM
 	)
+	configuration.SetToggleVisual(
+		WaypointBillboardButton,
+		"Show waypoint marker",
+		configuration.WaypointBillboardEnabled,
+		ACCENT,
+		ACCENT_DIM
+	)
 end
 
 local SetWaypointButton = configuration.MakeActionRow(
 	"Pin current position",
-	4,
+	5,
 	WaypointPage,
 	"Save where you are standing as the return point."
 )
@@ -2263,7 +2243,7 @@ SetWaypointButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
-local ClearWaypointButton = configuration.MakeActionRow("Clear waypoint", 5, WaypointPage)
+local ClearWaypointButton = configuration.MakeActionRow("Clear waypoint", 6, WaypointPage)
 ClearWaypointButton.MouseButton1Click:Connect(function()
 	configuration.WaypointPosition = nil
 	configuration.WaypointReturnEnabled = false
@@ -2272,17 +2252,9 @@ ClearWaypointButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
-local WaypointRadiusCard, WaypointRadiusInput = configuration.MakeNumberCard(
-	WaypointPage,
-	"Return radius (studs)",
-	function() return configuration.WaypointReturnRadius end,
-	6,
-	2,
-	100,
-	function(value) configuration.WaypointReturnRadius = value end
-)
-WaypointRadiusInput.FocusLost:Connect(function()
-	WaypointRadiusInput.Text = tostring(configuration.WaypointReturnRadius)
+WaypointBillboardButton.MouseButton1Click:Connect(function()
+	configuration.WaypointBillboardEnabled = not configuration.WaypointBillboardEnabled
+	UpdateWaypointInfo()
 	configuration.SaveConfig()
 end)
 ReturnToWaypointButton.MouseButton1Click:Connect(function()
@@ -2782,15 +2754,7 @@ task.spawn(function()
 			end
 		end
 		if level and humanoid then
-			local followedPlayer = configuration.FollowPlayerUserId
-				and Players:GetPlayerByUserId(tonumber(configuration.FollowPlayerUserId))
-			local followedHumanoid = followedPlayer and followedPlayer.Character
-				and followedPlayer.Character:FindFirstChildOfClass("Humanoid")
-			if followedHumanoid then
-				-- The regular movement boost is faster than many followed players and
-				-- makes the spacing controller overshoot on each correction.
-				humanoid.WalkSpeed = followedHumanoid.WalkSpeed
-			elseif level.Value >= 300 then
+			if level.Value >= 300 then
 				humanoid.WalkSpeed = 38
 			elseif humanoid.WalkSpeed < 28 then
 				humanoid.WalkSpeed = 28
@@ -4428,7 +4392,7 @@ task.spawn(function()
 		else
 			if configuration.WaypointReturnEnabled and point and root and humanoid and not paused then
 				local distance = (root.Position - point).Magnitude
-				if distance > configuration.WaypointReturnRadius then
+				if distance > 0.75 then
 					ClaimMovement("Waypoint", humanoid, root)
 					local _, navigationState = configuration.CombatSystem.NavigateMoveTo(
 						humanoid,
@@ -4437,7 +4401,7 @@ task.spawn(function()
 						nil,
 						moveState,
 						0.18,
-						configuration.WaypointReturnRadius,
+						0.75,
 						true
 					)
 					moveState.NavigationMode = navigationState
@@ -4577,7 +4541,6 @@ task.spawn(function()
 	local followMoveState = { Active = false, Goal = nil, LastMoveAt = 0 }
 	local lastAutoBlockCheck = 0
 	local nextAutoBlockPromptAt = 0
-	local lastInteractAt = 0
 	local autoBlockTeleporting = false
 	local deferredAutoBlockMob = nil
 	local flashOn = false
@@ -4727,10 +4690,6 @@ task.spawn(function()
 			local followedCharacter = followedPlayer.Character
 			local followedRoot = followedCharacter and followedCharacter:FindFirstChild("HumanoidRootPart")
 			if humanoid and localRoot and followedRoot then
-				local followedHumanoid = followedCharacter:FindFirstChildOfClass("Humanoid")
-				if followedHumanoid and humanoid.WalkSpeed ~= followedHumanoid.WalkSpeed then
-					humanoid.WalkSpeed = followedHumanoid.WalkSpeed
-				end
 				local spacing = math.max(3, configuration.FollowDistance or 8)
 				local now = os.clock()
 				local delta = localRoot.Position - followedRoot.Position
@@ -4828,14 +4787,6 @@ task.spawn(function()
 			lastFollowProgressPosition = nil
 			followEscapeDirection = 0
 			configuration.CombatSystem.ResetNavigationState(followMoveState)
-		end
-
-		-- Tap X while Auto Farm or Follow is active so contextual Interact actions can trigger.
-		if not configuration.EmergencyStopActive
-			and (configuration.Farming or followedPlayer ~= nil)
-			and os.clock() - lastInteractAt >= 0.9 then
-			lastInteractAt = os.clock()
-			TapInteractX()
 		end
 
 		if configuration.AutoBlockEnabled and not configuration.EmergencyStopActive and not configuration.AlertCombatPending
