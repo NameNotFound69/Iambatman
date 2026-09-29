@@ -1,6 +1,6 @@
 -- Breadcrumb follow controller. Uses MoveTo through CombatSystem.Navigation.
-local VERSION = "1.3.0"
-print("[FollowSystem] Version " .. VERSION .. " (smoothed trail + yielding + route display + paced interact)")
+local VERSION = "1.7.0"
+print("[FollowSystem] Version " .. VERSION .. " (curve-aware trail + follow queue + yielding + route display + paced interact)")
 
 return {
 	Initialize = function(configuration, dependencies)
@@ -46,6 +46,8 @@ return {
 		local LEADER_STOP_CONFIRM_TIME = 0.65
 		local LEADER_MOVE_CONFIRM_TIME = 0.35
 		local INTERACTION_PENDING_TIME = 8
+		local FOLLOWER_GAP = 5.5
+		local FOLLOWER_TRAIL_RADIUS = 6
 
 		local function clearVisualTrail()
 			for _, segment in ipairs(trailFolder:GetChildren()) do
@@ -192,6 +194,61 @@ return {
 			return nil, nil
 		end
 
+		local function isNearFollowTrail(candidateRoot, maxDistance)
+			local trail = state.Trail
+			local routeDistance = 0
+			for index = #trail, 2, -1 do
+				local newer = trail[index]
+				local older = trail[index - 1]
+				if not newer.Synthetic and not older.Synthetic then
+					local direction = older.Position - newer.Position
+					direction = Vector3.new(direction.X, 0, direction.Z)
+					local length = direction.Magnitude
+					if length > 0.1 then
+						local available = maxDistance - routeDistance
+						if available <= 0 then break end
+						local relative = candidateRoot.Position - newer.Position
+						relative = Vector3.new(relative.X, 0, relative.Z)
+						local progress = math.clamp(relative:Dot(direction) / (length * length), 0, 1)
+						progress = math.min(progress, available / length)
+						local nearestPoint = newer.Position + direction * progress
+						if flatDistance(candidateRoot.Position, nearestPoint) <= FOLLOWER_TRAIL_RADIUS then
+							return true
+						end
+						routeDistance += length
+					end
+				end
+				if routeDistance >= maxDistance then break end
+			end
+			return false
+		end
+
+		local function getFormationSpacing(followedPlayer, snapshots, baseSpacing, leaderRoot)
+			local candidates = { Players.LocalPlayer }
+			local routeSpan = baseSpacing + FOLLOWER_GAP * 14
+			local leaderClusterRadius = math.clamp(baseSpacing + 4, 12, 20)
+			for _, snapshot in ipairs(snapshots or {}) do
+				local player = snapshot.Player
+				local otherRoot = snapshot.Root
+				if player ~= Players.LocalPlayer and player ~= followedPlayer
+					and otherRoot and otherRoot.Parent
+					and (flatDistance(otherRoot.Position, leaderRoot.Position) <= leaderClusterRadius
+						or isNearFollowTrail(otherRoot, routeSpan)) then
+					table.insert(candidates, player)
+				end
+			end
+			table.sort(candidates, function(a, b)
+				return a.UserId < b.UserId
+			end)
+
+			for rank, player in ipairs(candidates) do
+				if player == Players.LocalPlayer then
+					return baseSpacing + (rank - 1) * FOLLOWER_GAP
+				end
+			end
+			return baseSpacing
+		end
+
 		local function trailGoal(root, leaderRoot, spacing)
 			local trail = state.Trail
 			local endpoint, endIndex = pointBehindLeader(spacing)
@@ -207,10 +264,39 @@ return {
 			while state.Cursor <= endIndex and flatDistance(root.Position, trail[state.Cursor].Position) <= 2.6 do
 				state.Cursor += 1
 			end
+			if state.Cursor > endIndex then return endpoint end
 
-			-- Aim ahead along the recorded polyline so MoveTo has room to blend
-			-- direction changes instead of stopping at every short breadcrumb.
-			local remaining = math.clamp(spacing * 1.25, 8, 14)
+			-- Keep a long lead on straight segments, but cap it at an upcoming bend.
+			-- Otherwise MoveTo cuts across curves and can strand the follower outside
+			-- the route where the trail cursor never advances.
+			local lookAhead = math.clamp(spacing * 1.25, 8, 14)
+			local turnTotal = 0
+			local distanceToVertex = flatDistance(root.Position, trail[state.Cursor].Position)
+			for index = state.Cursor, endIndex - 1 do
+				if index > state.Cursor then
+					distanceToVertex += flatDistance(trail[index - 1].Position, trail[index].Position)
+				end
+				if distanceToVertex > lookAhead + 2.2 then break end
+
+				local before = trail[index - 1]
+				local vertex = trail[index]
+				local after = trail[index + 1]
+				if before and not before.Synthetic and not vertex.Synthetic and not after.Synthetic then
+					local incoming = vertex.Position - before.Position
+					local outgoing = after.Position - vertex.Position
+					incoming = Vector3.new(incoming.X, 0, incoming.Z)
+					outgoing = Vector3.new(outgoing.X, 0, outgoing.Z)
+					if incoming.Magnitude > 0.1 and outgoing.Magnitude > 0.1 then
+						local dot = math.clamp(incoming.Unit:Dot(outgoing.Unit), -1, 1)
+						turnTotal += math.acos(dot)
+						if dot < 0.72 or turnTotal >= math.rad(40) then
+							return vertex.Position
+						end
+					end
+				end
+			end
+
+			local remaining = lookAhead
 			local from = root.Position
 			for index = state.Cursor, endIndex do
 				local point = trail[index].Position
@@ -282,7 +368,7 @@ return {
 			return goal + (state.AvoidOffset or Vector3.zero)
 		end
 
-		local function updateRecovery(root, leaderRoot, goal, now)
+		local function updateRecovery(root, leaderRoot, goal, now, spacing)
 			if state.RecoveryGoal and now <= state.RecoveryUntil
 				and flatDistance(root.Position, state.RecoveryGoal) > 2.2 then
 				return state.RecoveryGoal
@@ -316,11 +402,12 @@ return {
 				return state.RecoveryGoal
 			end
 
-			-- If short local sidesteps failed, skip a few breadcrumbs and rejoin the
-			-- leader's later trail segment. Navigation still uses local MoveTo detours.
-			state.Cursor = math.min(state.Cursor + 4, #state.Trail)
+			-- After local sidesteps fail, advance only one sample. Skipping several
+			-- samples can jump across a sharp bend; discard the stale detour and retry.
+			state.Cursor = math.min(state.Cursor + 1, #state.Trail)
+			resetNavigation()
 			state.RecoveryAttempts = 0
-			return trailGoal(root, leaderRoot, math.max(3, configuration.FollowDistance or 8))
+			return trailGoal(root, leaderRoot, math.max(3, spacing or configuration.FollowDistance or 8))
 		end
 
 		local function updateFollowInteraction(root, followedCharacter, leaderRoot, spacing, now)
@@ -421,16 +508,17 @@ return {
 			if now - state.LastUpdateAt < 0.14 then return true, "throttled" end
 			state.LastUpdateAt = now
 
-			local spacing = math.max(3, configuration.FollowDistance or 8)
+			local baseSpacing = math.max(3, configuration.FollowDistance or 8)
+			local spacing = getFormationSpacing(followedPlayer, snapshots, baseSpacing, leaderRoot)
 			if #state.Trail == 0 then
 				seedTrail(root, leaderRoot, spacing, now)
 			else
 				pushTrailPoint(leaderRoot.Position, now)
 			end
-			updateFollowInteraction(root, followedCharacter, leaderRoot, spacing, now)
+			updateFollowInteraction(root, followedCharacter, leaderRoot, baseSpacing, now)
 			renderTrail()
 			local goal = trailGoal(root, leaderRoot, spacing)
-			goal = updateRecovery(root, leaderRoot, goal, now)
+			goal = updateRecovery(root, leaderRoot, goal, now, spacing)
 			goal = updateAvoidance(root, goal, followedPlayer, snapshots)
 
 			ClaimMovement("Follow", humanoid, root)

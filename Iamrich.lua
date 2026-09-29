@@ -1,4 +1,4 @@
-local VERSION = "2.4.1"
+local VERSION = "2.4.5"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -318,7 +318,7 @@ configuration.CombatSystem.Initialize(configuration, {
 	MobsFolder = MobsFolder,
 })
 configuration.FollowSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.3.0"
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.7.0"
 )))()
 configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration, {
 	Players = Players,
