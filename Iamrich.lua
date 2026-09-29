@@ -1,4 +1,5 @@
 print("[Iamrich] Starting...")
+print("V2")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
