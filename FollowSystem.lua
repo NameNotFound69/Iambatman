@@ -1,6 +1,6 @@
 -- Direct player follow controller. Uses MoveTo through CombatSystem.Navigation.
-local VERSION = "1.13.0"
-print("[FollowSystem] Version " .. VERSION .. " (direct follow + stuck jump + detour retry)")
+local VERSION = "1.14.0"
+print("[FollowSystem] Version " .. VERSION .. " (stable direct follow + corridor avoidance)")
 
 return {
 	Initialize = function(configuration, dependencies)
@@ -21,10 +21,6 @@ return {
 		targetLineFolder.Parent = workspace
 		local state = {
 			TargetUserId = nil,
-			FormationOrder = {},
-			FormationSignature = nil,
-			FormationCandidateSignature = nil,
-			FormationCandidateSince = 0,
 			LastUpdateAt = 0,
 			LastProgressAt = 0,
 			ProgressPosition = nil,
@@ -36,6 +32,7 @@ return {
 			LastHeadingAt = 0,
 			AvoidUserId = nil,
 			AvoidOffset = nil,
+			AvoidClearSince = nil,
 			TargetLineVisible = configuration.FollowTargetVisible == true,
 			TargetLine = nil,
 			Interaction = {
@@ -54,8 +51,6 @@ return {
 		local LEADER_STOP_CONFIRM_TIME = 0.65
 		local LEADER_MOVE_CONFIRM_TIME = 0.35
 		local INTERACTION_PENDING_TIME = 8
-		local FOLLOWER_GAP = 5.5
-		local FORMATION_RECHECK_DELAY = 2
 
 		local function clearTargetLine()
 			if state.TargetLine then
@@ -107,6 +102,7 @@ return {
 			state.LastHeadingAt = 0
 			state.AvoidUserId = nil
 			state.AvoidOffset = nil
+			state.AvoidClearSince = nil
 		end
 
 		local function resetNavigation()
@@ -122,10 +118,6 @@ return {
 			state.LastUpdateAt = 0
 			state.Navigation.DetourSideBias = 1
 			state.Navigation.DetourDistance = 8
-			state.FormationOrder = {}
-			state.FormationSignature = nil
-			state.FormationCandidateSignature = nil
-			state.FormationCandidateSince = 0
 			state.Interaction.LeaderMoved = false
 			state.Interaction.LeaderMovingSince = nil
 			state.Interaction.LeaderStoppedSince = nil
@@ -137,113 +129,6 @@ return {
 		local function flatDistance(a, b)
 			local delta = a - b
 			return Vector3.new(delta.X, 0, delta.Z).Magnitude
-		end
-
-		local function getFormationCandidates(root, followedPlayer, snapshots, baseSpacing, leaderRoot)
-			local leaderClusterRadius = math.clamp(baseSpacing + 44, 36, 80)
-			local localDistance = flatDistance(root.Position, leaderRoot.Position)
-			local localInCluster = localDistance <= leaderClusterRadius
-			local candidates = {
-				{
-					Player = Players.LocalPlayer,
-					Distance = localInCluster and localDistance or (leaderClusterRadius + 1000000),
-				},
-			}
-			for _, snapshot in ipairs(snapshots or {}) do
-				local player = snapshot.Player
-				local otherRoot = snapshot.Root
-				if player ~= Players.LocalPlayer and player ~= followedPlayer and otherRoot and otherRoot.Parent then
-					local distance = flatDistance(otherRoot.Position, leaderRoot.Position)
-					if distance <= leaderClusterRadius then
-						table.insert(candidates, {
-							Player = player,
-							Distance = distance,
-						})
-					end
-				end
-			end
-			local memberIds = table.create(#candidates)
-			for index, candidate in ipairs(candidates) do
-				memberIds[index] = tostring(candidate.Player.UserId)
-			end
-			table.sort(memberIds)
-			local signature = table.concat(memberIds, ",")
-			if not localInCluster then signature ..= "|local-out" end
-			return candidates, signature, localInCluster
-		end
-
-		local function updateFormationSpacing(root, followedPlayer, snapshots, baseSpacing, leaderRoot, now)
-			local candidates, signature, localInCluster = getFormationCandidates(
-				root,
-				followedPlayer,
-				snapshots,
-				baseSpacing,
-				leaderRoot
-			)
-			local function sortByDistance(a, b)
-				-- Quantizing to two-stud bands makes nearly equal distances stable;
-				-- UserId is only a deterministic tie-breaker.
-				local aBand = math.floor(a.Distance / 2 + 0.5)
-				local bBand = math.floor(b.Distance / 2 + 0.5)
-				if aBand ~= bBand then return aBand < bBand end
-				return a.Player.UserId < b.Player.UserId
-			end
-
-			local function spacingForLocalOrder()
-				for rank, userId in ipairs(state.FormationOrder) do
-					if userId == Players.LocalPlayer.UserId then
-						return baseSpacing + (rank - 1) * FOLLOWER_GAP
-					end
-				end
-				return baseSpacing
-			end
-
-			if not state.FormationSignature then
-				table.sort(candidates, sortByDistance)
-				state.FormationOrder = {}
-				for _, candidate in ipairs(candidates) do
-					table.insert(state.FormationOrder, candidate.Player.UserId)
-				end
-				state.FormationSignature = signature
-				return spacingForLocalOrder()
-			end
-
-			if signature == state.FormationSignature then
-				state.FormationCandidateSignature = nil
-				state.FormationCandidateSince = 0
-			elseif signature ~= state.FormationCandidateSignature then
-				state.FormationCandidateSignature = signature
-				state.FormationCandidateSince = now
-			elseif now - state.FormationCandidateSince >= FORMATION_RECHECK_DELAY then
-				-- Keep existing queue positions. Stable newcomers join the back in
-				-- nearest-to-leader order; departed players are removed after the same
-				-- delay so brief character/root streaming gaps do not reshuffle the line.
-				local present = {}
-				for _, candidate in ipairs(candidates) do
-					present[candidate.Player.UserId] = candidate
-				end
-				local nextOrder = {}
-				local localUserId = Players.LocalPlayer.UserId
-				for _, userId in ipairs(state.FormationOrder) do
-					if present[userId] and (userId ~= localUserId or localInCluster) then
-						table.insert(nextOrder, userId)
-						present[userId] = nil
-					end
-				end
-				local newcomers = {}
-				for _, candidate in pairs(present) do
-					table.insert(newcomers, candidate)
-				end
-				table.sort(newcomers, sortByDistance)
-				for _, candidate in ipairs(newcomers) do
-					table.insert(nextOrder, candidate.Player.UserId)
-				end
-				state.FormationOrder = nextOrder
-				state.FormationSignature = signature
-				state.FormationCandidateSignature = nil
-				state.FormationCandidateSince = 0
-			end
-			return spacingForLocalOrder()
 		end
 
 		local function getDirectFollowGoal(leaderRoot, spacing, now)
@@ -273,60 +158,68 @@ return {
 			return leaderRoot.Position - state.FollowDirection * spacing
 		end
 
-		local function findCrowdingPlayer(root, goal, followedPlayer, snapshots)
-			local nearest, nearestDistance = nil, math.huge
+		local function findBlockingPlayer(root, goal, followedPlayer, snapshots, preferredUserId)
+			local route = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
+			local routeLength = route.Magnitude
+			local direction = routeLength >= 0.1 and route.Unit
+				or Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+			if direction.Magnitude < 0.1 then direction = Vector3.new(0, 0, -1) end
+			direction = direction.Unit
+			local nearest, nearestScore, preferred = nil, math.huge, nil
 			for _, snapshot in ipairs(snapshots or {}) do
 				local player = snapshot.Player
 				local otherRoot = snapshot.Root
 				if player ~= Players.LocalPlayer and player ~= followedPlayer and otherRoot and otherRoot.Parent then
-					local rootDistance = flatDistance(root.Position, otherRoot.Position)
-					local goalDistance = flatDistance(goal, otherRoot.Position)
-					local distance = math.min(rootDistance, goalDistance)
-					if distance < nearestDistance
-						or (math.abs(distance - nearestDistance) < 0.05
-							and nearest and player.UserId < nearest.UserId) then
-						nearest, nearestDistance = player, distance
+					local relative = otherRoot.Position - root.Position
+					local along = Vector3.new(relative.X, 0, relative.Z):Dot(direction)
+					local clearance = math.clamp(root.Size.X * 0.5 + otherRoot.Size.X * 0.5 + 1.25, 3, 5)
+					local blocksRoute = routeLength >= 1.5 and along > 0.5 and along <= routeLength + 2
+						and flatDistance(otherRoot.Position, root.Position + direction * along) <= clearance
+					local blocksDestination = flatDistance(otherRoot.Position, goal) <= clearance
+					local score = blocksDestination and 0 or (blocksRoute and along or math.huge)
+					if score < math.huge and tostring(player.UserId) == preferredUserId then
+						preferred = player
+					elseif score < nearestScore then
+						nearest, nearestScore = player, score
 					end
 				end
 			end
-			return nearest, nearestDistance
+			return preferred or nearest, direction
 		end
 
-		local function updateAvoidance(root, goal, followedPlayer, snapshots)
+		local function updateAvoidance(root, goal, followedPlayer, snapshots, now)
+			local blockingPlayer, forward = findBlockingPlayer(
+				root,
+				goal,
+				followedPlayer,
+				snapshots,
+				state.AvoidUserId
+			)
 			if state.AvoidUserId then
-				local player = Players:GetPlayerByUserId(tonumber(state.AvoidUserId))
-				local character = player and player.Character
-				local otherRoot = character and character:FindFirstChild("HumanoidRootPart")
-				if not otherRoot then
-					state.AvoidUserId, state.AvoidOffset = nil, nil
-				else
-					local distance = math.min(
-						flatDistance(root.Position, otherRoot.Position),
-						flatDistance(goal, otherRoot.Position)
-					)
-					if distance >= 6.5 then state.AvoidUserId, state.AvoidOffset = nil, nil end
+				if blockingPlayer and tostring(blockingPlayer.UserId) == state.AvoidUserId then
+					state.AvoidClearSince = nil
+					return goal + state.AvoidOffset
 				end
+
+				state.AvoidClearSince = state.AvoidClearSince or now
+				local fade = math.clamp((now - state.AvoidClearSince) / 0.5, 0, 1)
+				if fade < 1 then
+					return goal + state.AvoidOffset * (1 - fade)
+				end
+				state.AvoidUserId, state.AvoidOffset, state.AvoidClearSince = nil, nil, nil
 			end
 
-			if not state.AvoidUserId then
-				local player, distance = findCrowdingPlayer(root, goal, followedPlayer, snapshots)
-				if player and distance < 4.5 then
-					-- Both participants sidestep, on opposite sides selected from the
-					-- same UserId pair. The older one no longer gets to block traffic.
-					local forward = goal - root.Position
-					forward = Vector3.new(forward.X, 0, forward.Z)
-					if forward.Magnitude < 0.1 then
-						forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
-					end
-					if forward.Magnitude < 0.1 then forward = Vector3.new(0, 0, -1) end
-					forward = forward.Unit
-					local side = Vector3.new(-forward.Z, 0, forward.X)
-					local sideSign = Players.LocalPlayer.UserId < player.UserId and 1 or -1
-					state.AvoidOffset = side * (5 * sideSign) + forward * 3
-					state.AvoidUserId = tostring(player.UserId)
-				end
+			if blockingPlayer then
+				-- Sidestep only for someone inside the actual route corridor. Nearby
+				-- players off to the side no longer pull the follower away from its leader.
+				local side = Vector3.new(-forward.Z, 0, forward.X)
+				local sideSign = Players.LocalPlayer.UserId < blockingPlayer.UserId and 1 or -1
+				state.AvoidOffset = side * (3.5 * sideSign) + forward * 1.25
+				state.AvoidUserId = tostring(blockingPlayer.UserId)
+				state.AvoidClearSince = nil
+				return goal + state.AvoidOffset
 			end
-			return goal + (state.AvoidOffset or Vector3.zero)
+			return goal
 		end
 
 		local function updateRecovery(root, humanoid, goal, now)
@@ -484,18 +377,10 @@ return {
 			state.LastUpdateAt = now
 
 			local baseSpacing = math.max(3, configuration.FollowDistance or 8)
-			local spacing = updateFormationSpacing(
-				root,
-				followedPlayer,
-				snapshots,
-				baseSpacing,
-				leaderRoot,
-				now
-			)
 			updateFollowInteraction(root, followedCharacter, leaderRoot, baseSpacing, now)
-			local goal = getDirectFollowGoal(leaderRoot, spacing, now)
+			local goal = getDirectFollowGoal(leaderRoot, baseSpacing, now)
 			goal = updateRecovery(root, humanoid, goal, now)
-			goal = updateAvoidance(root, goal, followedPlayer, snapshots)
+			goal = updateAvoidance(root, goal, followedPlayer, snapshots, now)
 			renderTargetLine(root, goal)
 
 			ClaimMovement("Follow", humanoid, root)
@@ -505,7 +390,7 @@ return {
 				goal,
 				followedCharacter,
 				state.Navigation,
-				0.32,
+				0.4,
 				2.2,
 				false,
 				true
