@@ -1,4 +1,4 @@
-local VERSION = "2.3.9"
+local VERSION = "2.4.1"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -288,6 +288,27 @@ local configuration: {[string]: any} = {
 	Combat = {},
 }
 
+local FollowInteractBindable
+local function InvokeFollowInteract()
+	local playerGui = Player:FindFirstChildOfClass("PlayerGui")
+	if not playerGui then return false end
+
+	if not FollowInteractBindable or not FollowInteractBindable:IsDescendantOf(playerGui) then
+		FollowInteractBindable = playerGui:FindFirstChild("InputBindableFunction", true)
+	end
+	local inputFunction = FollowInteractBindable
+	if not inputFunction or not inputFunction:IsA("BindableFunction") then
+		FollowInteractBindable = nil
+		return false
+	end
+
+	local ok = pcall(function()
+		inputFunction:Invoke("InteractButton", Enum.UserInputState.Begin)
+	end)
+	if not ok then FollowInteractBindable = nil end
+	return ok
+end
+
 -- Movement controllers are separate source chunks. Publish both modules beside
 -- this file so the runtime loaders can fetch them from the same branch.
 configuration.CombatSystem = assert(loadstring(game:HttpGet(
@@ -297,12 +318,13 @@ configuration.CombatSystem.Initialize(configuration, {
 	MobsFolder = MobsFolder,
 })
 configuration.FollowSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.1.0"
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.3.0"
 )))()
 configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration, {
 	Players = Players,
 	ClaimMovement = ClaimMovement,
 	ReleaseMovement = ReleaseMovement,
+	Interact = InvokeFollowInteract,
 })
 
 function configuration.PrepareConfigStorage()

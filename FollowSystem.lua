@@ -1,6 +1,6 @@
 -- Breadcrumb follow controller. Uses MoveTo through CombatSystem.Navigation.
-local VERSION = "1.1.0"
-print("[FollowSystem] Version " .. VERSION .. " (trail + MoveTo + route display)")
+local VERSION = "1.3.0"
+print("[FollowSystem] Version " .. VERSION .. " (smoothed trail + yielding + route display + paced interact)")
 
 return {
 	Initialize = function(configuration, dependencies)
@@ -30,8 +30,22 @@ return {
 			TrailVisible = configuration.FollowTrailVisible == true,
 			VisualPointCount = 0,
 			VisualNeedsRebuild = false,
+			Interaction = {
+				LeaderMoved = false,
+				LeaderMovingSince = nil,
+				LeaderStoppedSince = nil,
+				StopPosition = nil,
+				PendingUntil = 0,
+				StopEventCreated = false,
+				LastAttemptAt = 0,
+			},
 			Navigation = { Active = false, Goal = nil, LastMoveAt = 0 },
 		}
+
+		local FOLLOW_INTERACTION_INTERVAL = 1.5
+		local LEADER_STOP_CONFIRM_TIME = 0.65
+		local LEADER_MOVE_CONFIRM_TIME = 0.35
+		local INTERACTION_PENDING_TIME = 8
 
 		local function clearVisualTrail()
 			for _, segment in ipairs(trailFolder:GetChildren()) do
@@ -111,6 +125,12 @@ return {
 			clearTrail()
 			state.TargetUserId = nil
 			state.LastUpdateAt = 0
+			state.Interaction.LeaderMoved = false
+			state.Interaction.LeaderMovingSince = nil
+			state.Interaction.LeaderStoppedSince = nil
+			state.Interaction.StopPosition = nil
+			state.Interaction.PendingUntil = 0
+			state.Interaction.StopEventCreated = false
 		end
 
 		local function flatDistance(a, b)
@@ -187,8 +207,23 @@ return {
 			while state.Cursor <= endIndex and flatDistance(root.Position, trail[state.Cursor].Position) <= 2.6 do
 				state.Cursor += 1
 			end
-			if state.Cursor <= endIndex then
-				return trail[state.Cursor].Position
+
+			-- Aim ahead along the recorded polyline so MoveTo has room to blend
+			-- direction changes instead of stopping at every short breadcrumb.
+			local remaining = math.clamp(spacing * 1.25, 8, 14)
+			local from = root.Position
+			for index = state.Cursor, endIndex do
+				local point = trail[index].Position
+				local segmentLength = flatDistance(from, point)
+				if segmentLength >= remaining and segmentLength > 0.01 then
+					return from:Lerp(point, remaining / segmentLength)
+				end
+				remaining -= segmentLength
+				from = point
+			end
+			local finalLength = flatDistance(from, endpoint)
+			if finalLength >= remaining and finalLength > 0.01 then
+				return from:Lerp(endpoint, remaining / finalLength)
 			end
 			return endpoint
 		end
@@ -198,7 +233,10 @@ return {
 			for _, snapshot in ipairs(snapshots or {}) do
 				local player = snapshot.Player
 				local otherRoot = snapshot.Root
-				if player ~= Players.LocalPlayer and player ~= followedPlayer and otherRoot.Parent then
+				-- Deterministic right-of-way prevents cooperative followers from
+				-- sidestepping each other in opposite directions at the same time.
+				if player ~= Players.LocalPlayer and player ~= followedPlayer
+					and player.UserId < Players.LocalPlayer.UserId and otherRoot.Parent then
 					local rootDistance = flatDistance(root.Position, otherRoot.Position)
 					local goalDistance = flatDistance(goal, otherRoot.Position)
 					local distance = math.min(rootDistance, goalDistance)
@@ -223,20 +261,20 @@ return {
 						flatDistance(root.Position, otherRoot.Position),
 						flatDistance(goal, otherRoot.Position)
 					)
-					if distance >= 10 then state.AvoidUserId, state.AvoidOffset = nil, nil end
+					if distance >= 6.5 then state.AvoidUserId, state.AvoidOffset = nil, nil end
 				end
 			end
 
 			if not state.AvoidUserId then
 				local player, distance, useGoal = findCrowdingPlayer(root, goal, followedPlayer, snapshots)
-				if player and distance < 5 then
+				if player and distance < 3.75 then
 					local character = player.Character
 					local otherRoot = character and character:FindFirstChild("HumanoidRootPart")
 					if otherRoot then
 						local away = (useGoal and goal or root.Position) - otherRoot.Position
 						away = Vector3.new(away.X, 0, away.Z)
 						if away.Magnitude < 0.1 then away = Vector3.new(1, 0, 0) end
-						state.AvoidOffset = away.Unit * 5
+						state.AvoidOffset = away.Unit * 4
 						state.AvoidUserId = tostring(player.UserId)
 					end
 				end
@@ -285,6 +323,70 @@ return {
 			return trailGoal(root, leaderRoot, math.max(3, configuration.FollowDistance or 8))
 		end
 
+		local function updateFollowInteraction(root, followedCharacter, leaderRoot, spacing, now)
+			local interaction = state.Interaction
+			local leaderHumanoid = followedCharacter:FindFirstChildOfClass("Humanoid")
+			local moveDirection = leaderHumanoid and leaderHumanoid.MoveDirection.Magnitude or 0
+			local velocity = leaderRoot.AssemblyLinearVelocity
+			local flatSpeed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+			local leaderMoving = moveDirection > 0.08 or flatSpeed > 1.5
+
+			if leaderMoving then
+				interaction.LeaderStoppedSince = nil
+				if not interaction.LeaderMovingSince then
+					interaction.LeaderMovingSince = now
+				end
+				if now - interaction.LeaderMovingSince >= LEADER_MOVE_CONFIRM_TIME then
+					interaction.LeaderMoved = true
+					if interaction.PendingUntil <= 0 then
+						interaction.StopEventCreated = false
+						interaction.StopPosition = nil
+					end
+				end
+			else
+				interaction.LeaderMovingSince = nil
+				if not interaction.LeaderStoppedSince then
+					interaction.LeaderStoppedSince = now
+					if interaction.PendingUntil <= 0 then
+						interaction.StopPosition = leaderRoot.Position
+					end
+				end
+				if interaction.LeaderMoved
+					and now - interaction.LeaderStoppedSince >= LEADER_STOP_CONFIRM_TIME
+					and not interaction.StopEventCreated then
+					interaction.PendingUntil = now + INTERACTION_PENDING_TIME
+					interaction.StopEventCreated = true
+					interaction.StopPosition = leaderRoot.Position
+				end
+			end
+
+			local stopPosition = interaction.StopPosition
+			local nearLeaderStop = stopPosition
+				and (root.Position - stopPosition).Magnitude <= math.clamp(spacing + 2, 8, 14)
+			local pending = interaction.LeaderMoved
+				and now <= interaction.PendingUntil
+				and nearLeaderStop
+
+			if pending
+				and now - interaction.LastAttemptAt >= FOLLOW_INTERACTION_INTERVAL then
+				-- AIC calls this BindableFunction action as well. One press per leader
+				-- stop plus a cooldown prevents repeated door/portal activation.
+				interaction.LastAttemptAt = now
+				if dependencies.Interact then
+					local ok, invoked = pcall(dependencies.Interact)
+					if ok and invoked == true then
+						interaction.PendingUntil = 0
+						interaction.StopPosition = nil
+					end
+				end
+			end
+
+			if now > interaction.PendingUntil then
+				interaction.PendingUntil = 0
+				interaction.StopPosition = nil
+			end
+		end
+
 		local api = {}
 		function api.SetTrailVisible(enabled)
 			configuration.FollowTrailVisible = enabled == true
@@ -325,6 +427,7 @@ return {
 			else
 				pushTrailPoint(leaderRoot.Position, now)
 			end
+			updateFollowInteraction(root, followedCharacter, leaderRoot, spacing, now)
 			renderTrail()
 			local goal = trailGoal(root, leaderRoot, spacing)
 			goal = updateRecovery(root, leaderRoot, goal, now)
