@@ -4499,9 +4499,12 @@ task.spawn(function()
 				elseif target ~= configuration.ExpFinishTarget then
 					lastFinishHandoffTarget = nil
 				end
+				-- AIC keeps a wider combat engagement range (its default attack range
+				-- is 14.5) so navigation can settle on a safe combat position instead
+				-- of forcing the character to walk unnaturally close to the mob.
 				local mobEngageRange = math.min(
 					configuration.AutoAttackRange,
-					math.max(7, configuration.AutoAttackStandoff + 3)
+					math.max(14.5, configuration.AutoAttackStandoff + 3)
 				)
 				local attackRange = targetKind == "Mob" and mobEngageRange or configuration.AutoAttackRange
 				local evadingEnemySkill = targetKind == "Mob"
