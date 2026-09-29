@@ -1,4 +1,4 @@
-local VERSION = "2.3.7"
+local VERSION = "2.3.9"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -211,6 +211,7 @@ local configuration: {[string]: any} = {
 	AutoExecuteEnabled = true,
 	AlertsDistance = 1000,
 	FollowDistance = 8,
+	FollowTrailVisible = false,
 	FollowPlayerUserId = nil,
 	PlayerPanelMode = "server",
 	SelectedCombatMob = nil,
@@ -287,13 +288,21 @@ local configuration: {[string]: any} = {
 	Combat = {},
 }
 
--- Combat runs from a separate source chunk to keep the main UI/farming chunk
--- below Luau's 200-register limit. Publish CombatSystem.lua beside this file.
+-- Movement controllers are separate source chunks. Publish both modules beside
+-- this file so the runtime loaders can fetch them from the same branch.
 configuration.CombatSystem = assert(loadstring(game:HttpGet(
 	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua"
 )))()
 configuration.CombatSystem.Initialize(configuration, {
 	MobsFolder = MobsFolder,
+})
+configuration.FollowSystem = assert(loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.1.0"
+)))()
+configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration, {
+	Players = Players,
+	ClaimMovement = ClaimMovement,
+	ReleaseMovement = ReleaseMovement,
 })
 
 function configuration.PrepareConfigStorage()
@@ -375,6 +384,7 @@ function configuration.LoadConfig()
 	if type(config.AutoExecuteEnabled) == "boolean" then configuration.AutoExecuteEnabled = config.AutoExecuteEnabled end
 	configuration.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configuration.AlertsDistance, 0, true), 0, 100000)
 	configuration.FollowDistance = math.clamp(ReadNumber("FollowDistance", configuration.FollowDistance, 2, false), 2, 100)
+	if type(config.FollowTrailVisible) == "boolean" then configuration.FollowTrailVisible = config.FollowTrailVisible end
 	configuration.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configuration.AutoAttackRange, 5, false), 5, 500)
 	local savedMobSearchRange = ReadNumber("AutoAttackSearchRange", configuration.AutoAttackSearchRange, 5, false)
 	-- Earlier builds defaulted mob visibility to 100 studs. The intended default
@@ -467,6 +477,7 @@ function configuration.SaveConfig()
 		AutoExecuteEnabled = configuration.AutoExecuteEnabled,
 		AlertsDistance = configuration.AlertsDistance,
 		FollowDistance = configuration.FollowDistance,
+		FollowTrailVisible = configuration.FollowTrailVisible,
 		FollowPlayerUserId = configuration.FollowPlayerUserId,
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
 		AutoBossTargetEnabled = configuration.AutoBossTargetEnabled,
@@ -513,6 +524,7 @@ function configuration.SaveConfig()
 end
 
 configuration.LoadConfig()
+configuration.FollowSystem.SetTrailVisible(configuration.FollowTrailVisible)
 if configuration.MigratedLegacyConfig then
 	configuration.SaveConfig()
 end
@@ -2273,6 +2285,21 @@ local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
 	PlayerPage, "Follow spacing (studs)", function() return configuration.FollowDistance end, 3, 2, 100,
 	function(value) configuration.FollowDistance = value end
 )
+local FollowTrailButton = configuration.MakeToggle(
+	"Show follow trail",
+	configuration.FollowTrailVisible,
+	ACCENT,
+	ACCENT_DIM,
+	6,
+	PlayersGrid,
+	"Draw the leader's recent route while following."
+)
+FollowTrailButton.MouseButton1Click:Connect(function()
+	configuration.FollowTrailVisible = not configuration.FollowTrailVisible
+	configuration.SetToggleVisual(FollowTrailButton, "Show follow trail", configuration.FollowTrailVisible, ACCENT, ACCENT_DIM)
+	configuration.FollowSystem.SetTrailVisible(configuration.FollowTrailVisible)
+	configuration.SaveConfig()
+end)
 
 local AutoAttackButton = configuration.MakeToggle("Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid, "Move to and attack selected or marked mobs.")
 local AutoSkillButton = configuration.MakeToggle("Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid, "Use skills while attacking the current target.")
@@ -4533,13 +4560,6 @@ end)
 --==================================================
 task.spawn(function()
 	local lastPlayerRefresh = 0
-	local lastFollowMove = 0
-	local followGoalPosition = nil
-	local followDirection = nil
-	local followAvoidOffset = nil
-	local followAvoidUserId = nil
-	local followTargetUserId = nil
-	local followMoveState = { Active = false, Goal = nil, LastMoveAt = 0 }
 	local lastAutoBlockCheck = 0
 	local nextAutoBlockPromptAt = 0
 	local autoBlockTeleporting = false
@@ -4673,15 +4693,6 @@ task.spawn(function()
 		end
 
 		local followedPlayer = configuration.FollowPlayerUserId and Players:GetPlayerByUserId(tonumber(configuration.FollowPlayerUserId))
-		local selectedFollowUserId = followedPlayer and tostring(followedPlayer.UserId) or nil
-		if selectedFollowUserId ~= followTargetUserId then
-			followTargetUserId = selectedFollowUserId
-			followDirection = nil
-			followAvoidOffset = nil
-			followAvoidUserId = nil
-			followGoalPosition = nil
-			configuration.CombatSystem.ResetNavigationState(followMoveState)
-		end
 		-- Pause Follow while Auto Attack is pursuing a valid target; resume when the target clears.
 		local interruptFollow = configuration.AlertCombatPending == true
 		if not interruptFollow and (configuration.AutoAttackEnabled or configuration.AutoBossTargetEnabled
@@ -4692,102 +4703,12 @@ task.spawn(function()
 				interruptFollow = true
 			end
 		end
-		-- Follow with a stable side and only make a single temporary sidestep when crowded.
+		local followHumanoid = char and char:FindFirstChildOfClass("Humanoid")
 		if not configuration.EmergencyStopActive and not configuration.Farming
-			and followedPlayer and char and not interruptFollow and os.clock() - lastFollowMove >= 0.25 then
-			local humanoid = char:FindFirstChildOfClass("Humanoid")
-			local followedCharacter = followedPlayer.Character
-			local followedRoot = followedCharacter and followedCharacter:FindFirstChild("HumanoidRootPart")
-			if humanoid and localRoot and followedRoot then
-				local spacing = math.max(3, configuration.FollowDistance or 8)
-				local now = os.clock()
-				local delta = localRoot.Position - followedRoot.Position
-				local flat = Vector3.new(delta.X, 0, delta.Z)
-				local dist = flat.Magnitude
-				if not followDirection then
-					local outward = flat
-					if outward.Magnitude < 0.35 then
-						local behind = -followedRoot.CFrame.LookVector
-						outward = Vector3.new(behind.X, 0, behind.Z)
-					end
-					if outward.Magnitude < 0.1 then outward = Vector3.new(0, 0, -1) end
-					followDirection = outward.Unit
-				end
-
-				local baseGoal = followedRoot.Position + followDirection * spacing
-				baseGoal = Vector3.new(baseGoal.X, followedRoot.Position.Y, baseGoal.Z)
-				local nearestOther, nearestClearance, nearestAvoidFromSlot = nil, math.huge, false
-				for _, snapshot in ipairs(playerSnapshots or {}) do
-					local otherPlayer = snapshot.Player
-					local otherRoot = snapshot.Root
-					if otherPlayer ~= Player and otherPlayer ~= followedPlayer and otherRoot.Parent then
-						local rootOffset = localRoot.Position - otherRoot.Position
-						local slotOffset = baseGoal - otherRoot.Position
-						local rootClearance = Vector3.new(rootOffset.X, 0, rootOffset.Z).Magnitude
-						local slotClearance = Vector3.new(slotOffset.X, 0, slotOffset.Z).Magnitude
-						local clearance = math.min(rootClearance, slotClearance)
-						if clearance < nearestClearance then
-							nearestOther, nearestClearance = otherPlayer, clearance
-							nearestAvoidFromSlot = slotClearance <= rootClearance
-						end
-					end
-				end
-
-				-- Lock the sidestep to the player who crowded us. Resume the normal
-				-- follow line only after there's a clear buffer around our character.
-				if followAvoidUserId then
-					local avoidingPlayer = Players:GetPlayerByUserId(tonumber(followAvoidUserId))
-					local avoidingCharacter = avoidingPlayer and avoidingPlayer.Character
-					local avoidingRoot = avoidingCharacter and avoidingCharacter:FindFirstChild("HumanoidRootPart")
-					if not avoidingRoot then
-						followAvoidUserId, followAvoidOffset = nil, nil
-					else
-						local rootOffset = localRoot.Position - avoidingRoot.Position
-						local slotOffset = baseGoal - avoidingRoot.Position
-						local rootClearance = Vector3.new(rootOffset.X, 0, rootOffset.Z).Magnitude
-						local slotClearance = Vector3.new(slotOffset.X, 0, slotOffset.Z).Magnitude
-						if math.min(rootClearance, slotClearance) >= 10 then
-							followAvoidUserId, followAvoidOffset = nil, nil
-						end
-					end
-				end
-				if not followAvoidUserId and nearestOther and nearestClearance < 5 then
-					local otherCharacter = nearestOther.Character
-					local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
-					if otherRoot then
-						local away = nearestAvoidFromSlot and (baseGoal - otherRoot.Position)
-							or (localRoot.Position - otherRoot.Position)
-						away = Vector3.new(away.X, 0, away.Z)
-						if away.Magnitude < 0.1 then away = Vector3.new(-followDirection.Z, 0, followDirection.X) end
-						followAvoidOffset = away.Unit * 5
-						followAvoidUserId = tostring(nearestOther.UserId)
-					end
-				end
-
-				local goal = baseGoal + (followAvoidOffset or Vector3.zero)
-				local tooFar = dist > spacing + 1.5
-				local tooClose = dist < spacing * 0.72
-				local needsFollowMove = tooFar or tooClose or followAvoidOffset ~= nil
-				if needsFollowMove then
-					ClaimMovement("Follow", humanoid, localRoot)
-					configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, goal, followedCharacter, followMoveState, 0.45, 2.2)
-					followGoalPosition = goal
-				else
-					ReleaseMovement("Follow", humanoid, localRoot)
-					followGoalPosition = nil
-					configuration.CombatSystem.ResetNavigationState(followMoveState)
-				end
-				lastFollowMove = now
-			end
-		end
-		if interruptFollow or configuration.EmergencyStopActive or configuration.Farming or not followedPlayer then
-			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-			ReleaseMovement("Follow", humanoid, localRoot)
-			followGoalPosition = nil
-			followDirection = nil
-			followAvoidOffset = nil
-			followAvoidUserId = nil
-			configuration.CombatSystem.ResetNavigationState(followMoveState)
+			and followedPlayer and char and not interruptFollow then
+			configuration.FollowSystem.Update(localRoot, followHumanoid, followedPlayer, playerSnapshots)
+		else
+			configuration.FollowSystem.Reset(followHumanoid, localRoot)
 		end
 
 		if configuration.AutoBlockEnabled and not configuration.EmergencyStopActive and not configuration.AlertCombatPending
