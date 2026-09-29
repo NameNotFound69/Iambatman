@@ -400,8 +400,6 @@ configuration.CombatSystem = assert(loadstring(game:HttpGet(
 )))()
 configuration.CombatSystem.Initialize(configuration, {
 	MobsFolder = MobsFolder,
-	PathfindingService = game:GetService("PathfindingService"),
-	SmoothMoveTo = SmoothMoveTo,
 })
 
 function configuration.PrepareConfigStorage()
@@ -4557,17 +4555,17 @@ task.spawn(function()
 						attackMoveState.NavigationMode = navigationState
 						chasingMob = not arrived
 						if configuration.ExpFinishTarget == target then
-							StateLabel.Text = navigationState == "path" and "Routing to finish EXP target"
-								or (navigationState == "retrying route" and "Finding route to EXP target" or "Walking to finish EXP target")
+							StateLabel.Text = navigationState == "direct" and "Moving to finish EXP target"
+								or "Walking to finish EXP target"
 							MiniState.Text = navigationState == "path" and "Following a path to the locked EXP target"
 								or (navigationState == "retrying route" and "Route blocked — retrying toward locked target" or "Moving toward the EXP target while attacking")
 						elseif not configuration.Farming or configuration.AlertCombatPending or configuration.ExpRetaliationTarget == target then
 							StateLabel.Text = evadingEnemySkill and "Avoiding enemy skill"
-								or (navigationState == "path" and "Routing to target"
-								or (navigationState == "retrying route" and "Finding path" or "Moving to target"))
+								or (navigationState == "direct" and "Moving to target"
+								or "Moving to target")
 							MiniState.Text = evadingEnemySkill and "Dodging active BladePart"
-								or (navigationState == "path" and "Walking around an obstacle"
-								or (navigationState == "retrying route" and "Blocked route; retrying" or "Closing distance to attack"))
+								or (navigationState == "direct" and "Walking to target"
+								or "Closing distance to attack")
 						end
 					elseif chasingMob or attackMoveState.Active or tookMovement then
 						if humanoid then humanoid:MoveTo(localRoot.Position) end
@@ -4592,10 +4590,10 @@ task.spawn(function()
 						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, approachPoint, target.Character, attackMoveState, interval, 1.9)
 						attackMoveState.NavigationMode = navigationState
 						chasingMob = not arrived
-						StateLabel.Text = navigationState == "path" and "Routing to target"
-							or (navigationState == "retrying route" and "Finding path" or "Moving to target")
-						MiniState.Text = navigationState == "path" and "Walking around an obstacle"
-							or (navigationState == "retrying route" and "Blocked route; retrying" or "Closing distance to attack")
+						StateLabel.Text = navigationState == "direct" and "Moving to target"
+							or "Moving to target"
+						MiniState.Text = navigationState == "direct" and "Walking to target"
+							or "Closing distance to attack"
 						if configuration.FaceTargetEnabled and (distance or 999) <= configuration.AutoAttackRange + 15 then
 							FaceTargetWhenStill(localRoot, targetRoot.Position, 0.22)
 						end
@@ -4759,34 +4757,33 @@ task.spawn(function()
 			paused = true
 		end
 
-		-- Combat has exclusive ownership of Humanoid movement while attacking.
-		-- Never let waypoint-return navigation issue MoveTo calls over combat pursuit.
-		if MovementOwner == "Combat" then
-			configuration.CombatSystem.ResetNavigationState(moveState)
-		else
-			if configuration.WaypointReturnEnabled and point and root and humanoid and not paused then
-				local distance = (root.Position - point).Magnitude
-				if distance > configuration.WaypointReturnRadius then
-					ClaimMovement("Waypoint", humanoid, root)
-					local _, navigationState = configuration.CombatSystem.NavigateMoveTo(
-						humanoid,
-						root,
-						point,
-						nil,
-						moveState,
-						0.18,
-						configuration.WaypointReturnRadius,
-						true
-					)
-					moveState.NavigationMode = navigationState
-				else
-					ReleaseMovement("Waypoint", humanoid, root)
-					configuration.CombatSystem.ResetNavigationState(moveState)
-				end
+		if configuration.WaypointReturnEnabled and point and root and humanoid and not paused and MovementOwner ~= "Combat" then
+			local distance = (root.Position - point).Magnitude
+			if distance > configuration.WaypointReturnRadius then
+				ClaimMovement("Waypoint", humanoid, root)
+				local _, navigationState = configuration.CombatSystem.NavigateMoveTo(
+					humanoid,
+					root,
+					point,
+					nil,
+					moveState,
+					0.18,
+					configuration.WaypointReturnRadius,
+					true
+				)
+				moveState.NavigationMode = navigationState
 			else
-				if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
+				ReleaseMovement("Waypoint", humanoid, root)
 				configuration.CombatSystem.ResetNavigationState(moveState)
 			end
+		elseif MovementOwner == "Combat" then
+			-- Combat owns Humanoid movement. Waypoint must not issue MoveTo or stop it.
+			moveState.Active = false
+			moveState.Goal = nil
+			moveState.NavigationMode = "blocked by combat"
+		else
+			if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
+			configuration.CombatSystem.ResetNavigationState(moveState)
 		end
 	end
 end)
