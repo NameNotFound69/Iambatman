@@ -79,9 +79,33 @@ return {
 			state.ProgressPosition, state.ProgressAt, state.StuckRetries = nil, nil, nil
 			state.ApproachAngle, state.RepositionUntil, state.NavigationMode = nil, nil, nil
 			state.PursuitOrbitAngle, state.PursuitOrbitAt = nil, nil
+			state.LastApproachPoint, state.ApproachTarget = nil, nil
 		end
 
-		function combat.NavigateMoveTo(humanoid, root, goal, targetModel, state, minInterval, stopRadius)
+		-- AIC probes low and high before jumping, so flat path waypoints do not
+		-- trigger unnecessary jumps. Mobs are excluded because they are targets,
+		-- not obstacles.
+		local function jumpIfObstacleAhead(root, humanoid, targetPosition)
+			if not root or not humanoid or not targetPosition then return false end
+			local offset = targetPosition - root.Position
+			local flat = Vector3.new(offset.X, 0, offset.Z)
+			if flat.Magnitude < 0.01 then return false end
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = { root.Parent, mobsFolder }
+			params.RespectCanCollide = true
+			local direction = flat.Unit * math.min(4.5, flat.Magnitude)
+			local feet = root.Position - Vector3.new(0, root.Size.Y * 0.5, 0)
+			local low = workspace:Raycast(feet + Vector3.new(0, 0.6, 0), direction, params)
+			local high = workspace:Raycast(feet + Vector3.new(0, 3.2, 0), direction, params)
+			if low and not high and humanoid.FloorMaterial ~= Enum.Material.Air then
+				humanoid.Jump = true
+				return true
+			end
+			return false
+		end
+
+		function combat.NavigateMoveTo(humanoid, root, goal, targetModel, state, minInterval, stopRadius, checkVertical)
 			if not humanoid or not root or not goal then return false, "unavailable" end
 			local now = os.clock()
 			if state.Active and now - (state.ProgressAt or 0) >= 1.4 then
@@ -104,7 +128,8 @@ return {
 			end
 
 			local flatOffset = Vector3.new(root.Position.X - goal.X, 0, root.Position.Z - goal.Z)
-			if flatOffset.Magnitude <= (stopRadius or 1.9) then
+			local distanceToGoal = checkVertical and (root.Position - goal).Magnitude or flatOffset.Magnitude
+			if distanceToGoal <= (stopRadius or 1.9) then
 				if state.Active then humanoid:MoveTo(root.Position) end
 				state.PathRequestId = (state.PathRequestId or 0) + 1
 				state.PathComputing = false
@@ -119,11 +144,14 @@ return {
 				state.LastRaycastAt = now
 				local params = RaycastParams.new()
 				params.FilterType = Enum.RaycastFilterType.Exclude
-				params.FilterDescendantsInstances = { root.Parent, targetModel }
+				local filter = { root.Parent }
+				if targetModel then table.insert(filter, targetModel) end
+				params.FilterDescendantsInstances = filter
 				params.RespectCanCollide = true
 				local direction = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
 				local ok, hit = pcall(function() return workspace:Raycast(root.Position, direction, params) end)
-				local needsVerticalRoute = math.abs(root.Position.Y - goal.Y) > math.max(3, root.Size.Y * 0.5)
+				local verticalDelta = math.abs(root.Position.Y - goal.Y)
+				local needsVerticalRoute = verticalDelta > math.max(checkVertical and 0.5 or 3, root.Size.Y * 0.5)
 				state.DirectPathBlocked = (ok and hit ~= nil) or needsVerticalRoute
 			end
 
@@ -171,7 +199,8 @@ return {
 			if waypoints then
 				while state.WaypointIndex and state.WaypointIndex <= #waypoints do
 					local waypoint = waypoints[state.WaypointIndex]
-					local offset = Vector3.new(root.Position.X - waypoint.Position.X, 0, root.Position.Z - waypoint.Position.Z)
+					local offset = checkVertical and (root.Position - waypoint.Position)
+						or Vector3.new(root.Position.X - waypoint.Position.X, 0, root.Position.Z - waypoint.Position.Z)
 					if offset.Magnitude > 2.5 then break end
 					state.WaypointIndex += 1
 				end
@@ -180,7 +209,9 @@ return {
 					local interval = minInterval or 0.25
 					local sameWaypoint = state.PathMoveGoal and (state.PathMoveGoal - waypoint.Position).Magnitude < 1
 					if not state.Active or not sameWaypoint or now - (state.LastMoveAt or 0) >= interval then
-						if waypoint.Action == Enum.PathWaypointAction.Jump then humanoid.Jump = true end
+						if waypoint.Action == Enum.PathWaypointAction.Jump then
+							jumpIfObstacleAhead(root, humanoid, waypoint.Position)
+						end
 						humanoid:MoveTo(waypoint.Position)
 						state.Active, state.LastMoveAt, state.PathMoveGoal = true, now, waypoint.Position
 					end
@@ -191,13 +222,19 @@ return {
 			end
 
 			if not state.Active or now - (state.LastMoveAt or 0) >= 1.2 then
-				humanoid:MoveTo(Vector3.new(goal.X, root.Position.Y, goal.Z))
+				humanoid:MoveTo(checkVertical and goal or Vector3.new(goal.X, root.Position.Y, goal.Z))
 				state.Active, state.LastMoveAt, state.Goal = true, now, goal
 			end
 			return false, "retrying route"
 		end
 
 		function combat.SelectApproachPoint(localRoot, targetRoot, standoff, targetModel, state, attackRange)
+			-- Keep one destination while pathfinding around an obstacle. Recomputing
+			-- an orbit point on every frame can invalidate AIC-style routes endlessly.
+			if state.ApproachTarget == targetModel and state.LastApproachPoint
+				and (state.NavigationMode == "path" or state.NavigationMode == "retrying route") then
+				return state.LastApproachPoint
+			end
 			local delta = Vector3.new(localRoot.Position.X - targetRoot.Position.X, 0, localRoot.Position.Z - targetRoot.Position.Z)
 			local fallback = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
 			local away = delta.Magnitude > 0.01 and delta.Unit or (fallback.Magnitude > 0.01 and fallback.Unit or Vector3.new(1, 0, 0))

@@ -317,6 +317,10 @@ local configuration: {[string]: any} = {
 	AutoAttackTargetUserId = nil,
 	AutoAttackPinnedMob = nil,
 	SelectedCombatMob = nil,
+	WaypointPosition = nil,
+	WaypointReturnEnabled = false,
+	WaypointReturnRadius = 8,
+	WaypointMoveState = { Active = false, Goal = nil, LastMoveAt = 0 },
 	MovementBoostEnabled = true,
 	AutoAttackEnabled = false,
 	AutoAttackBossPriority = false,
@@ -480,6 +484,12 @@ function configuration.LoadConfig()
 	configuration.FollowDistance = math.clamp(ReadNumber("FollowDistance", configuration.FollowDistance, 2, false), 2, 100)
 	configuration.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configuration.AutoAttackRange, 5, false), 5, 500)
 	configuration.AutoAttackSearchRange = math.clamp(ReadNumber("AutoAttackSearchRange", configuration.AutoAttackSearchRange, 5, false), 5, 1000)
+	configuration.WaypointReturnRadius = math.clamp(ReadNumber("WaypointReturnRadius", configuration.WaypointReturnRadius, 2, false), 2, 100)
+	local waypoint = config.WaypointPosition
+	if type(waypoint) == "table" then
+		local x, y, z = tonumber(waypoint.X), tonumber(waypoint.Y), tonumber(waypoint.Z)
+		if x and y and z then configuration.WaypointPosition = Vector3.new(x, y, z) end
+	end
 	configuration.AutoAttackInterval = math.clamp(ReadNumber("AutoAttackInterval", configuration.AutoAttackInterval, 1, false), 1, 10)
 	configuration.AutoSkillInterval = math.clamp(ReadNumber("AutoSkillInterval", configuration.AutoSkillInterval, 1, false), 1, 30)
 	if config.AutoAttackMode == "Mob" or config.AutoAttackMode == "Player" or config.AutoAttackMode == "Nearby" then
@@ -521,6 +531,7 @@ function configuration.LoadConfig()
 	if type(config.AutoBlockEnabled) == "boolean" then configuration.AutoBlockEnabled = config.AutoBlockEnabled end
 	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
 	if type(config.AutoAttackEnabled) == "boolean" then configuration.AutoAttackEnabled = config.AutoAttackEnabled end
+	if type(config.WaypointReturnEnabled) == "boolean" then configuration.WaypointReturnEnabled = config.WaypointReturnEnabled end
 	if type(config.AutoAttackBossPriority) == "boolean" then configuration.AutoAttackBossPriority = config.AutoAttackBossPriority end
 	if type(config.AutoAttackBossesOnly) == "boolean" then configuration.AutoAttackBossesOnly = config.AutoAttackBossesOnly end
 	if type(config.AutoAttackUseExpTarget) == "boolean" then configuration.AutoAttackUseExpTarget = config.AutoAttackUseExpTarget end
@@ -575,6 +586,13 @@ function configuration.SaveConfig()
 		AutoAttackMode = configuration.AutoAttackMode,
 		AutoAttackRange = configuration.AutoAttackRange,
 		AutoAttackSearchRange = configuration.AutoAttackSearchRange,
+		WaypointPosition = configuration.WaypointPosition and {
+			X = configuration.WaypointPosition.X,
+			Y = configuration.WaypointPosition.Y,
+			Z = configuration.WaypointPosition.Z,
+		} or nil,
+		WaypointReturnEnabled = configuration.WaypointReturnEnabled,
+		WaypointReturnRadius = configuration.WaypointReturnRadius,
 		AutoAttackInterval = configuration.AutoAttackInterval,
 		AutoSkillEnabled = configuration.AutoSkillEnabled,
 		AutoSkillInterval = configuration.AutoSkillInterval,
@@ -1454,6 +1472,7 @@ local PlayerPage = configuration.CreatePage("Player", false)
 local AlertsPage = configuration.CreatePage("Alerts", false)
 local FarmPage = configuration.CreatePage("Farm", false)
 local CombatPage = configuration.CreatePage("Combat", false)
+local WaypointPage = configuration.CreatePage("Waypoint", false)
 
 function configuration.AddPageHeading(page, title, description)
 	local heading = Instance.new("Frame")
@@ -1490,6 +1509,7 @@ configuration.AddPageHeading(PlayerPage, "Players", "Follow, block, whitelist an
 configuration.AddPageHeading(AlertsPage, "Alerts", "Warn when other players come nearby")
 configuration.AddPageHeading(FarmPage, "Farm settings", "EXP per cycle, range, interval and goal")
 configuration.AddPageHeading(CombatPage, "Combat", "Auto attack, skills and target mode")
+configuration.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
@@ -1591,12 +1611,13 @@ local NavButtons = {
 	EXP    = configuration.MakeNavButton("Overview", nil, 2),
 	Farm   = configuration.MakeNavButton("Farm settings", nil, 3),
 	Combat = configuration.MakeNavButton("Combat", nil, 4),
+	Waypoint = configuration.MakeNavButton("Waypoint", nil, 5),
 }
-configuration.MakeNavSection("Tools", 5)
-NavButtons.Alerts = configuration.MakeNavButton("Alerts", nil, 6)
-NavButtons.Player = configuration.MakeNavButton("Players", nil, 7)
-configuration.MakeNavSection("Display", 8)
-NavButtons.ESP = configuration.MakeNavButton("ESP", nil, 9)
+configuration.MakeNavSection("Tools", 6)
+NavButtons.Alerts = configuration.MakeNavButton("Alerts", nil, 7)
+NavButtons.Player = configuration.MakeNavButton("Players", nil, 8)
+configuration.MakeNavSection("Display", 9)
+NavButtons.ESP = configuration.MakeNavButton("ESP", nil, 10)
 
 function configuration.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -2211,6 +2232,90 @@ function configuration.MakeNumberCard(parent, title, initialValue, order, minVal
 	end)
 	return card, input
 end
+
+local WaypointInfo = Instance.new("TextLabel")
+WaypointInfo.Size = UDim2.new(1, -12, 0, 34)
+WaypointInfo.LayoutOrder = 2
+WaypointInfo.BackgroundTransparency = 1
+WaypointInfo.TextColor3 = MUTED
+WaypointInfo.TextSize = 12
+WaypointInfo.Font = Enum.Font.Gotham
+WaypointInfo.TextWrapped = true
+WaypointInfo.TextXAlignment = Enum.TextXAlignment.Left
+WaypointInfo.Parent = WaypointPage
+
+local ReturnToWaypointButton = configuration.MakeToggle(
+	"Return to waypoint",
+	configuration.WaypointReturnEnabled,
+	ACCENT,
+	ACCENT_DIM,
+	3,
+	WaypointPage,
+	"Walk back when you move outside the radius."
+)
+
+local function UpdateWaypointInfo()
+	local point = configuration.WaypointPosition
+	WaypointInfo.Text = point and string.format("Pinned at  %.1f, %.1f, %.1f", point.X, point.Y, point.Z)
+		or "No waypoint set"
+	configuration.SetToggleVisual(
+		ReturnToWaypointButton,
+		"Return to waypoint",
+		configuration.WaypointReturnEnabled,
+		ACCENT,
+		ACCENT_DIM
+	)
+end
+
+local SetWaypointButton = configuration.MakeActionRow(
+	"Pin current position",
+	4,
+	WaypointPage,
+	"Save where you are standing as the return point."
+)
+SetWaypointButton.MouseButton1Click:Connect(function()
+	local character = Player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+	configuration.WaypointPosition = root.Position
+	configuration.WaypointReturnEnabled = true
+	UpdateWaypointInfo()
+	configuration.SaveConfig()
+end)
+
+local ClearWaypointButton = configuration.MakeActionRow("Clear waypoint", 5, WaypointPage)
+ClearWaypointButton.MouseButton1Click:Connect(function()
+	configuration.WaypointPosition = nil
+	configuration.WaypointReturnEnabled = false
+	configuration.CombatSystem.ResetNavigationState(configuration.WaypointMoveState or {})
+	UpdateWaypointInfo()
+	configuration.SaveConfig()
+end)
+
+local WaypointRadiusCard, WaypointRadiusInput = configuration.MakeNumberCard(
+	WaypointPage,
+	"Return radius (studs)",
+	function() return configuration.WaypointReturnRadius end,
+	6,
+	2,
+	100,
+	function(value) configuration.WaypointReturnRadius = value end
+)
+WaypointRadiusInput.FocusLost:Connect(function()
+	WaypointRadiusInput.Text = tostring(configuration.WaypointReturnRadius)
+	configuration.SaveConfig()
+end)
+ReturnToWaypointButton.MouseButton1Click:Connect(function()
+	if not configuration.WaypointPosition then
+		configuration.WaypointReturnEnabled = false
+		UpdateWaypointInfo()
+		return
+	end
+	configuration.WaypointReturnEnabled = not configuration.WaypointReturnEnabled
+	UpdateWaypointInfo()
+	configuration.SaveConfig()
+end)
+UpdateWaypointInfo()
 
 local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
 	PlayerPage, "Follow spacing (studs)", function() return configuration.FollowDistance end, 3, 2, 100,
@@ -3837,6 +3942,10 @@ function configuration.Combat.FindCombatPlayer(userId)
 end
 
 function configuration.Combat.FindAutoAttackTarget(localRoot)
+	local function horizontalDistance(a, b)
+		local offset = b - a
+		return Vector3.new(offset.X, 0, offset.Z).Magnitude
+	end
 	-- Alert and EXP-cap handling are deliberate exceptions to list selection:
 	-- they may only attack the active EXP mob and always take priority.
 	local priorityMob = configuration.AlertCombatPending and configuration.AlertCombatTarget
@@ -3845,21 +3954,22 @@ function configuration.Combat.FindAutoAttackTarget(localRoot)
 	if priorityMob and configuration.Combat.IsLivingMob(priorityMob) then
 		local priorityRoot = priorityMob.PrimaryPart or priorityMob:FindFirstChild("HumanoidRootPart")
 		if priorityRoot and priorityRoot:IsA("BasePart") then
-			return "Mob", priorityMob, priorityRoot, (localRoot.Position - priorityRoot.Position).Magnitude
+			return "Mob", priorityMob, priorityRoot, horizontalDistance(localRoot.Position, priorityRoot.Position)
 		end
 	end
 	local selectedMob = configuration.SelectedCombatMob
 	if not selectedMob or not selectedMob:IsDescendantOf(MobsFolder)
-		or not configuration.Combat.IsLivingMob(selectedMob)
-		or configuration.CombatSystem.IsTargetCoolingDown(selectedMob) then
+		or not configuration.Combat.IsLivingMob(selectedMob) then
 		configuration.SelectedCombatMob = nil
 		configuration.CombatTargetMob = nil
 		configuration.AutoAttackPinnedMob = nil
 		return nil
 	end
+	-- Temporary navigation cooldowns must not erase the user's list selection.
+	if configuration.CombatSystem.IsTargetCoolingDown(selectedMob) then return nil end
 	local targetRoot = selectedMob.PrimaryPart or selectedMob:FindFirstChild("HumanoidRootPart")
 	if not targetRoot or not targetRoot:IsA("BasePart") then return nil end
-	local distance = (localRoot.Position - targetRoot.Position).Magnitude
+	local distance = horizontalDistance(localRoot.Position, targetRoot.Position)
 	if distance > configuration.AutoAttackSearchRange then return nil end
 	return "Mob", selectedMob, targetRoot, distance
 end
@@ -4335,6 +4445,15 @@ task.spawn(function()
 	local lastFinishHandoffTarget = nil
 	local lastRetaliationAttackTarget = nil
 	local lastUiSync = 0
+	local function FaceTargetWhenStill(root, targetPosition, alpha)
+		if not root or not targetPosition then return end
+		local character = Player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		-- Humanoid.AutoRotate already faces movement input. Writing CFrame while
+		-- walking fights that rotation and makes the character twitch toward mobs.
+		if humanoid and humanoid.MoveDirection.Magnitude > 0.05 then return end
+		configuration.CombatSystem.FaceTargetSmooth(root, targetPosition, alpha)
+	end
 	while true do
 	local canCombatDuringExp = configuration.Farming
 			and (configuration.ExpMaxCombatTarget ~= nil or configuration.ExpRetaliationTarget ~= nil
@@ -4402,6 +4521,7 @@ task.spawn(function()
 				-- point moves around the live target so attacks happen while moving.
 				if targetKind == "Mob" then attackMoveState.ApproachActive = true end
 				attackMoveState.MarkUnreachableEligible = targetKind == "Mob"
+					and target ~= configuration.SelectedCombatMob
 					and target ~= configuration.CurrentTarget
 					and target ~= configuration.ExpRetaliationTarget
 					and target ~= configuration.ExpMaxCombatTarget
@@ -4419,9 +4539,14 @@ task.spawn(function()
 					local approachPoint = configuration.CombatSystem.SelectApproachPoint(
 						localRoot, targetRoot, configuration.AutoAttackStandoff, target, attackMoveState, attackRange
 					)
+					attackMoveState.ApproachTarget = target
+					attackMoveState.LastApproachPoint = approachPoint
+					-- Combat navigation is horizontal; using the mob root's Y can
+					-- request an impossible vertical path when standing on a large mob.
+					approachPoint = Vector3.new(approachPoint.X, localRoot.Position.Y, approachPoint.Z)
 					if attackMoveState.ApproachActive then
 						-- Far targets path more often; close range softens repathing to reduce jitter.
-						local interval = (distance or 0) > 40 and 0.16 or 0.26
+						local interval = (distance or 0) > 40 and 0.12 or 0.10
 						local stopRadius = (distance or math.huge) <= attackRange + 2 and 0.15 or 1.9
 						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, approachPoint, target, attackMoveState, interval, stopRadius)
 						attackMoveState.NavigationMode = navigationState
@@ -4449,7 +4574,7 @@ task.spawn(function()
 					end
 					-- Start facing early so attacks land cleaner during approach.
 					if configuration.FaceTargetEnabled and (distance or 999) <= configuration.AutoAttackRange + 15 then
-						configuration.CombatSystem.FaceTargetSmooth(localRoot, targetRoot.Position, 0.22)
+						FaceTargetWhenStill(localRoot, targetRoot.Position, 0.22)
 					end
 				elseif targetKind == "Player" and configuration.AutoAttackEnabled and localRoot then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -4467,7 +4592,7 @@ task.spawn(function()
 						MiniState.Text = navigationState == "path" and "Walking around an obstacle"
 							or (navigationState == "retrying route" and "Blocked route; retrying" or "Closing distance to attack")
 						if configuration.FaceTargetEnabled and (distance or 999) <= configuration.AutoAttackRange + 15 then
-							configuration.CombatSystem.FaceTargetSmooth(localRoot, targetRoot.Position, 0.22)
+							FaceTargetWhenStill(localRoot, targetRoot.Position, 0.22)
 						end
 					elseif chasingMob or attackMoveState.Active or tookMovement then
 						if humanoid then humanoid:MoveTo(localRoot.Position) end
@@ -4496,7 +4621,7 @@ task.spawn(function()
 
 				if distance <= attackRange or chasingMob then
 					if configuration.FaceTargetEnabled and localRoot and targetRoot then
-						configuration.CombatSystem.FaceTargetSmooth(localRoot, targetRoot.Position, distance <= 12 and 0.45 or 0.28)
+						FaceTargetWhenStill(localRoot, targetRoot.Position, distance <= 12 and 0.45 or 0.28)
 					end
 					local playerGui = Player:FindFirstChildOfClass("PlayerGui")
 					local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
@@ -4601,6 +4726,57 @@ task.spawn(function()
 			configuration.UpdateExpMobTargetButton()
 		end
 		task.wait(0.08)
+	end
+end)
+
+-- Return to the pinned position when no higher-priority combat/EXP movement owns the character.
+task.spawn(function()
+	local moveState = configuration.WaypointMoveState
+	while true do
+		task.wait(0.12)
+		local character = Player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local point = configuration.WaypointPosition
+		local paused = configuration.EmergencyStopActive
+			or configuration.FollowPlayerUserId ~= nil
+			or configuration.AlertCombatPending
+			or configuration.AlertCombatHold
+			or configuration.ExpMaxCombatTarget ~= nil
+			or configuration.ExpRetaliationTarget ~= nil
+			or configuration.ExpFinishTarget ~= nil
+			or configuration.PendingServerHop
+		if not paused and root and configuration.AutoAttackEnabled and not configuration.Farming then
+			local targetKind = configuration.Combat.FindAutoAttackTarget(root)
+			paused = targetKind ~= nil
+		end
+		if configuration.Farming and configuration.ExpAutoApproachEnabled then
+			paused = true
+		end
+
+		if configuration.WaypointReturnEnabled and point and root and humanoid and not paused then
+			local distance = (root.Position - point).Magnitude
+			if distance > configuration.WaypointReturnRadius then
+				ClaimMovement("Waypoint", humanoid, root)
+				local _, navigationState = configuration.CombatSystem.NavigateMoveTo(
+					humanoid,
+					root,
+					point,
+					nil,
+					moveState,
+					0.18,
+					configuration.WaypointReturnRadius,
+					true
+				)
+				moveState.NavigationMode = navigationState
+			else
+				ReleaseMovement("Waypoint", humanoid, root)
+				configuration.CombatSystem.ResetNavigationState(moveState)
+			end
+		else
+			if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
+			configuration.CombatSystem.ResetNavigationState(moveState)
+		end
 	end
 end)
 
