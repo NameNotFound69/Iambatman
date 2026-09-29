@@ -1,5 +1,5 @@
 -- Direct-movement controller for selected-mob combat.
-local VERSION = "2.0.0"
+local VERSION = "2.1.0"
 print("[CombatSystem] Version " .. VERSION .. " (MoveTo)")
 return {
 	Initialize = function(configuration, dependencies)

@@ -1,4 +1,4 @@
-local VERSION = "2.0.0"
+local VERSION = "2.3.0"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -253,6 +253,7 @@ local configuration: {[string]: any} = {
 	ExpAutoApproachEnabled = false,
 	Interval = 1,
 	ExpGoal = 2000000,
+	AutoExecuteEnabled = true,
 	AlertsDistance = 1000,
 	FollowDistance = 8,
 	FollowPlayerUserId = nil,
@@ -264,6 +265,8 @@ local configuration: {[string]: any} = {
 	WaypointMoveState = { Active = false, Goal = nil, LastMoveAt = 0 },
 	MovementBoostEnabled = true,
 	AutoAttackEnabled = false,
+	AutoBossTargetEnabled = false,
+	AutoMiniBossTargetEnabled = false,
 	ExpTargetRetaliationEnabled = false,
 	ExpRetaliationTarget = nil,
 	AutoSkillEnabled = false,
@@ -296,6 +299,9 @@ local configuration: {[string]: any} = {
 	AlertCombatTarget = nil,
 	AlertCombatHold = false,
 	AlertCombatBlockReady = false,
+	AlertResumeRequired = false,
+	AlertWasFarming = false,
+	AlertBlockPromptShown = false,
 	AlertBlockTarget = nil,
 	LastAlertCombatUserId = nil,
 	PendingServerHop = false,
@@ -410,6 +416,7 @@ function configuration.LoadConfig()
 	configuration.MaxDistance = math.clamp(ReadNumber("MaxDistance", configuration.MaxDistance, 5, false), 5, 100000)
 	configuration.Interval = ReadNumber("Interval", configuration.Interval, 0, true)
 	configuration.ExpGoal = ReadNumber("ExpGoal", configuration.ExpGoal, 0, false)
+	if type(config.AutoExecuteEnabled) == "boolean" then configuration.AutoExecuteEnabled = config.AutoExecuteEnabled end
 	configuration.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configuration.AlertsDistance, 0, true), 0, 100000)
 	configuration.FollowDistance = math.clamp(ReadNumber("FollowDistance", configuration.FollowDistance, 2, false), 2, 100)
 	configuration.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configuration.AutoAttackRange, 5, false), 5, 500)
@@ -459,6 +466,8 @@ function configuration.LoadConfig()
 	if type(config.AutoBlockEnabled) == "boolean" then configuration.AutoBlockEnabled = config.AutoBlockEnabled end
 	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
 	if type(config.AutoAttackEnabled) == "boolean" then configuration.AutoAttackEnabled = config.AutoAttackEnabled end
+	if type(config.AutoBossTargetEnabled) == "boolean" then configuration.AutoBossTargetEnabled = config.AutoBossTargetEnabled end
+	if type(config.AutoMiniBossTargetEnabled) == "boolean" then configuration.AutoMiniBossTargetEnabled = config.AutoMiniBossTargetEnabled end
 	if type(config.WaypointReturnEnabled) == "boolean" then configuration.WaypointReturnEnabled = config.WaypointReturnEnabled end
 	if type(config.ExpTargetRetaliationEnabled) == "boolean" then configuration.ExpTargetRetaliationEnabled = config.ExpTargetRetaliationEnabled end
 	if type(config.AutoSkillEnabled) == "boolean" then configuration.AutoSkillEnabled = config.AutoSkillEnabled end
@@ -499,10 +508,13 @@ function configuration.SaveConfig()
 		ExpAutoApproachEnabled = configuration.ExpAutoApproachEnabled,
 		Interval = configuration.Interval,
 		ExpGoal = configuration.ExpGoal,
+		AutoExecuteEnabled = configuration.AutoExecuteEnabled,
 		AlertsDistance = configuration.AlertsDistance,
 		FollowDistance = configuration.FollowDistance,
 		FollowPlayerUserId = configuration.FollowPlayerUserId,
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
+		AutoBossTargetEnabled = configuration.AutoBossTargetEnabled,
+		AutoMiniBossTargetEnabled = configuration.AutoMiniBossTargetEnabled,
 		ExpTargetRetaliationEnabled = configuration.ExpTargetRetaliationEnabled,
 		AutoAttackRange = configuration.AutoAttackRange,
 		AutoAttackSearchRange = configuration.AutoAttackSearchRange,
@@ -1420,7 +1432,7 @@ configuration.AddPageHeading(ESPPage, "ESP", "Show other players on screen")
 configuration.AddPageHeading(PlayerPage, "Players", "Follow, block, whitelist and server list")
 configuration.AddPageHeading(AlertsPage, "Alerts", "Warn when other players come nearby")
 configuration.AddPageHeading(FarmPage, "Farm settings", "EXP per cycle, range, interval and goal")
-configuration.AddPageHeading(CombatPage, "Combat", "Auto attack, skills and target mode")
+configuration.AddPageHeading(CombatPage, "Combat", "Auto attack, skills and mob targeting")
 configuration.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
 
 Sidebar = Instance.new("Frame")
@@ -2233,33 +2245,35 @@ local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
 	function(value) configuration.FollowDistance = value end
 )
 
-local AutoAttackButton = configuration.MakeToggle("Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid, "Move to and attack the selected mob.")
-local AutoSkillButton = configuration.MakeToggle("Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid, "Use skills while attacking the selected mob.")
+local AutoAttackButton = configuration.MakeToggle("Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid, "Move to and attack selected or marked mobs.")
+local AutoSkillButton = configuration.MakeToggle("Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid, "Use skills while attacking the current target.")
 local ExpTargetRetaliationButton = configuration.MakeToggle("EXP retaliation", configuration.ExpTargetRetaliationEnabled, RED, RED_DIM, 3, CombatGrid, "Attack the EXP mob if it is hit.")
+local AutoBossTargetButton = configuration.MakeToggle("IsBoss target", configuration.AutoBossTargetEnabled, RED, RED_DIM, 4, CombatGrid, "Find mobs with a direct IsBoss child and move in to attack.")
+local AutoMiniBossTargetButton = configuration.MakeToggle("IsMiniBoss target", configuration.AutoMiniBossTargetEnabled, RED, RED_DIM, 5, CombatGrid, "Find mobs with a direct IsMiniBoss child and move in to attack.")
 
 local AutoAttackRangeCard, AutoAttackRangeInput = configuration.MakeNumberCard(
-	CombatPage, "Attack target range (studs)", function() return configuration.AutoAttackRange end, 4, 5, 500,
+	CombatPage, "Attack target range (studs)", function() return configuration.AutoAttackRange end, 6, 5, 500,
 	function(value) configuration.AutoAttackRange = value end
 )
 
 local AutoAttackSearchRangeCard, AutoAttackSearchRangeInput = configuration.MakeNumberCard(
-	CombatPage, "Mob visibility range (studs)", function() return configuration.AutoAttackSearchRange end, 5, 5, 1000,
+	CombatPage, "Mob visibility range (studs)", function() return configuration.AutoAttackSearchRange end, 7, 5, 1000,
 	function(value) configuration.AutoAttackSearchRange = value end
 )
 
 local AutoAttackIntervalCard, AutoAttackIntervalInput = configuration.MakeNumberCard(
-	CombatPage, "Attack interval (seconds)", function() return configuration.AutoAttackInterval end, 6, 1, 10,
+	CombatPage, "Attack interval (seconds)", function() return configuration.AutoAttackInterval end, 8, 1, 10,
 	function(value) configuration.AutoAttackInterval = value end
 )
 
 local AutoSkillIntervalCard, AutoSkillIntervalInput = configuration.MakeNumberCard(
-	CombatPage, "Skill interval (seconds)", function() return configuration.AutoSkillInterval end, 7, 1, 30,
+	CombatPage, "Skill interval (seconds)", function() return configuration.AutoSkillInterval end, 9, 1, 30,
 	function(value) configuration.AutoSkillInterval = value end
 )
 
 local CombatMobHeading = Instance.new("Frame")
 CombatMobHeading.Size = UDim2.new(1, 0, 0, 30)
-CombatMobHeading.LayoutOrder = 8
+CombatMobHeading.LayoutOrder = 10
 CombatMobHeading.BackgroundTransparency = 1
 CombatMobHeading.Parent = CombatPage
 
@@ -2489,7 +2503,7 @@ configuration.CombatInfo = Instance.new("TextLabel")
 configuration.CombatInfo.Size = UDim2.new(1, -28, 0, 49)
 configuration.CombatInfo.Position = UDim2.fromOffset(19, 23)
 configuration.CombatInfo.BackgroundTransparency = 1
-configuration.CombatInfo.Text = "Combat locks one target, routes around obstacles, and attacks while closing in. It holds still in range; skills fire in range only. EXP firing behavior stays unchanged."
+configuration.CombatInfo.Text = "Targets selected mobs or enabled IsBoss markers; moves with MoveTo and attacks while closing in."
 configuration.CombatInfo.TextColor3 = TEXT
 configuration.CombatInfo.TextSize = 10
 configuration.CombatInfo.Font = Enum.Font.Gotham
@@ -2506,8 +2520,10 @@ function configuration.UpdateCombatStatus(target, targetRoot, distance, navigati
 	configuration.LastCombatStatusUpdate = now
 	if not target or not targetRoot then
 		configuration.CombatInfo.Text = configuration.Farming and "Combat paused during EXP firing."
-			or (configuration.AutoAttackEnabled and "Select a mob from the list to start moving and attacking."
-				or "Auto attack is off.")
+			or ((configuration.AutoBossTargetEnabled or configuration.AutoMiniBossTargetEnabled)
+				and "Searching for IsBoss / IsMiniBoss targets..."
+				or (configuration.AutoAttackEnabled and "Select a mob from the list to start moving and attacking."
+					or "Auto attack is off."))
 		return
 	end
 	local action = navigationState == "detouring" and "going around obstacle"
@@ -2529,9 +2545,21 @@ AutoSkillButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
+AutoBossTargetButton.MouseButton1Click:Connect(function()
+	configuration.AutoBossTargetEnabled = not configuration.AutoBossTargetEnabled
+	configuration.SetToggleVisual(AutoBossTargetButton, "IsBoss target", configuration.AutoBossTargetEnabled, RED, RED_DIM)
+	configuration.SaveConfig()
+end)
+
+AutoMiniBossTargetButton.MouseButton1Click:Connect(function()
+	configuration.AutoMiniBossTargetEnabled = not configuration.AutoMiniBossTargetEnabled
+	configuration.SetToggleVisual(AutoMiniBossTargetButton, "IsMiniBoss target", configuration.AutoMiniBossTargetEnabled, RED, RED_DIM)
+	configuration.SaveConfig()
+end)
+
 local AlertToggleButton = configuration.MakeToggle("Player alert", configuration.AlertsEnabled, GREEN, GREEN_DIM, 1, AlertsGrid, "Alert when a non-whitelisted player gets close.")
 local AlertFlashButton = configuration.MakeToggle("Screen flash", configuration.AlertFlashEnabled, RED, RED_DIM, 2, AlertsGrid, "Flash the screen when an alert triggers.")
-local AutoResumeButton = configuration.MakeToggle("Auto resume", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM, 3, AlertsGrid, "Resume EXP when the alert clears.")
+local AutoResumeButton = configuration.MakeToggle("Auto resume", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
 local ESPToggleButton = configuration.MakeToggle("Player ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2, nil, "Show markers for other players.")
 local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw lines to players.")
 local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw boxes around players.")
@@ -2603,6 +2631,7 @@ AutoBlockButton.MouseButton1Click:Connect(function()
 	configuration.SetToggleVisual(AutoBlockButton, "Auto block", configuration.AutoBlockEnabled, RED, RED_DIM)
 	if not configuration.AutoBlockEnabled and not configuration.AlertCombatPending then
 		configuration.AlertCombatBlockReady = false
+		configuration.AlertBlockPromptShown = false
 		configuration.AlertBlockTarget = nil
 	end
 	configuration.SaveConfig()
@@ -2626,6 +2655,9 @@ EmergencyStopButton.MouseButton1Click:Connect(function()
 		configuration.AlertCombatTarget = nil
 		configuration.AlertCombatHold = false
 		configuration.AlertCombatBlockReady = false
+		configuration.AlertResumeRequired = false
+		configuration.AlertWasFarming = false
+		configuration.AlertBlockPromptShown = false
 		configuration.AlertBlockTarget = nil
 		configuration.LastAlertCombatUserId = nil
 		configuration.ExpRetaliationTarget = nil
@@ -2804,6 +2836,32 @@ ExpAutoApproachButton.MouseButton1Click:Connect(function()
 		ACCENT,
 		ACCENT_DIM
 	)
+	configuration.SaveConfig()
+end)
+
+local AutoExecuteButton = configuration.MakeToggle(
+	"Auto Execute",
+	configuration.AutoExecuteEnabled,
+	RED,
+	RED_DIM,
+	5,
+	ExpPage,
+	"Stop EXP firing and finish the locked mob at EXP Max, manual stop, or Alert."
+)
+AutoExecuteButton.MouseButton1Click:Connect(function()
+	configuration.AutoExecuteEnabled = not configuration.AutoExecuteEnabled
+	configuration.SetToggleVisual(AutoExecuteButton, "Auto Execute", configuration.AutoExecuteEnabled, RED, RED_DIM)
+	if not configuration.AutoExecuteEnabled then
+		configuration.ExpFinishTarget = nil
+		configuration.ExpMaxCombatTarget = nil
+		if configuration.AlertCombatPending then
+			configuration.AlertCombatPending = false
+			configuration.AlertCombatTarget = nil
+			configuration.AlertCombatHold = true
+			configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
+			if not configuration.AutoBlockEnabled then configuration.AlertBlockTarget = nil end
+		end
+	end
 	configuration.SaveConfig()
 end)
 
@@ -3342,7 +3400,7 @@ function configuration.PauseTimer()
 end
 
 function configuration.SetIdle(finishCurrentExpTarget)
-	local finishTarget = finishCurrentExpTarget and configuration.CurrentTarget
+	local finishTarget = configuration.AutoExecuteEnabled and finishCurrentExpTarget and configuration.CurrentTarget
 	if finishTarget and configuration.Combat.IsLivingMob(finishTarget) then
 		configuration.ExpFinishTarget = finishTarget
 	else
@@ -3350,9 +3408,6 @@ function configuration.SetIdle(finishCurrentExpTarget)
 	end
 	if not configuration.AlertCombatPending then
 		configuration.ExpRetaliationTarget = nil
-	end
-	if configuration.Farming and not configuration.AlertCombatPending and configuration.AutoSkillEnabled
-		and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
 	end
 	configuration.Farming = false
 	if configuration.StopExpMovement then configuration.StopExpMovement() end
@@ -3370,6 +3425,9 @@ end
 
 function configuration.SetRunning()
 	if configuration.AlertCombatPending or configuration.AlertCombatHold or configuration.AlertCombatBlockReady then return end
+	configuration.AlertResumeRequired = false
+	configuration.AlertWasFarming = false
+	configuration.AlertBlockPromptShown = false
 	configuration.EmergencyStopActive = false
 	if configuration.UpdateEmergencyStopButton then configuration.UpdateEmergencyStopButton() end
 	configuration.Farming = true
@@ -3392,6 +3450,19 @@ function configuration.SetRunning()
 	Status.BackgroundColor3 = GREEN_DIM
 	StateLabel.Text = "Searching..."
 	MiniState.Text = "Searching..."
+end
+
+function configuration.HandleExpMax(target)
+	if configuration.AutoExecuteEnabled and configuration.Combat.IsLivingMob(target) then
+		configuration.ExpMaxCombatTarget = target
+		configuration.PauseTimer()
+		StateLabel.Text = "EXP max - finishing target"
+		MiniState.Text = "Auto Execute: attacking this EXP target until it dies"
+		return true
+	end
+	configuration.ExpMaxCombatTarget = nil
+	configuration.SetIdle(false)
+	return false
 end
 
 StartBtn.MouseButton1Click:Connect(function()
@@ -3500,13 +3571,44 @@ function configuration.Combat.GetSelectedCombatMob(localRoot)
 		if maxDistance and distance > maxDistance then return nil end
 		return mob, root, distance
 	end
-	-- Safety flows may temporarily replace list selection, but still target only a mob.
-	local priorityMob = configuration.AlertCombatPending and configuration.AlertCombatTarget
-		or configuration.ExpMaxCombatTarget
-		or configuration.ExpRetaliationTarget
-	if priorityMob then
-		local mob, root, distance = resolve(priorityMob)
-		if mob then return mob, root, distance end
+	-- Auto Execute takes priority over list selection and locks the EXP mob to finish.
+	if configuration.AutoExecuteEnabled then
+		if configuration.AlertCombatPending then
+			local mob, root, distance = resolve(configuration.AlertCombatTarget)
+			if mob then return mob, root, distance end
+			return nil
+		end
+		if configuration.ExpMaxCombatTarget then
+			local mob, root, distance = resolve(configuration.ExpMaxCombatTarget)
+			if mob then return mob, root, distance end
+			configuration.ExpMaxCombatTarget = nil
+			return nil
+		end
+		if configuration.ExpFinishTarget then
+			local mob, root, distance = resolve(configuration.ExpFinishTarget)
+			if mob then return mob, root, distance end
+			configuration.ExpFinishTarget = nil
+			return nil
+		end
+	end
+	local retaliationMob, retaliationRoot, retaliationDistance = resolve(configuration.ExpRetaliationTarget)
+	if retaliationMob then return retaliationMob, retaliationRoot, retaliationDistance end
+	if configuration.AutoBossTargetEnabled or configuration.AutoMiniBossTargetEnabled then
+		MobCache_Rebuild(false)
+		local nearestMob, nearestRoot, nearestDistance
+		for _, entry in ipairs(MobCache.List) do
+			local mob = entry.Mob
+			local matchesBoss = configuration.AutoBossTargetEnabled and mob:FindFirstChild("IsBoss") ~= nil
+			local matchesMiniBoss = configuration.AutoMiniBossTargetEnabled and mob:FindFirstChild("IsMiniBoss") ~= nil
+			if matchesBoss or matchesMiniBoss then
+				local candidate, root, distance = resolve(mob, configuration.AutoAttackSearchRange)
+				if candidate and (not nearestDistance or distance < nearestDistance) then
+					nearestMob, nearestRoot, nearestDistance = candidate, root, distance
+				end
+			end
+		end
+		if nearestMob then return nearestMob, nearestRoot, nearestDistance end
+		return nil
 	end
 	local selectedMob = configuration.SelectedCombatMob
 	if not selectedMob or not selectedMob:IsDescendantOf(MobsFolder) then
@@ -3761,9 +3863,10 @@ task.spawn(function()
 
 		-- เมื่อถึง Max ให้คงเป้าหมายเดิมไว้จนกว่ามอนจะตาย
 		if exp.Value >= configuration.ExpGoal then
-			configuration.ExpMaxCombatTarget = target
-			StateLabel.Text = "EXP max - waiting for mob to die"
-			MiniState.Text = "Waiting for mob to die"
+			if not configuration.HandleExpMax(target) then
+				task.wait(0.2)
+				continue
+			end
 			configuration.UpdateBillboardText(exp.Value, true)
 			Bar.Size = UDim2.fromScale(1, 1)
 			PercentLabel.Text = "100%"
@@ -3907,9 +4010,10 @@ task.spawn(function()
 			lastCycleGain = math.max(0, exp.Value - cycleStartExp)
 			lastCycleCalls = callsSent
 			adaptiveYield = math.max(0, adaptiveYield - 0.004)
-			configuration.ExpMaxCombatTarget = target
-			StateLabel.Text = "EXP max - waiting for mob to die"
-			MiniState.Text = "Waiting for mob to die"
+			if not configuration.HandleExpMax(target) then
+				task.wait(0.2)
+				continue
+			end
 			configuration.UpdateBillboardText(exp.Value, true)
 			Bar.Size = UDim2.fromScale(1, 1)
 			PercentLabel.Text = "100%"
@@ -3974,14 +4078,16 @@ task.spawn(function()
 	local lastFinishHandoffTarget = nil
 	local lastRetaliationAttackTarget = nil
 	while true do
-	local canCombatDuringExp = configuration.Farming
+		local autoMarkedTarget = configuration.AutoBossTargetEnabled or configuration.AutoMiniBossTargetEnabled
+		local canCombatDuringExp = configuration.Farming
 			and (configuration.ExpMaxCombatTarget ~= nil or configuration.ExpRetaliationTarget ~= nil
-				or configuration.PendingServerHop)
+				or configuration.PendingServerHop or configuration.ExpFinishTarget ~= nil)
 		local forceFinishExp = configuration.PendingServerHop and configuration.ServerHopKillTarget ~= nil
 		local priorityCombat = configuration.AlertCombatPending or configuration.ExpMaxCombatTarget ~= nil
 			or configuration.ExpRetaliationTarget ~= nil or configuration.PendingServerHop
+			or (configuration.AutoExecuteEnabled and configuration.ExpFinishTarget ~= nil)
 		if not configuration.EmergencyStopActive
-			and (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or priorityCombat)
+			and (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or priorityCombat or autoMarkedTarget)
 			and not configuration.AlertCombatHold
 			and (not configuration.Farming or canCombatDuringExp or forceFinishExp)
 			and not configuration.AlertCombatBlockReady then
@@ -4027,9 +4133,10 @@ task.spawn(function()
 				-- Keep steering toward the selected mob while attacking, including at close range.
 				local forcedExpCombat = target == configuration.AlertCombatTarget and configuration.AlertCombatPending
 					or target == configuration.ExpMaxCombatTarget
+					or target == configuration.ExpFinishTarget and configuration.AutoExecuteEnabled
 					or target == configuration.ExpRetaliationTarget
 					or target == configuration.ServerHopKillTarget and configuration.PendingServerHop
-				if localRoot and (configuration.AutoAttackEnabled or forcedExpCombat) then
+				if localRoot and (configuration.AutoAttackEnabled or forcedExpCombat or autoMarkedTarget) then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					ClaimMovement("Combat", humanoid, localRoot)
 					local approachPoint = configuration.CombatSystem.SelectApproachPoint(
@@ -4043,10 +4150,14 @@ task.spawn(function()
 					)
 					attackMoveState.NavigationMode = navigationState
 					chasingMob = not arrived
+					local finishingExpTarget = target == configuration.ExpFinishTarget
+						or target == configuration.ExpMaxCombatTarget
+						or configuration.AlertCombatPending and target == configuration.AlertCombatTarget
 					StateLabel.Text = navigationState == "detouring" and "Going around obstacle"
-						or (configuration.ExpFinishTarget == target and "Moving to EXP target" or "Moving to target")
+						or (finishingExpTarget and "Finishing EXP target" or "Moving to target")
 					MiniState.Text = navigationState == "detouring" and "Steering around the obstacle"
-						or (distance > attackRange and "Moving into attack range" or "Moving around target while attacking")
+						or (finishingExpTarget and "Moving to the locked EXP target"
+							or (distance > attackRange and "Moving into attack range" or "Moving around target while attacking"))
 				elseif chasingMob or attackMoveState.Active then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
@@ -4086,14 +4197,19 @@ task.spawn(function()
 							end
 						else
 							configuration.CombatInfo.Text = configuration.AlertCombatPending and "Alert response: attacking only the locked EXP target." or "Weapon ready; Auto Attack can engage the selected target."
-							if configuration.ExpFinishTarget == target then
+							if configuration.AlertCombatPending and target == configuration.AlertCombatTarget then
+								StateLabel.Text = "Alert execute"
+								MiniState.Text = distance > attackRange
+									and "EXP paused — closing in on the locked target"
+									or "EXP paused — attacking the locked target before Block"
+							elseif target == configuration.ExpFinishTarget or target == configuration.ExpMaxCombatTarget then
 								StateLabel.Text = distance > attackRange and "Moving and finishing target" or "Finishing target"
 								MiniState.Text = distance > attackRange and "Attacking while moving to the locked EXP target" or "Attacking the locked EXP target until it dies"
 							elseif not configuration.Farming or configuration.AlertCombatPending or configuration.ExpRetaliationTarget == target then
 								StateLabel.Text = distance > attackRange and "Moving and attacking" or "Attacking"
 								MiniState.Text = distance > attackRange and "Attacking while closing distance" or "In range — attacking target"
 							end
-							if (configuration.AutoAttackEnabled or forcedExpCombat)
+							if (configuration.AutoAttackEnabled or forcedExpCombat or autoMarkedTarget)
 								and now - lastAttackAt >= configuration.AutoAttackInterval then
 								local ok, err = pcall(function()
 									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
@@ -4137,6 +4253,29 @@ task.spawn(function()
 				attackMoveState.Target = nil
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				ReleaseMovement("Combat", humanoid, localRoot)
+				if configuration.AlertCombatHold then
+					if configuration.AlertCombatBlockReady then
+						StateLabel.Text = "Block"
+						MiniState.Text = "Waiting to open Block prompt"
+					elseif configuration.AlertBlockPromptShown then
+						StateLabel.Text = "Block prompt"
+						MiniState.Text = "Block prompt opened; waiting for the Alert player to leave"
+					else
+						StateLabel.Text = "Alert hold"
+						MiniState.Text = "Waiting for the Alert player to leave"
+					end
+				elseif not configuration.Farming then
+					if configuration.AlertResumeRequired then
+						StateLabel.Text = "Stopped"
+						MiniState.Text = "Alert cleared — press Start to resume EXP"
+					elseif configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or autoMarkedTarget then
+						StateLabel.Text = "Searching..."
+						MiniState.Text = "Searching for a valid combat target"
+					elseif not configuration.EmergencyStopActive then
+						StateLabel.Text = "Stopped"
+						MiniState.Text = "Stopped"
+					end
+				end
 				configuration.UpdateCombatStatus(nil, nil, nil, "searching", attackMoveState)
 			end
 		else
@@ -4178,7 +4317,8 @@ task.spawn(function()
 			or configuration.ExpRetaliationTarget ~= nil
 			or configuration.ExpFinishTarget ~= nil
 			or configuration.PendingServerHop
-		if not paused and root and configuration.AutoAttackEnabled and not configuration.Farming then
+		if not paused and root and (configuration.AutoAttackEnabled or configuration.AutoBossTargetEnabled
+			or configuration.AutoMiniBossTargetEnabled) and not configuration.Farming then
 			local selectedMob = configuration.Combat.GetSelectedCombatMob(root)
 			paused = selectedMob ~= nil
 		end
@@ -4394,12 +4534,17 @@ task.spawn(function()
 		local trackedPlayerInRange = configuration.AlertsEnabled and localRoot and trackedRoot
 			and (localRoot.Position - trackedRoot.Position).Magnitude <= configuration.AlertsDistance
 		if not trackedPlayerInRange and not configuration.AlertCombatPending then
-			local shouldResume = configuration.AlertCombatHold and configuration.AutoResumeAfterAlert
+			local shouldResume = configuration.AlertWasFarming and configuration.AlertCombatHold and configuration.AutoResumeAfterAlert
+				and not configuration.EmergencyStopActive
+			local mustResumeManually = configuration.AlertWasFarming and configuration.AlertCombatHold and not configuration.AutoResumeAfterAlert
 				and not configuration.EmergencyStopActive
 			configuration.LastAlertCombatUserId = nil
 			configuration.AlertCombatHold = false
 			configuration.AlertCombatBlockReady = false
 			configuration.AlertBlockTarget = nil
+			configuration.AlertBlockPromptShown = false
+			configuration.AlertResumeRequired = mustResumeManually
+			configuration.AlertWasFarming = false
 			if shouldResume then configuration.SetRunning() end
 		end
 
@@ -4408,9 +4553,12 @@ task.spawn(function()
 			if not configuration.AlertCombatPending and not configuration.AlertCombatBlockReady
 				and configuration.LastAlertCombatUserId ~= alertUserId then
 				configuration.LastAlertCombatUserId = alertUserId
+				configuration.AlertResumeRequired = false
+				configuration.AlertWasFarming = configuration.Farming
+				configuration.AlertBlockPromptShown = false
 				configuration.AlertCombatPending = true
 				configuration.AlertBlockTarget = nearbyPlayer
-				local mob = configuration.CurrentTarget
+				local mob = configuration.AutoExecuteEnabled and configuration.CurrentTarget or nil
 				if not configuration.Combat.IsLivingMob(mob) then
 					mob = nil
 				end
@@ -4458,7 +4606,6 @@ task.spawn(function()
 					configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
 					StateLabel.Text = configuration.AutoBlockEnabled and "Block" or "Alert hold"
 					MiniState.Text = configuration.AutoBlockEnabled and "EXP target defeated; opening Block prompt" or "EXP target defeated; waiting for player to leave"
-				else
 				end
 			end
 		end
@@ -4466,7 +4613,8 @@ task.spawn(function()
 		local followedPlayer = configuration.FollowPlayerUserId and Players:GetPlayerByUserId(tonumber(configuration.FollowPlayerUserId))
 		-- Pause Follow while Auto Attack is pursuing a valid target; resume when the target clears.
 		local interruptFollow = configuration.AlertCombatPending == true
-		if not interruptFollow and (configuration.AutoAttackEnabled or configuration.ExpFinishTarget ~= nil)
+		if not interruptFollow and (configuration.AutoAttackEnabled or configuration.AutoBossTargetEnabled
+			or configuration.AutoMiniBossTargetEnabled or configuration.ExpFinishTarget ~= nil)
 			and not configuration.Farming and localRoot then
 			local selectedMob = configuration.Combat.GetSelectedCombatMob(localRoot)
 			if selectedMob then
@@ -4639,9 +4787,11 @@ task.spawn(function()
 				nextAutoBlockPromptAt = 0
 				configuration.AlertCombatBlockReady = false
 				configuration.AlertBlockTarget = nil
+				configuration.AlertBlockPromptShown = false
 			elseif blockedNonWhitelistedPlayer and not autoBlockTeleporting then
 				configuration.AlertCombatBlockReady = false
 				configuration.AlertBlockTarget = nil
+				configuration.AlertBlockPromptShown = false
 				-- Prefer finishing the active EXP mob before hopping.
 				local killMob = deferredAutoBlockMob
 				if not configuration.Combat.IsLivingMob(killMob) then
@@ -4695,6 +4845,7 @@ task.spawn(function()
 				if ok and configuration.AlertCombatBlockReady and nextPlayerToPrompt == alertTarget then
 					configuration.AlertCombatBlockReady = false
 					configuration.AlertBlockTarget = nil
+					configuration.AlertBlockPromptShown = true
 					StateLabel.Text = "Block prompt"
 					MiniState.Text = "Block prompt opened; waiting for the Alert player to leave"
 				elseif not ok then
