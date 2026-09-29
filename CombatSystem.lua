@@ -80,7 +80,6 @@ return {
 			state.ApproachAngle, state.RepositionUntil, state.NavigationMode = nil, nil, nil
 			state.PursuitOrbitAngle, state.PursuitOrbitAt = nil, nil
 			state.LastApproachPoint, state.ApproachTarget = nil, nil
-			state.DetourGoal, state.DetourFor = nil, nil
 		end
 
 		-- AIC probes low and high before jumping, so flat path waypoints do not
@@ -106,65 +105,7 @@ return {
 			return false
 		end
 
-		local function makeRaycastParams(root, targetModel)
-			local params = RaycastParams.new()
-			params.FilterType = Enum.RaycastFilterType.Exclude
-			local filter = { root.Parent }
-			if mobsFolder then table.insert(filter, mobsFolder) end
-			if targetModel then table.insert(filter, targetModel) end
-			params.FilterDescendantsInstances = filter
-			params.RespectCanCollide = true
-			return params
-		end
-
-		function combat.GroundAlignGoal(root, goal, targetModel)
-			if not root or not goal then return goal end
-			local params = makeRaycastParams(root, targetModel)
-			local castHeight = math.max(root.Position.Y, goal.Y) + 32
-			local rootFloor = workspace:Raycast(
-				Vector3.new(root.Position.X, root.Position.Y + 8, root.Position.Z),
-				Vector3.new(0, -160, 0), params
-			)
-			local goalFloor = workspace:Raycast(
-				Vector3.new(goal.X, castHeight, goal.Z), Vector3.new(0, -256, 0), params
-			)
-			if not rootFloor or not goalFloor then return goal end
-			local rootHeight = math.max(root.Position.Y - rootFloor.Position.Y, root.Size.Y * 0.5)
-			return Vector3.new(goal.X, goalFloor.Position.Y + rootHeight, goal.Z)
-		end
-
-		local function findDirectDetour(root, goal, targetModel)
-			local toward = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
-			if toward.Magnitude < 0.1 then return nil end
-			toward = toward.Unit
-			local params = makeRaycastParams(root, targetModel)
-			local rootFloor = workspace:Raycast(
-				root.Position + Vector3.new(0, 8, 0), Vector3.new(0, -160, 0), params
-			)
-			local rootHeight = rootFloor and math.max(root.Position.Y - rootFloor.Position.Y, root.Size.Y * 0.5) or root.Size.Y
-			local best, bestScore = nil, math.huge
-			for _, degrees in ipairs({ 35, -35, 65, -65, 95, -95, 125, -125, 155, -155, 180 }) do
-				local angle = math.rad(degrees)
-				local direction = Vector3.new(
-					toward.X * math.cos(angle) - toward.Z * math.sin(angle), 0,
-					toward.X * math.sin(angle) + toward.Z * math.cos(angle)
-				)
-				local candidateXZ = root.Position + direction * 8
-				local obstruction = workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), direction * 8, params)
-				if not obstruction then
-					local floor = workspace:Raycast(candidateXZ + Vector3.new(0, 12, 0), Vector3.new(0, -96, 0), params)
-					if floor and math.abs(floor.Position.Y - (root.Position.Y - rootHeight)) <= 12 then
-						local candidate = Vector3.new(candidateXZ.X, floor.Position.Y + rootHeight, candidateXZ.Z)
-						local remaining = Vector3.new(goal.X - candidate.X, 0, goal.Z - candidate.Z).Magnitude
-						local score = remaining + math.abs(degrees) * 0.035
-						if score < bestScore then best, bestScore = candidate, score end
-					end
-				end
-			end
-			return best
-		end
-
-		function combat.NavigateMoveTo(humanoid, root, goal, targetModel, state, minInterval, stopRadius, checkVertical, allowPathfinding)
+		function combat.NavigateMoveTo(humanoid, root, goal, targetModel, state, minInterval, stopRadius, checkVertical)
 			if not humanoid or not root or not goal then return false, "unavailable" end
 			local now = os.clock()
 			if state.Active and now - (state.ProgressAt or 0) >= 1.4 then
@@ -201,52 +142,26 @@ return {
 			local pathGoalChanged = not state.PathGoal or (state.PathGoal - goal).Magnitude > 4
 			if state.LastRaycastAt == nil or now - state.LastRaycastAt >= 0.2 then
 				state.LastRaycastAt = now
-				local params = makeRaycastParams(root, targetModel)
+				local params = RaycastParams.new()
+				params.FilterType = Enum.RaycastFilterType.Exclude
+				local filter = { root.Parent }
+				if targetModel then table.insert(filter, targetModel) end
+				params.FilterDescendantsInstances = filter
+				params.RespectCanCollide = true
 				local direction = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
 				local ok, hit = pcall(function() return workspace:Raycast(root.Position, direction, params) end)
 				local verticalDelta = math.abs(root.Position.Y - goal.Y)
-				local needsVerticalRoute = allowPathfinding == true
-					and verticalDelta > math.max(checkVertical and 0.5 or 3, root.Size.Y * 0.5)
+				local needsVerticalRoute = verticalDelta > math.max(checkVertical and 0.5 or 3, root.Size.Y * 0.5)
 				state.DirectPathBlocked = (ok and hit ~= nil) or needsVerticalRoute
 			end
 
 			if not state.DirectPathBlocked then
-				state.DetourGoal, state.DetourFor = nil, nil
 				if state.PathComputing then
 					state.PathRequestId = (state.PathRequestId or 0) + 1
 					state.PathComputing = false
 				end
 				state.Path, state.Waypoints, state.WaypointIndex, state.PathGoal = nil, nil, nil, nil
-				return smoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius, checkVertical), "direct"
-			end
-
-			if allowPathfinding ~= true then
-				local sameDestination = state.DetourFor and (state.DetourFor - goal).Magnitude < 5
-				local detour = state.DetourGoal
-				if detour and sameDestination then
-					local offset = Vector3.new(root.Position.X - detour.X, 0, root.Position.Z - detour.Z)
-					if offset.Magnitude <= 2.5 then detour = nil end
-				else
-					detour = nil
-				end
-				if not detour then
-					detour = findDirectDetour(root, goal, targetModel)
-					state.DetourGoal, state.DetourFor = detour, goal
-				end
-				if detour then
-					if not state.Active or not state.PathMoveGoal or (state.PathMoveGoal - detour).Magnitude > 1
-						or now - (state.LastMoveAt or 0) >= (minInterval or 0.25) then
-						humanoid:MoveTo(detour)
-						state.Active, state.LastMoveAt, state.PathMoveGoal = true, now, detour
-					end
-					return false, "detouring"
-				end
-				state.DetourGoal, state.DetourFor = nil, nil
-				if not state.Active or now - (state.LastMoveAt or 0) >= 0.4 then
-					humanoid:MoveTo(goal)
-					state.Active, state.LastMoveAt, state.Goal = true, now, goal
-				end
-				return false, "direct"
+				return smoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius), "direct"
 			end
 
 			if pathGoalChanged then
@@ -314,39 +229,61 @@ return {
 		end
 
 		function combat.SelectApproachPoint(localRoot, targetRoot, standoff, targetModel, state, attackRange)
-			-- Keep one destination while pathfinding around an obstacle. Recomputing
-			-- an orbit point on every frame can invalidate AIC-style routes endlessly.
-			if state.ApproachTarget == targetModel and state.LastApproachPoint
-				and (state.NavigationMode == "path" or state.NavigationMode == "retrying route") then
-				return state.LastApproachPoint
+			-- Combat approach distance must describe where the player should stand,
+			-- not the physical size of the mob's RootPart. A large RootPart can be
+			-- dozens of studs wide; using targetRoot.Size here can put the destination
+			-- behind the player and make pursuit appear to be completely stuck.
+			if not localRoot or not targetRoot then
+				return localRoot and localRoot.Position or targetRoot and targetRoot.Position
 			end
-			local delta = Vector3.new(localRoot.Position.X - targetRoot.Position.X, 0, localRoot.Position.Z - targetRoot.Position.Z)
-			local fallback = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
-			local away = delta.Magnitude > 0.01 and delta.Unit or (fallback.Magnitude > 0.01 and fallback.Unit or Vector3.new(1, 0, 0))
-			local radius = math.max(standoff, targetRoot.Size.X * 0.5 + 1.5, targetRoot.Size.Z * 0.5 + 1.5)
 
-			-- AIC detects an active enemy skill before using BladePart geometry, so
-			-- ordinary pursuit can stay smooth while threat handling remains separate.
+			local targetPosition = targetRoot.Position
+			local flatDelta = Vector3.new(
+				localRoot.Position.X - targetPosition.X,
+				0,
+				localRoot.Position.Z - targetPosition.Z
+			)
+			local currentDistance = flatDelta.Magnitude
+			local fallbackLook = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
+			local away = flatDelta.Magnitude > 0.01
+				and flatDelta.Unit
+				or (fallbackLook.Magnitude > 0.01 and fallbackLook.Unit or Vector3.new(1, 0, 0))
+
+			-- Always approach to a distance that is inside the attack range. This
+			-- guarantees the goal is between the player and the mob when too far away.
+			local maxAttackDistance = math.max(2, (attackRange or 5) - 1)
+			local desiredDistance = math.clamp(tonumber(standoff) or 4, 2, maxAttackDistance)
+
+			-- Active BladePart skill takes priority over normal pursuit. Keep the safe
+			-- destination close enough to continue combat, but never use mob RootPart size.
 			if combat.ShouldEvadeTarget(targetModel, localRoot.Position) then
-				local safeRadius = radius
+				local safeRadius = desiredDistance
 				for _, blade in ipairs(combat.GetBladeParts(targetModel)) do
-					local offset = blade.Position - targetRoot.Position
+					local offset = blade.Position - targetPosition
 					local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-					safeRadius = math.max(safeRadius, flatOffset.Magnitude + safeDistance)
+					if flatOffset.Magnitude > 0.01 then
+						safeRadius = math.max(safeRadius, flatOffset.Magnitude + safeDistance)
+					end
 				end
-				local cappedRadius = math.min(safeRadius, math.max(2, (attackRange or radius) - 0.75))
+				-- Do not allow the evade radius to exceed the distance where attacks can
+				-- still resume; if every candidate is unsafe, fall back to direct pursuit.
+				local cappedRadius = math.min(safeRadius, maxAttackDistance)
 				local bestPoint, bestScore = nil, math.huge
 				for _, angle in ipairs({ 0, 45, -45, 90, -90, 135, -135, 180 }) do
 					local radians = math.rad(angle)
 					local direction = Vector3.new(
-						away.X * math.cos(radians) - away.Z * math.sin(radians), 0,
+						away.X * math.cos(radians) - away.Z * math.sin(radians),
+						0,
 						away.X * math.sin(radians) + away.Z * math.cos(radians)
 					)
-					local candidate = targetRoot.Position + direction * cappedRadius
+					local candidate = targetPosition + direction * cappedRadius
 					if combat.IsPositionSafeFromBlades(candidate, targetModel) then
-						local travel = (Vector3.new(candidate.X, 0, candidate.Z) - Vector3.new(localRoot.Position.X, 0, localRoot.Position.Z)).Magnitude
+						local travel = (Vector3.new(candidate.X, 0, candidate.Z)
+							- Vector3.new(localRoot.Position.X, 0, localRoot.Position.Z)).Magnitude
 						local score = travel + math.abs(angle) * 0.015
-						if score < bestScore then bestPoint, bestScore = candidate, score end
+						if score < bestScore then
+							bestPoint, bestScore = candidate, score
+						end
 					end
 				end
 				if bestPoint then
@@ -356,40 +293,32 @@ return {
 				end
 			end
 
-			-- Keep moving while attacking: close-range goals orbit the mob instead
-			-- of settling at one stationary standoff point. The orbit is centered on
-			-- the mob's live position, so it also tracks a moving target.
-			local targetOffset = targetRoot.Position - localRoot.Position
-			local targetDistance = Vector3.new(targetOffset.X, 0, targetOffset.Z).Magnitude
-			if targetDistance <= (attackRange or radius) + 2 then
-				local orbitNow = os.clock()
-				local previousOrbitAt = state.PursuitOrbitAt or orbitNow
-				local deltaTime = math.clamp(orbitNow - previousOrbitAt, 0, 0.12)
-				state.PursuitOrbitAngle = (state.PursuitOrbitAngle or 0) + deltaTime * 2.5
-				state.PursuitOrbitAt = orbitNow
-				local angle = state.PursuitOrbitAngle
-				local direction = Vector3.new(
-					away.X * math.cos(angle) - away.Z * math.sin(angle),
-					0,
-					away.X * math.sin(angle) + away.Z * math.cos(angle)
-				)
-				local orbitRadius = math.max(2, math.min(radius, (attackRange or radius) - 1))
-				return targetRoot.Position + direction * orbitRadius
-			else
+			-- If already inside the desired combat distance, hold position. Iamrich
+			-- can still attack while the navigation state reports arrival.
+			if currentDistance <= desiredDistance + 0.25 then
 				state.PursuitOrbitAngle, state.PursuitOrbitAt = nil, nil
+				return localRoot.Position
 			end
 
-			-- AIC-style alternate approach sides are used only after a real stall.
+			-- If we are outside the desired distance, the destination is guaranteed
+			-- to lie along the current player->mob line, closer to the mob than the
+			-- player's current position. This is the important anti-stall behavior.
+			state.PursuitOrbitAngle, state.PursuitOrbitAt = nil, nil
+			local approachPoint = targetPosition + away * desiredDistance
+
+			-- After a genuine navigation stall, try alternate sides around the mob.
+			-- These candidates keep the same combat radius instead of using RootPart size.
 			local now = os.clock()
 			if (state.StuckRetries or 0) > 0 and now >= (state.RepositionUntil or 0) then
-				local bestAngle, bestScore = 0, math.huge
+				local bestPoint, bestScore = approachPoint, math.huge
 				for _, angle in ipairs({ 0, 45, -45, 90, -90, 135, -135, 180 }) do
 					local radians = math.rad(angle)
 					local direction = Vector3.new(
-						away.X * math.cos(radians) - away.Z * math.sin(radians), 0,
+						away.X * math.cos(radians) - away.Z * math.sin(radians),
+						0,
 						away.X * math.sin(radians) + away.Z * math.cos(radians)
 					)
-					local candidate = targetRoot.Position + direction * radius
+					local candidate = targetPosition + direction * desiredDistance
 					local params = RaycastParams.new()
 					params.FilterType = Enum.RaycastFilterType.Exclude
 					params.FilterDescendantsInstances = { localRoot.Parent, targetModel }
@@ -397,20 +326,15 @@ return {
 					local ray = Vector3.new(candidate.X - localRoot.Position.X, 0, candidate.Z - localRoot.Position.Z)
 					local ok, hit = pcall(function() return workspace:Raycast(localRoot.Position, ray, params) end)
 					local score = ray.Magnitude + ((ok and hit) and 20 or 0) + math.abs(angle) * 0.015
-					if score < bestScore then bestAngle, bestScore = angle, score end
+					if score < bestScore then
+						bestPoint, bestScore = candidate, score
+					end
 				end
-				state.ApproachAngle = bestAngle
+				approachPoint = bestPoint
 				state.RepositionUntil = now + 3.5
-			elseif (state.StuckRetries or 0) == 0 then
-				state.ApproachAngle, state.RepositionUntil = nil, nil
 			end
 
-			local angle = math.rad(state.ApproachAngle or 0)
-			local direction = Vector3.new(
-				away.X * math.cos(angle) - away.Z * math.sin(angle), 0,
-				away.X * math.sin(angle) + away.Z * math.cos(angle)
-			)
-			return targetRoot.Position + direction * radius
+			return approachPoint
 		end
 
 		function combat.FaceTargetSmooth(root, targetPos, alpha)

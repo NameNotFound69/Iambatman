@@ -1,5 +1,4 @@
 print("[Iamrich] Starting...")
-print("V2")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -224,11 +223,11 @@ local function FlatUnit(fromPos, toPos, fallback)
 	return delta.Unit
 end
 
-local function SmoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius, checkVertical)
+local function SmoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius)
 	if not humanoid or not root or not goal then return false end
 	local now = os.clock()
 	local flat = Vector3.new(root.Position.X - goal.X, 0, root.Position.Z - goal.Z)
-	local dist = checkVertical and (root.Position - goal).Magnitude or flat.Magnitude
+	local dist = flat.Magnitude
 	if dist <= (stopRadius or 1.6) then
 		if state.Active then
 			humanoid:MoveTo(root.Position)
@@ -242,8 +241,8 @@ local function SmoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius
 	if state.Active and sameGoal and (now - (state.LastMoveAt or 0)) < interval then
 		return false
 	end
-	-- Ground-aligned combat goals may intentionally be on a lower floor.
-	local point = checkVertical and goal or Vector3.new(goal.X, root.Position.Y, goal.Z)
+	-- Keep current Y so pathing stays grounded and avoids hop jitter.
+	local point = Vector3.new(goal.X, root.Position.Y, goal.Z)
 	humanoid:MoveTo(point)
 	state.Active = true
 	state.Goal = goal
@@ -4547,33 +4546,28 @@ task.spawn(function()
 					)
 					attackMoveState.ApproachTarget = target
 					attackMoveState.LastApproachPoint = approachPoint
-					-- Sample the ground under the approach point so targets below a ledge
-					-- remain reachable without navmesh pathfinding.
-					approachPoint = configuration.CombatSystem.GroundAlignGoal(localRoot, approachPoint, target)
+					-- Combat navigation is horizontal; using the mob root's Y can
+					-- request an impossible vertical path when standing on a large mob.
+					approachPoint = Vector3.new(approachPoint.X, localRoot.Position.Y, approachPoint.Z)
 					if attackMoveState.ApproachActive then
-						-- Refresh long range steering more often; soften close range updates to reduce jitter.
+						-- Far targets path more often; close range softens repathing to reduce jitter.
 						local interval = (distance or 0) > 40 and 0.12 or 0.10
 						local stopRadius = (distance or math.huge) <= attackRange + 2 and 0.15 or 1.9
-						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(
-							humanoid, localRoot, approachPoint, target, attackMoveState, interval, stopRadius, true, false
-						)
+						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, approachPoint, target, attackMoveState, interval, stopRadius)
 						attackMoveState.NavigationMode = navigationState
 						chasingMob = not arrived
 						if configuration.ExpFinishTarget == target then
 							StateLabel.Text = navigationState == "path" and "Routing to finish EXP target"
 								or (navigationState == "retrying route" and "Finding route to EXP target" or "Walking to finish EXP target")
-							MiniState.Text = navigationState == "detouring" and "Steering around an obstacle toward the locked target"
-								or (navigationState == "path" and "Following a path to the locked EXP target"
+							MiniState.Text = navigationState == "path" and "Following a path to the locked EXP target"
 								or (navigationState == "retrying route" and "Route blocked — retrying toward locked target" or "Moving toward the EXP target while attacking")
-								)
 						elseif not configuration.Farming or configuration.AlertCombatPending or configuration.ExpRetaliationTarget == target then
 							StateLabel.Text = evadingEnemySkill and "Avoiding enemy skill"
 								or (navigationState == "path" and "Routing to target"
 								or (navigationState == "retrying route" and "Finding path" or "Moving to target"))
 							MiniState.Text = evadingEnemySkill and "Dodging active BladePart"
 								or (navigationState == "path" and "Walking around an obstacle"
-								or (navigationState == "detouring" and "Steering around an obstacle"
-								or (navigationState == "retrying route" and "Blocked route; retrying" or "Closing distance to attack")))
+								or (navigationState == "retrying route" and "Blocked route; retrying" or "Closing distance to attack"))
 						end
 					elseif chasingMob or attackMoveState.Active or tookMovement then
 						if humanoid then humanoid:MoveTo(localRoot.Position) end
@@ -4595,9 +4589,7 @@ task.spawn(function()
 						local standoff = math.min(configuration.AutoAttackStandoff, math.max(1, attackRange - 1))
 						local approachPoint = OrbitApproachPoint(localRoot, targetRoot, standoff)
 						local interval = (distance or 0) > 40 and 0.16 or 0.26
-						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(
-							humanoid, localRoot, approachPoint, target.Character, attackMoveState, interval, 1.9, false, false
-						)
+						local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, approachPoint, target.Character, attackMoveState, interval, 1.9)
 						attackMoveState.NavigationMode = navigationState
 						chasingMob = not arrived
 						StateLabel.Text = navigationState == "path" and "Routing to target"
@@ -4767,29 +4759,34 @@ task.spawn(function()
 			paused = true
 		end
 
-		if configuration.WaypointReturnEnabled and point and root and humanoid and not paused then
-			local distance = (root.Position - point).Magnitude
-			if distance > configuration.WaypointReturnRadius then
-				ClaimMovement("Waypoint", humanoid, root)
-				local _, navigationState = configuration.CombatSystem.NavigateMoveTo(
-					humanoid,
-					root,
-					point,
-					nil,
-					moveState,
-					0.18,
-					configuration.WaypointReturnRadius,
-					true,
-					false
-				)
-				moveState.NavigationMode = navigationState
+		-- Combat has exclusive ownership of Humanoid movement while attacking.
+		-- Never let waypoint-return navigation issue MoveTo calls over combat pursuit.
+		if MovementOwner == "Combat" then
+			configuration.CombatSystem.ResetNavigationState(moveState)
+		else
+			if configuration.WaypointReturnEnabled and point and root and humanoid and not paused then
+				local distance = (root.Position - point).Magnitude
+				if distance > configuration.WaypointReturnRadius then
+					ClaimMovement("Waypoint", humanoid, root)
+					local _, navigationState = configuration.CombatSystem.NavigateMoveTo(
+						humanoid,
+						root,
+						point,
+						nil,
+						moveState,
+						0.18,
+						configuration.WaypointReturnRadius,
+						true
+					)
+					moveState.NavigationMode = navigationState
+				else
+					ReleaseMovement("Waypoint", humanoid, root)
+					configuration.CombatSystem.ResetNavigationState(moveState)
+				end
 			else
-				ReleaseMovement("Waypoint", humanoid, root)
+				if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
 				configuration.CombatSystem.ResetNavigationState(moveState)
 			end
-		else
-			if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
-			configuration.CombatSystem.ResetNavigationState(moveState)
 		end
 	end
 end)
@@ -5151,9 +5148,7 @@ task.spawn(function()
 					end
 					local goal = bestGoal or (followedRoot.Position + outward * spacing)
 					ClaimMovement("Follow", humanoid, localRoot)
-					configuration.CombatSystem.NavigateMoveTo(
-						humanoid, localRoot, goal, followedCharacter, followMoveState, 0.28, 2.2, false, false
-					)
+					configuration.CombatSystem.NavigateMoveTo(humanoid, localRoot, goal, followedCharacter, followMoveState, 0.28, 2.2)
 					followGoalPosition = goal
 				else
 					ReleaseMovement("Follow", humanoid, localRoot)
