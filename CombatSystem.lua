@@ -78,6 +78,7 @@ return {
 			state.PathMoveGoal, state.LastRaycastAt, state.DirectPathBlocked = nil, nil, nil
 			state.ProgressPosition, state.ProgressAt, state.StuckRetries = nil, nil, nil
 			state.ApproachAngle, state.RepositionUntil, state.NavigationMode = nil, nil, nil
+			state.PursuitOrbitAngle, state.PursuitOrbitAt = nil, nil
 		end
 
 		function combat.NavigateMoveTo(humanoid, root, goal, targetModel, state, minInterval, stopRadius)
@@ -202,8 +203,8 @@ return {
 			local away = delta.Magnitude > 0.01 and delta.Unit or (fallback.Magnitude > 0.01 and fallback.Unit or Vector3.new(1, 0, 0))
 			local radius = math.max(standoff, targetRoot.Size.X * 0.5 + 1.5, targetRoot.Size.Z * 0.5 + 1.5)
 
-			-- AIC detects an active enemy skill before using BladePart geometry. This
-			-- keeps ordinary in-range combat stationary and only repositions for a threat.
+			-- AIC detects an active enemy skill before using BladePart geometry, so
+			-- ordinary pursuit can stay smooth while threat handling remains separate.
 			if combat.ShouldEvadeTarget(targetModel, localRoot.Position) then
 				local safeRadius = radius
 				for _, blade in ipairs(combat.GetBladeParts(targetModel)) do
@@ -231,6 +232,29 @@ return {
 					state.RepositionUntil = os.clock() + 0.35
 					return bestPoint
 				end
+			end
+
+			-- Keep moving while attacking: close-range goals orbit the mob instead
+			-- of settling at one stationary standoff point. The orbit is centered on
+			-- the mob's live position, so it also tracks a moving target.
+			local targetOffset = targetRoot.Position - localRoot.Position
+			local targetDistance = Vector3.new(targetOffset.X, 0, targetOffset.Z).Magnitude
+			if targetDistance <= (attackRange or radius) + 2 then
+				local orbitNow = os.clock()
+				local previousOrbitAt = state.PursuitOrbitAt or orbitNow
+				local deltaTime = math.clamp(orbitNow - previousOrbitAt, 0, 0.12)
+				state.PursuitOrbitAngle = (state.PursuitOrbitAngle or 0) + deltaTime * 2.5
+				state.PursuitOrbitAt = orbitNow
+				local angle = state.PursuitOrbitAngle
+				local direction = Vector3.new(
+					away.X * math.cos(angle) - away.Z * math.sin(angle),
+					0,
+					away.X * math.sin(angle) + away.Z * math.cos(angle)
+				)
+				local orbitRadius = math.max(2, math.min(radius, (attackRange or radius) - 1))
+				return targetRoot.Position + direction * orbitRadius
+			else
+				state.PursuitOrbitAngle, state.PursuitOrbitAt = nil, nil
 			end
 
 			-- AIC-style alternate approach sides are used only after a real stall.
