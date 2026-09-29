@@ -1,6 +1,6 @@
 -- Direct player follow controller. Uses MoveTo through CombatSystem.Navigation.
-local VERSION = "1.14.0"
-print("[FollowSystem] Version " .. VERSION .. " (stable direct follow + corridor avoidance)")
+local VERSION = "1.15.0"
+print("[FollowSystem] Version " .. VERSION .. " (crowd slots + predictive avoidance)")
 
 return {
 	Initialize = function(configuration, dependencies)
@@ -33,6 +33,9 @@ return {
 			AvoidUserId = nil,
 			AvoidOffset = nil,
 			AvoidClearSince = nil,
+			FormationSlotIndex = nil,
+			FormationPendingSlot = nil,
+			FormationPendingSince = 0,
 			TargetLineVisible = configuration.FollowTargetVisible == true,
 			TargetLine = nil,
 			Interaction = {
@@ -103,6 +106,9 @@ return {
 			state.AvoidUserId = nil
 			state.AvoidOffset = nil
 			state.AvoidClearSince = nil
+			state.FormationSlotIndex = nil
+			state.FormationPendingSlot = nil
+			state.FormationPendingSince = 0
 		end
 
 		local function resetNavigation()
@@ -158,6 +164,75 @@ return {
 			return leaderRoot.Position - state.FollowDirection * spacing
 		end
 
+		local function getFormationOffset(root, leaderRoot, spacing, followedPlayer, snapshots, now)
+			local crowdRadius = math.max(24, spacing + 16)
+			if flatDistance(root.Position, leaderRoot.Position) > crowdRadius then
+				state.FormationSlotIndex = nil
+				state.FormationPendingSlot = nil
+				state.FormationPendingSince = 0
+				return Vector3.new(0, 0, 0)
+			end
+
+			local nearby = {{
+				UserId = Players.LocalPlayer.UserId,
+				DistanceBand = math.floor(flatDistance(root.Position, leaderRoot.Position) * 2 + 0.5),
+			}}
+			for _, snapshot in ipairs(snapshots or {}) do
+				local player, otherRoot = snapshot.Player, snapshot.Root
+				if player ~= Players.LocalPlayer and player ~= followedPlayer and otherRoot and otherRoot.Parent then
+					local distance = flatDistance(otherRoot.Position, leaderRoot.Position)
+					if distance <= crowdRadius then
+						table.insert(nearby, {
+							UserId = player.UserId,
+							DistanceBand = math.floor(distance * 2 + 0.5),
+						})
+					end
+				end
+			end
+			table.sort(nearby, function(a, b)
+				if a.DistanceBand ~= b.DistanceBand then
+					return a.DistanceBand < b.DistanceBand
+				end
+				return a.UserId < b.UserId
+			end)
+
+			local desiredSlot = 1
+			for index, member in ipairs(nearby) do
+				if member.UserId == Players.LocalPlayer.UserId then
+					desiredSlot = index
+					break
+				end
+			end
+
+			if not state.FormationSlotIndex then
+				state.FormationSlotIndex = desiredSlot
+			elseif state.FormationSlotIndex ~= desiredSlot then
+				if state.FormationPendingSlot ~= desiredSlot then
+					state.FormationPendingSlot = desiredSlot
+					state.FormationPendingSince = now
+				elseif now - state.FormationPendingSince >= 0.7 then
+					state.FormationSlotIndex = desiredSlot
+					state.FormationPendingSlot = nil
+					state.FormationPendingSince = 0
+				end
+			else
+				state.FormationPendingSlot = nil
+				state.FormationPendingSince = 0
+			end
+
+			local slot = state.FormationSlotIndex - 1
+			if slot <= 0 then return Vector3.new(0, 0, 0) end
+			local row = math.ceil(slot / 2)
+			local side = slot % 2 == 1 and 1 or -1
+			local direction = state.FollowDirection or Vector3.new(
+				leaderRoot.CFrame.LookVector.X, 0, leaderRoot.CFrame.LookVector.Z
+			)
+			if direction.Magnitude < 0.1 then direction = Vector3.new(0, 0, -1) end
+			direction = direction.Unit
+			local right = Vector3.new(-direction.Z, 0, direction.X)
+			return right * (side * row * 3.5) - direction * (row * 1.5)
+		end
+
 		local function findBlockingPlayer(root, goal, followedPlayer, snapshots, preferredUserId)
 			local route = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
 			local routeLength = route.Magnitude
@@ -170,12 +245,14 @@ return {
 				local player = snapshot.Player
 				local otherRoot = snapshot.Root
 				if player ~= Players.LocalPlayer and player ~= followedPlayer and otherRoot and otherRoot.Parent then
-					local relative = otherRoot.Position - root.Position
+					local velocity = otherRoot.AssemblyLinearVelocity
+					local predictedPosition = otherRoot.Position + Vector3.new(velocity.X, 0, velocity.Z) * 0.35
+					local relative = predictedPosition - root.Position
 					local along = Vector3.new(relative.X, 0, relative.Z):Dot(direction)
-					local clearance = math.clamp(root.Size.X * 0.5 + otherRoot.Size.X * 0.5 + 1.25, 3, 5)
+					local clearance = math.clamp(root.Size.X * 0.5 + otherRoot.Size.X * 0.5 + 1.75, 3.5, 6.5)
 					local blocksRoute = routeLength >= 1.5 and along > 0.5 and along <= routeLength + 2
-						and flatDistance(otherRoot.Position, root.Position + direction * along) <= clearance
-					local blocksDestination = flatDistance(otherRoot.Position, goal) <= clearance
+						and flatDistance(predictedPosition, root.Position + direction * along) <= clearance
+					local blocksDestination = flatDistance(predictedPosition, goal) <= clearance
 					local score = blocksDestination and 0 or (blocksRoute and along or math.huge)
 					if score < math.huge and tostring(player.UserId) == preferredUserId then
 						preferred = player
@@ -379,6 +456,7 @@ return {
 			local baseSpacing = math.max(3, configuration.FollowDistance or 8)
 			updateFollowInteraction(root, followedCharacter, leaderRoot, baseSpacing, now)
 			local goal = getDirectFollowGoal(leaderRoot, baseSpacing, now)
+			goal += getFormationOffset(root, leaderRoot, baseSpacing, followedPlayer, snapshots, now)
 			goal = updateRecovery(root, humanoid, goal, now)
 			goal = updateAvoidance(root, goal, followedPlayer, snapshots, now)
 			renderTargetLine(root, goal)
