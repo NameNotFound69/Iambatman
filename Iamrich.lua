@@ -1,4 +1,4 @@
-local VERSION = "2.6.2"
+local VERSION = "2.6.3"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4081,6 +4081,7 @@ task.spawn(function()
 		local callsSent = 0
 		local callsAcknowledged = 0
 		local acknowledgedExp = cycleStartExp
+		local cycleAckTimedOut = false
 
 		while callsSent < toFire do
 			if not configuration.Farming or configuration.EmergencyStopActive then break end
@@ -4165,7 +4166,10 @@ task.spawn(function()
 			-- Apply bounded back-pressure: wait for the server to replicate a whole
 			-- small window before sending more, and shrink the window near EXP Max.
 			local remainingNow = math.max(0, configuration.ExpGoal - exp.Value)
-			local maxUnacknowledged = 1
+			-- Bootstrap with a small burst until a server-confirmed gain lets us
+			-- estimate per-request EXP. A single request may not produce a visible
+			-- EXP update on its own.
+			local maxUnacknowledged = remainingNow <= 250000 and 1 or 8
 			if estimatedGainPerCall > 0 then
 				maxUnacknowledged = adaptiveYield > 0.008 and 8 or 16
 				-- Keep the estimated unconfirmed EXP small even when one request
@@ -4189,9 +4193,10 @@ task.spawn(function()
 						configuration.ExpGoal
 					)
 				end
-				local waitingForSingleAck = maxUnacknowledged == 1
+				local waitingForSingleAck = maxUnacknowledged == 1 or estimatedGainPerCall <= 0
 				local awaitingServerAck = waitingForSingleAck and exp.Value <= acknowledgedExp
 					or (not waitingForSingleAck and exp.Value < expectedAck)
+				local ackDeadline = os.clock() + 2
 				if awaitingServerAck then
 					StateLabel.Text = "Waiting"
 					MiniState.Text = string.format("Waiting for server EXP update (%d requests pending)", pendingCalls)
@@ -4204,8 +4209,18 @@ task.spawn(function()
 					and not (configuration.AlertCombatPending and configuration.AlertCombatTarget == target)
 					and ((waitingForSingleAck and exp.Value <= acknowledgedExp)
 						or (not waitingForSingleAck and exp.Value < expectedAck))
-					and exp.Value < configuration.ExpGoal do
+					and exp.Value < configuration.ExpGoal
+					and os.clock() < ackDeadline do
 					task.wait(0.025)
+				end
+				local ackStillPending = (waitingForSingleAck and exp.Value <= acknowledgedExp)
+					or (not waitingForSingleAck and exp.Value < expectedAck)
+				if ackStillPending and configuration.Farming and not configuration.EmergencyStopActive
+					and target:IsDescendantOf(MobsFolder) and exp.Parent
+					and exp.Value < configuration.ExpGoal then
+					cycleAckTimedOut = true
+					StateLabel.Text = "Waiting"
+					MiniState.Text = "No EXP update yet; retrying a smaller batch"
 				end
 				local confirmedGain = math.max(0, exp.Value - acknowledgedExp)
 				if confirmedGain > 0 and pendingCalls > 0 then
@@ -4216,6 +4231,7 @@ task.spawn(function()
 				end
 				callsAcknowledged = callsSent
 				acknowledgedExp = exp.Value
+				if cycleAckTimedOut then break end
 			end
 		end
 
@@ -4245,7 +4261,7 @@ task.spawn(function()
 		end
 
 		-- รอ EXP ขึ้น (timeout สั้นลงเมื่อใกล้ Max)
-		if target:IsDescendantOf(MobsFolder) then
+		if target:IsDescendantOf(MobsFolder) and not cycleAckTimedOut then
 			StateLabel.Text = "Waiting"
 			MiniState.Text = "Waiting for EXP update on locked target"
 			local expected = math.min(cycleStartExp + callsSent, configuration.ExpGoal)
