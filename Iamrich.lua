@@ -1,4 +1,4 @@
-local VERSION = "2.6.7"
+local VERSION = "2.6.10"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -239,6 +239,23 @@ local configuration: {[string]: any} = {
 	ExpMaxCombatTarget = nil,
 	ExpFinishTarget = nil,
 	ExpLastShotTarget = nil,
+	SpecialGroupCheckInFlight = {},
+	SpecialGroupCheckedUsers = {},
+	SpecialGroupCheckFailures = {},
+	SpecialGroupThreatUsers = {},
+	SpecialGroupHopStarted = false,
+	SpecialGroupHopAttempts = 0,
+	ExpHitWatchTarget = nil,
+	ExpHitWatchHumanoid = nil,
+	ExpHitWatchHumanoidChildAddedConnection = nil,
+	ExpHitWatchHumanoidChildRemovedConnection = nil,
+	ExpHitWatchDamageTag = nil,
+	ExpHitWatchTagChildAddedConnection = nil,
+	ExpHitWatchHits = nil,
+	ExpHitWatchHitsConnection = nil,
+	ExpHitLastHits = nil,
+	ExpHitDamageTagWasAdded = false,
+	ExpHitFeedbackUntil = 0,
 	LastTarget = nil,
 	TargetStartTime = 0,
 	AccumulatedTime = 0,
@@ -665,6 +682,7 @@ function configuration.RecordPlayerLog(player, eventType)
 		Username = player.Name,
 		UserId = tostring(player.UserId),
 		Whitelisted = configuration.IsWhitelisted(player),
+		SpecialThreat = configuration.SpecialGroupThreatUsers[tostring(player.UserId)] == true,
 	})
 	while #configuration.PlayerJoinLog > 100 do
 		table.remove(configuration.PlayerJoinLog, 1)
@@ -672,6 +690,94 @@ function configuration.RecordPlayerLog(player, eventType)
 	if configuration.JoinLogPanel and configuration.JoinLogPanel.Visible then
 		configuration.RefreshJoinLog()
 	end
+	return true
+end
+
+function configuration.StartSpecialGroupServerHop(player)
+	if configuration.SpecialGroupHopStarted or not player or player.Parent ~= Players then return false end
+	configuration.SpecialGroupHopStarted = true
+	configuration.SpecialGroupHopAttempts += 1
+	configuration.Farming = false
+	configuration.PendingServerHop = false
+	configuration.ServerHopKillTarget = nil
+	task.spawn(function()
+		local ok, err = pcall(function()
+			TeleportService:Teleport(game.PlaceId, Player)
+		end)
+		if not ok then
+			configuration.SpecialGroupHopStarted = false
+			warn("Special group server hop failed:", err)
+			if configuration.SpecialGroupHopAttempts < 3 then
+				configuration.NotifyUser("Server hop failed", "Retrying the server hop.", 6)
+				task.delay(3, function()
+					configuration.StartSpecialGroupServerHop(player)
+				end)
+			else
+				configuration.NotifyUser("Server hop failed", "Teleport failed after 3 attempts.", 7)
+			end
+		end
+	end)
+	return true
+end
+
+function configuration.MarkSpecialGroupThreat(player)
+	if not player or player == Player or player.Parent ~= Players then return false end
+	local userId = tostring(player.UserId)
+	configuration.SpecialGroupThreatUsers[userId] = true
+	local markedEntry = nil
+	for index = #configuration.PlayerJoinLog, 1, -1 do
+		local entry = configuration.PlayerJoinLog[index]
+		if entry.UserId == userId then
+			entry.SpecialThreat = true
+			markedEntry = entry
+			break
+		end
+	end
+	if not markedEntry then
+		configuration.RecordPlayerLog(player, "present")
+		markedEntry = configuration.PlayerJoinLog[#configuration.PlayerJoinLog]
+		if markedEntry and markedEntry.UserId == userId then markedEntry.SpecialThreat = true end
+	end
+	if configuration.JoinLogPanel and configuration.JoinLogPanel.Visible and configuration.RefreshJoinLog then
+		configuration.RefreshJoinLog()
+	end
+	configuration.NotifyUser("Special danger", "@" .. player.Name .. " is in group 5928691. Leaving this server.", 7)
+	configuration.StartSpecialGroupServerHop(player)
+	return true
+end
+
+function configuration.CheckSpecialGroupPlayer(player)
+	if not player or player == Player then return false end
+	local userId = tostring(player.UserId)
+	if configuration.SpecialGroupThreatUsers[userId] then
+		configuration.StartSpecialGroupServerHop(player)
+		return true
+	end
+	if configuration.SpecialGroupCheckedUsers[userId] or configuration.SpecialGroupCheckInFlight[userId] then return false end
+	configuration.SpecialGroupCheckInFlight[userId] = true
+	task.spawn(function()
+		local ok, isMember = pcall(function()
+			return player:IsInGroupAsync(5928691)
+		end)
+		configuration.SpecialGroupCheckInFlight[userId] = nil
+		if not ok then
+			warn("Special group membership check failed for @" .. player.Name .. ":", isMember)
+			configuration.SpecialGroupCheckFailures[userId] = (configuration.SpecialGroupCheckFailures[userId] or 0) + 1
+			if configuration.SpecialGroupCheckFailures[userId] < 3 then
+				task.delay(5, function()
+					if player.Parent == Players then configuration.CheckSpecialGroupPlayer(player) end
+				end)
+			else
+				configuration.NotifyUser("Group check failed", "Could not check @" .. player.Name .. " after 3 tries.", 7)
+			end
+			return
+		end
+		configuration.SpecialGroupCheckFailures[userId] = nil
+		configuration.SpecialGroupCheckedUsers[userId] = true
+		if isMember and player.Parent == Players then
+			configuration.MarkSpecialGroupThreat(player)
+		end
+	end)
 	return true
 end
 
@@ -715,6 +821,7 @@ Players.PlayerAdded:Connect(function(player)
 		end
 	end
 	task.defer(configuration.NotifyUnwhitelistedPlayer, player, false)
+	configuration.CheckSpecialGroupPlayer(player)
 end)
 Players.PlayerRemoving:Connect(function(player)
 	if player ~= Player then
@@ -725,6 +832,8 @@ Players.PlayerRemoving:Connect(function(player)
 		configuration.JoinLogOnline[userId] = nil
 	end
 	configuration.JoinAlertSeen[tostring(player.UserId)] = nil
+	configuration.SpecialGroupCheckedUsers[tostring(player.UserId)] = nil
+	configuration.SpecialGroupCheckFailures[tostring(player.UserId)] = nil
 end)
 for _, existingPlayer in ipairs(Players:GetPlayers()) do
 	if existingPlayer ~= Player then
@@ -733,6 +842,7 @@ for _, existingPlayer in ipairs(Players:GetPlayers()) do
 			configuration.JoinLogOnline[userId] = true
 			configuration.RecordPlayerLog(existingPlayer, "present")
 		end
+		configuration.CheckSpecialGroupPlayer(existingPlayer)
 	end
 end
 if configuration.JoinAlertsEnabled then
@@ -3667,10 +3777,15 @@ function configuration.RefreshJoinLog()
 		eventLabel.BackgroundTransparency = 1
 		local eventName = entry.Event == "joined" and "JOINED"
 			or (entry.Event == "left" and "LEFT" or "HERE")
-		local whitelistTag = entry.Whitelisted and "  ·  WHITELIST" or ""
-		eventLabel.Text = string.format("%s  %s  @%s%s", entry.Time, eventName, entry.Username, whitelistTag)
-		eventLabel.TextColor3 = entry.Event == "left" and RED
-			or (entry.Event == "present" and MUTED or GREEN)
+		if entry.SpecialThreat then
+			eventLabel.Text = string.format("%s  SPECIAL DANGER  @%s", entry.Time, entry.Username)
+			eventLabel.TextColor3 = RED
+		else
+			local whitelistTag = entry.Whitelisted and "  ·  WHITELIST" or ""
+			eventLabel.Text = string.format("%s  %s  @%s%s", entry.Time, eventName, entry.Username, whitelistTag)
+			eventLabel.TextColor3 = entry.Event == "left" and RED
+				or (entry.Event == "present" and MUTED or GREEN)
+		end
 		eventLabel.TextSize = 11
 		eventLabel.Font = Enum.Font.GothamBold
 		eventLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -3908,6 +4023,129 @@ configuration.AlarmText.TextSize = 30
 configuration.AlarmText.Font = Enum.Font.GothamBlack
 configuration.AlarmText.ZIndex = 101
 configuration.AlarmText.Parent = AlarmOverlay
+
+configuration.ExpHitFeedbackLabel = Instance.new("TextLabel")
+configuration.ExpHitFeedbackLabel.Name = "ExpHitFeedback"
+configuration.ExpHitFeedbackLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+configuration.ExpHitFeedbackLabel.Size = UDim2.new(0.82, 0, 0, 92)
+configuration.ExpHitFeedbackLabel.Position = UDim2.fromScale(0.5, 0.5)
+configuration.ExpHitFeedbackLabel.BackgroundColor3 = Color3.fromRGB(18, 20, 27)
+configuration.ExpHitFeedbackLabel.BackgroundTransparency = 0.18
+configuration.ExpHitFeedbackLabel.BorderSizePixel = 0
+configuration.ExpHitFeedbackLabel.Text = "ตีถืกแล้วเด้อ"
+configuration.ExpHitFeedbackLabel.TextColor3 = Color3.fromRGB(255, 226, 104)
+configuration.ExpHitFeedbackLabel.TextStrokeColor3 = Color3.fromRGB(16, 17, 22)
+configuration.ExpHitFeedbackLabel.TextStrokeTransparency = 0.12
+configuration.ExpHitFeedbackLabel.TextScaled = true
+configuration.ExpHitFeedbackLabel.Font = Enum.Font.GothamBlack
+configuration.ExpHitFeedbackLabel.Visible = false
+configuration.ExpHitFeedbackLabel.ZIndex = 110
+configuration.ExpHitFeedbackLabel.Parent = ScreenGui
+Instance.new("UICorner", configuration.ExpHitFeedbackLabel).CornerRadius = UDim.new(0, 12)
+configuration.ExpHitFeedbackTextConstraint = Instance.new("UITextSizeConstraint")
+configuration.ExpHitFeedbackTextConstraint.MinTextSize = 28
+configuration.ExpHitFeedbackTextConstraint.MaxTextSize = 48
+configuration.ExpHitFeedbackTextConstraint.Parent = configuration.ExpHitFeedbackLabel
+
+function configuration.ShowExpHitFeedback()
+	configuration.ExpHitFeedbackUntil = os.clock() + 1.4
+	if configuration.ExpHitFeedbackLabel then
+		configuration.ExpHitFeedbackLabel.Visible = true
+	end
+end
+
+function configuration.ResetExpHitTagWatch()
+	if configuration.ExpHitWatchHumanoidChildAddedConnection then configuration.ExpHitWatchHumanoidChildAddedConnection:Disconnect() end
+	if configuration.ExpHitWatchHumanoidChildRemovedConnection then configuration.ExpHitWatchHumanoidChildRemovedConnection:Disconnect() end
+	if configuration.ExpHitWatchTagChildAddedConnection then configuration.ExpHitWatchTagChildAddedConnection:Disconnect() end
+	if configuration.ExpHitWatchHitsConnection then configuration.ExpHitWatchHitsConnection:Disconnect() end
+	configuration.ExpHitWatchHumanoidChildAddedConnection = nil
+	configuration.ExpHitWatchHumanoidChildRemovedConnection = nil
+	configuration.ExpHitWatchTagChildAddedConnection = nil
+	configuration.ExpHitWatchHitsConnection = nil
+	configuration.ExpHitWatchDamageTag = nil
+	configuration.ExpHitWatchHits = nil
+	configuration.ExpHitLastHits = nil
+	configuration.ExpHitDamageTagWasAdded = false
+end
+
+function configuration.BindExpHitDamageHits(tag)
+	-- This per-player creator tag is written by the mob's damage handler; Hits is the hit confirmation.
+	if not tag or configuration.ExpHitWatchDamageTag ~= tag then return false end
+	local hits = tag:FindFirstChild("Hits")
+	if hits and not (hits:IsA("IntValue") or hits:IsA("NumberValue")) then hits = nil end
+	if configuration.ExpHitWatchHits == hits then return true end
+	if configuration.ExpHitWatchHitsConnection then configuration.ExpHitWatchHitsConnection:Disconnect() end
+	configuration.ExpHitWatchHits = hits
+	configuration.ExpHitWatchHitsConnection = nil
+	configuration.ExpHitLastHits = hits and tonumber(hits.Value) or nil
+	if hits then
+		if configuration.ExpHitDamageTagWasAdded and configuration.ExpHitLastHits and configuration.ExpHitLastHits > 0 then
+			configuration.ShowExpHitFeedback()
+		end
+		configuration.ExpHitDamageTagWasAdded = false
+		configuration.ExpHitWatchHitsConnection = hits:GetPropertyChangedSignal("Value"):Connect(function()
+			local currentHits = tonumber(hits.Value)
+			local previousHits = configuration.ExpHitLastHits
+			configuration.ExpHitLastHits = currentHits
+			if currentHits and previousHits and currentHits > previousHits then
+				configuration.ShowExpHitFeedback()
+			end
+		end)
+	end
+	return true
+end
+
+function configuration.BindExpHitDamageTag(tag, wasJustAdded)
+	if configuration.ExpHitWatchDamageTag == tag then return true end
+	if configuration.ExpHitWatchTagChildAddedConnection then configuration.ExpHitWatchTagChildAddedConnection:Disconnect() end
+	if configuration.ExpHitWatchHitsConnection then configuration.ExpHitWatchHitsConnection:Disconnect() end
+	configuration.ExpHitWatchTagChildAddedConnection = nil
+	configuration.ExpHitWatchHitsConnection = nil
+	configuration.ExpHitWatchDamageTag = nil
+	configuration.ExpHitWatchHits = nil
+	configuration.ExpHitLastHits = nil
+	configuration.ExpHitDamageTagWasAdded = false
+	if not tag or not tag:IsA("StringValue")
+		or string.sub(tag.Name, 1, 8) ~= "creator_" or tag.Value ~= Player.Name then
+		return false
+	end
+	configuration.ExpHitWatchDamageTag = tag
+	configuration.ExpHitDamageTagWasAdded = wasJustAdded == true
+	configuration.ExpHitWatchTagChildAddedConnection = tag.ChildAdded:Connect(function(child)
+		if child.Name == "Hits" then configuration.BindExpHitDamageHits(tag) end
+	end)
+	configuration.BindExpHitDamageHits(tag)
+	return true
+end
+
+function configuration.WatchExpTargetForHit(target)
+	if not target or not target:IsDescendantOf(MobsFolder) then target = nil end
+	local humanoid = target and target:FindFirstChildOfClass("Humanoid")
+	if configuration.ExpHitWatchTarget == target and configuration.ExpHitWatchHumanoid == humanoid then return end
+	configuration.ResetExpHitTagWatch()
+	configuration.ExpHitWatchTarget = target
+	configuration.ExpHitWatchHumanoid = humanoid
+	if not humanoid then return end
+
+	local tagPrefix = "creator_"
+	configuration.ExpHitWatchHumanoidChildAddedConnection = humanoid.ChildAdded:Connect(function(child)
+		if child:IsA("StringValue") and string.sub(child.Name, 1, #tagPrefix) == tagPrefix
+			and child.Value == Player.Name then
+			configuration.BindExpHitDamageTag(child, true)
+		end
+	end)
+	configuration.ExpHitWatchHumanoidChildRemovedConnection = humanoid.ChildRemoved:Connect(function(child)
+		if child == configuration.ExpHitWatchDamageTag then configuration.BindExpHitDamageTag(nil, false) end
+	end)
+	for _, child in ipairs(humanoid:GetChildren()) do
+		if child:IsA("StringValue") and string.sub(child.Name, 1, #tagPrefix) == tagPrefix
+			and child.Value == Player.Name then
+			configuration.BindExpHitDamageTag(child, false)
+			break
+		end
+	end
+end
 
 configuration.PlayerEspLayer = Instance.new("Frame")
 configuration.PlayerEspLayer.Name = "PlayerESPLayer"
@@ -4814,6 +5052,15 @@ task.spawn(function()
 							end
 							if (configuration.AutoAttackEnabled or forcedExpCombat or autoMarkedTarget)
 								and now - lastAttackAt >= configuration.AutoAttackInterval then
+								if distance <= attackRange and (target == configuration.CurrentTarget
+									or target == configuration.ExpMaxCombatTarget
+									or target == configuration.ExpFinishTarget
+									or target == configuration.AlertCombatTarget
+									or target == configuration.ExpRetaliationTarget
+									or target == configuration.ServerHopKillTarget
+									or target == configuration.ExpLastShotTarget) then
+									configuration.WatchExpTargetForHit(target)
+								end
 								local ok, err = pcall(function()
 									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
 								end)
@@ -4965,6 +5212,13 @@ end)
 --==================================================
 task.spawn(function()
 	while true do
+		configuration.WatchExpTargetForHit(configuration.ExpMaxCombatTarget or configuration.ExpFinishTarget
+			or configuration.AlertCombatTarget
+			or configuration.ExpRetaliationTarget or configuration.CurrentTarget
+			or configuration.ExpLastShotTarget)
+		if configuration.ExpHitFeedbackLabel then
+			configuration.ExpHitFeedbackLabel.Visible = os.clock() < configuration.ExpHitFeedbackUntil
+		end
 		if configuration.Farming and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
 			local cfg = configuration.CurrentTarget:FindFirstChild("Config")
 			local exp = cfg and cfg:FindFirstChild("EXP")
@@ -5823,20 +6077,9 @@ task.spawn(function()
 			end
 		end
 
-		local reachedMax = false
-		if configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
-			local cfg = configuration.CurrentTarget:FindFirstChild("Config")
-			local exp = cfg and cfg:FindFirstChild("EXP")
-			reachedMax = exp ~= nil and exp.Value >= configuration.ExpGoal
-		end
-
 		if configuration.AlertsEnabled and not configuration.EmergencyStopActive and configuration.AlertFlashEnabled and nearbyPlayer then
 			AlarmOverlay.BackgroundColor3 = RED
 			configuration.AlarmText.Text = string.format("PLAYER NEARBY  •  %s  •  %.0f studs", nearbyPlayer.Name, nearbyDistance)
-			AlarmOverlay.Visible = true
-		elseif configuration.AlertsEnabled and not configuration.EmergencyStopActive and configuration.AlertFlashEnabled and reachedMax then
-			AlarmOverlay.BackgroundColor3 = GREEN
-			configuration.AlarmText.Text = "EXP MAX REACHED"
 			AlarmOverlay.Visible = true
 		else
 			AlarmOverlay.Visible = false
