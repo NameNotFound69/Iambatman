@@ -1,4 +1,4 @@
-local VERSION = "2.6.1"
+local VERSION = "2.6.2"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3552,6 +3552,9 @@ function configuration.SetIdle(finishCurrentExpTarget)
 	else
 		configuration.ExpFinishTarget = nil
 	end
+	if not finishCurrentExpTarget then
+		configuration.ExpMaxCombatTarget = nil
+	end
 	if not configuration.AlertCombatPending then
 		configuration.ExpRetaliationTarget = nil
 	end
@@ -3614,7 +3617,8 @@ end
 
 StartBtn.MouseButton1Click:Connect(function()
 	if configuration.Farming then
-		configuration.SetIdle(true)
+		-- A manual Stop is immediate; Auto Execute is reserved for Max/Alert flows.
+		configuration.SetIdle(false)
 	else
 		configuration.SetRunning()
 	end
@@ -3622,7 +3626,7 @@ end)
 
 Status.MouseButton1Click:Connect(function()
 	if configuration.Farming then
-		configuration.SetIdle(true)
+		configuration.SetIdle(false)
 	else
 		configuration.SetRunning()
 	end
@@ -4053,7 +4057,7 @@ task.spawn(function()
 		end
 		configuration.UpdateBillboardText(exp.Value, false)
 
-		-- Adaptive fire: scale batch + yield from recent progress.
+		-- Adaptive fire: scale request count from recent server-confirmed EXP gain.
 		local remaining = configuration.ExpGoal - exp.Value
 		local baseAmount = configuration.Amount
 		if configuration.NoProgressCycles >= 2 then
@@ -4063,16 +4067,20 @@ task.spawn(function()
 		elseif lastCycleCalls > 0 and lastCycleGain >= lastCycleCalls * 0.6 then
 			baseAmount = math.min(configuration.Amount, math.floor(baseAmount * 1.15))
 		end
-		local toFire = math.min(baseAmount, math.max(0, remaining))
+		local estimatedGainPerCall = 0
+		if lastCycleCalls > 0 and lastCycleGain > 0 then
+			estimatedGainPerCall = lastCycleGain / lastCycleCalls
+		end
+		local estimatedCallsNeeded = math.max(0, remaining)
+		if estimatedGainPerCall > 0 then
+			estimatedCallsNeeded = math.ceil(math.max(0, remaining) / estimatedGainPerCall)
+		end
+		local toFire = math.min(baseAmount, estimatedCallsNeeded)
 		local cycleStartExp = exp.Value
 		local cycleStartTime = os.clock()
 		local callsSent = 0
-		local batchYieldEvery = 40
-		if adaptiveYield > 0.008 then
-			batchYieldEvery = 25
-		elseif lastCycleGain > 0 and lastCycleCalls > 0 and (lastCycleGain / lastCycleCalls) > 0.8 then
-			batchYieldEvery = 60
-		end
+		local callsAcknowledged = 0
+		local acknowledgedExp = cycleStartExp
 
 		while callsSent < toFire do
 			if not configuration.Farming or configuration.EmergencyStopActive then break end
@@ -4154,13 +4162,60 @@ task.spawn(function()
 			InitClashing:FireServer(2, exp)
 			callsSent += 1
 
-			-- Adaptive throttle near max / after stalled cycles / periodic yield for replicate.
-			if exp.Value >= configuration.ExpGoal - 200 then
-				task.wait(0.025 + adaptiveYield)
-			elseif configuration.NoProgressCycles >= 2 and callsSent % 15 == 0 then
-				task.wait(0.03 + adaptiveYield)
-			elseif callsSent % batchYieldEvery == 0 then
-				task.wait(math.max(0, adaptiveYield))
+			-- Apply bounded back-pressure: wait for the server to replicate a whole
+			-- small window before sending more, and shrink the window near EXP Max.
+			local remainingNow = math.max(0, configuration.ExpGoal - exp.Value)
+			local maxUnacknowledged = 1
+			if estimatedGainPerCall > 0 then
+				maxUnacknowledged = adaptiveYield > 0.008 and 8 or 16
+				-- Keep the estimated unconfirmed EXP small even when one request
+				-- grants much more than one EXP point.
+				maxUnacknowledged = math.min(
+					maxUnacknowledged,
+					math.max(1, math.floor(5000 / estimatedGainPerCall))
+				)
+				if remainingNow <= 250000 then
+					maxUnacknowledged = 1
+				elseif remainingNow <= 1000000 then
+					maxUnacknowledged = 2
+				end
+			end
+			local pendingCalls = callsSent - callsAcknowledged
+			if pendingCalls >= maxUnacknowledged then
+				local expectedAck = acknowledgedExp
+				if estimatedGainPerCall > 0 then
+					expectedAck = math.min(
+						acknowledgedExp + pendingCalls * estimatedGainPerCall,
+						configuration.ExpGoal
+					)
+				end
+				local waitingForSingleAck = maxUnacknowledged == 1
+				local awaitingServerAck = waitingForSingleAck and exp.Value <= acknowledgedExp
+					or (not waitingForSingleAck and exp.Value < expectedAck)
+				if awaitingServerAck then
+					StateLabel.Text = "Waiting"
+					MiniState.Text = string.format("Waiting for server EXP update (%d requests pending)", pendingCalls)
+				end
+				while configuration.Farming and not configuration.EmergencyStopActive
+					and target:IsDescendantOf(MobsFolder) and exp.Parent
+					and configuration.ExpRetaliationTarget ~= target
+					and configuration.ExpMaxCombatTarget ~= target
+					and not (configuration.PendingServerHop and configuration.ServerHopKillTarget == target)
+					and not (configuration.AlertCombatPending and configuration.AlertCombatTarget == target)
+					and ((waitingForSingleAck and exp.Value <= acknowledgedExp)
+						or (not waitingForSingleAck and exp.Value < expectedAck))
+					and exp.Value < configuration.ExpGoal do
+					task.wait(0.025)
+				end
+				local confirmedGain = math.max(0, exp.Value - acknowledgedExp)
+				if confirmedGain > 0 and pendingCalls > 0 then
+					local observedGainPerCall = confirmedGain / pendingCalls
+					estimatedGainPerCall = estimatedGainPerCall > 0
+						and (estimatedGainPerCall * 0.65 + observedGainPerCall * 0.35)
+						or observedGainPerCall
+				end
+				callsAcknowledged = callsSent
+				acknowledgedExp = exp.Value
 			end
 		end
 
