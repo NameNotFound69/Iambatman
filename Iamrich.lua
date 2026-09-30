@@ -1,4 +1,4 @@
-local VERSION = "2.6.10"
+local VERSION = "2.6.11"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -917,7 +917,7 @@ end
 function configuration.FormatPlayerListStats(otherPlayer)
 	local stats = configuration.GetPlayerListStatValues(otherPlayer)
 	return string.format(
-		"LVL %s\nDEF %s  STR %s  AGI %s\nLUK %s  VIT %s",
+		"LVL %s\nDEF %s  STR %s  AGI %s  LUK %s  VIT %s",
 		stats.Level,
 		stats.Defense,
 		stats.Strength,
@@ -925,6 +925,24 @@ function configuration.FormatPlayerListStats(otherPlayer)
 		stats.Luck,
 		stats.Vitality
 	)
+end
+
+function configuration.GetPlayerPassiveMode(otherPlayer)
+	local statsFolder = otherPlayer and otherPlayer:FindFirstChild("PlayerStats")
+	local passiveMode = statsFolder and statsFolder:FindFirstChild("PassiveMode")
+	if not passiveMode or not passiveMode:IsA("ValueBase") then return nil end
+	local value = passiveMode.Value
+	if type(value) == "boolean" then return value end
+	local normalized = string.lower(tostring(value))
+	if normalized == "true" or normalized == "on" or normalized == "1" then return true end
+	if normalized == "false" or normalized == "off" or normalized == "0" then return false end
+	return nil
+end
+
+function configuration.FormatPlayerDisplayName(otherPlayer)
+	local passiveMode = configuration.GetPlayerPassiveMode(otherPlayer)
+	local passiveText = passiveMode == true and "ON" or (passiveMode == false and "OFF" or "—")
+	return otherPlayer.DisplayName .. "  ·  PASSIVE " .. passiveText
 end
 
 -- Local player level + EXP progress from PlayerStats and/or the game's HUD ("EXP: 58354/59211").
@@ -5737,7 +5755,7 @@ task.spawn(function()
 				displayName.Position = UDim2.fromOffset(66, 10)
 				displayName.ZIndex = 93
 				displayName.BackgroundTransparency = 1
-				displayName.Text = otherPlayer.DisplayName
+				displayName.Text = configuration.FormatPlayerDisplayName(otherPlayer)
 				displayName.TextColor3 = TEXT
 				displayName.TextSize = 14
 				displayName.Font = Enum.Font.GothamBold
@@ -5792,13 +5810,13 @@ task.spawn(function()
 
 				local statsLabel = Instance.new("TextLabel")
 				statsLabel.Name = "PlayerStats"
-				statsLabel.Size = UDim2.new(1, -78, 0, 42)
+				statsLabel.Size = UDim2.new(1, -78, 0, 30)
 				statsLabel.Position = UDim2.fromOffset(66, 84)
 				statsLabel.ZIndex = 93
 				statsLabel.BackgroundTransparency = 1
 				statsLabel.Text = configuration.FormatPlayerListStats(otherPlayer)
 				statsLabel.TextColor3 = MUTED
-				statsLabel.TextSize = 10
+				statsLabel.TextSize = 9
 				statsLabel.Font = Enum.Font.Gotham
 				statsLabel.TextXAlignment = Enum.TextXAlignment.Left
 				statsLabel.TextYAlignment = Enum.TextYAlignment.Top
@@ -5896,6 +5914,12 @@ task.spawn(function()
 				for _, listedPlayer in ipairs(panelPlayers) do
 					local row = PlayerScroll:FindFirstChild("PlayerRow_" .. listedPlayer.UserId)
 					if row and row:IsA("Frame") then
+						local displayNameLabel = row:FindFirstChild("DisplayName")
+						if displayNameLabel then
+							if displayNameLabel.Text ~= configuration.FormatPlayerDisplayName(listedPlayer) then
+								displayNameLabel.Text = configuration.FormatPlayerDisplayName(listedPlayer)
+							end
+						end
 						local character = listedPlayer.Character
 						local otherRoot = character and character:FindFirstChild("HumanoidRootPart")
 						local distanceLabel = row:FindFirstChild("Distance")
