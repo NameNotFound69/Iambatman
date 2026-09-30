@@ -1,11 +1,11 @@
--- Direct player follow controller. Uses MoveTo through CombatSystem.Navigation.
-local VERSION = "1.15.0"
-print("[FollowSystem] Version " .. VERSION .. " (crowd slots + predictive avoidance)")
+-- Direct player follow controller with a Follow-specific MoveTo route search.
+local VERSION = "1.16.0"
+print("[FollowSystem] Version " .. VERSION .. " (stable live-goal detours + crowd avoidance)")
 
 return {
 	Initialize = function(configuration, dependencies)
 		local Players = dependencies.Players
-		local CombatSystem = configuration.CombatSystem
+		local MobsFolder = dependencies.MobsFolder
 		local ClaimMovement = dependencies.ClaimMovement
 		local ReleaseMovement = dependencies.ReleaseMovement
 		local targetLineFolderName = "IamrichFollowTargetLine_" .. tostring(Players.LocalPlayer.UserId)
@@ -47,10 +47,26 @@ return {
 				StopEventCreated = false,
 				LastAttemptAt = 0,
 			},
-			Navigation = { Active = false, Goal = nil, LastMoveAt = 0, DetourSideBias = 1, DetourDistance = 8 },
+			Navigation = {
+				Active = false,
+				Goal = nil,
+				LastMoveAt = 0,
+				DetourGoal = nil,
+				DetourFor = nil,
+				DetourSearchAt = 0,
+				DetourClearSince = nil,
+				ForceDetourUntil = 0,
+				DetourSideBias = 1,
+				DetourDistance = 8,
+				GoalTolerance = 10,
+			},
 		}
 
 		local FOLLOW_INTERACTION_INTERVAL = 1.5
+		local FOLLOW_MOVE_INTERVAL = 0.38
+		local FOLLOW_SEARCH_INTERVAL = 0.45
+		local FOLLOW_DETOUR_REACHED_RADIUS = 3
+		local FOLLOW_DIRECT_CLEAR_CONFIRMATION = 0.6
 		local LEADER_STOP_CONFIRM_TIME = 0.65
 		local LEADER_MOVE_CONFIRM_TIME = 0.35
 		local INTERACTION_PENDING_TIME = 8
@@ -112,7 +128,16 @@ return {
 		end
 
 		local function resetNavigation()
-			CombatSystem.ResetNavigationState(state.Navigation)
+			local navigation = state.Navigation
+			navigation.Active = false
+			navigation.Goal = nil
+			navigation.LastMoveAt = 0
+			navigation.DetourGoal = nil
+			navigation.DetourFor = nil
+			navigation.DetourSearchAt = 0
+			navigation.DetourClearSince = nil
+			navigation.ForceDetourUntil = 0
+			navigation.NavigationMode = nil
 		end
 
 		local function reset(humanoid, root)
@@ -124,6 +149,7 @@ return {
 			state.LastUpdateAt = 0
 			state.Navigation.DetourSideBias = 1
 			state.Navigation.DetourDistance = 8
+			state.Navigation.GoalTolerance = 10
 			state.Interaction.LeaderMoved = false
 			state.Interaction.LeaderMovingSince = nil
 			state.Interaction.LeaderStoppedSince = nil
@@ -135,6 +161,173 @@ return {
 		local function flatDistance(a, b)
 			local delta = a - b
 			return Vector3.new(delta.X, 0, delta.Z).Magnitude
+		end
+
+		local function makeNavigationRaycastParams(root)
+			local excluded = { root.Parent }
+			if MobsFolder and MobsFolder.Parent then
+				table.insert(excluded, MobsFolder)
+			end
+			for _, player in ipairs(Players:GetPlayers()) do
+				local character = player.Character
+				if character and character ~= root.Parent then
+					table.insert(excluded, character)
+				end
+			end
+
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = excluded
+			params.RespectCanCollide = true
+			return params
+		end
+
+		local function getWalkableGround(point, params)
+			local hit = workspace:Raycast(
+				Vector3.new(point.X, point.Y + 60, point.Z),
+				Vector3.new(0, -250, 0),
+				params
+			)
+			if not hit or hit.Material == Enum.Material.Water or hit.Normal.Y < 0.5 then
+				return nil
+			end
+			return hit
+		end
+
+		local function chooseFollowDetour(root, goal, params)
+			local toward = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
+			if toward.Magnitude < 0.1 then return nil end
+			toward = toward.Unit
+
+			local rootGround = getWalkableGround(root.Position, params)
+			local rootHeight = rootGround
+				and math.max(root.Position.Y - rootGround.Position.Y, root.Size.Y * 0.5)
+				or root.Size.Y
+			local preferredDistance = math.clamp(state.Navigation.DetourDistance or 8, 8, 20)
+			local preferredSide = state.Navigation.DetourSideBias or 1
+			local bestVisible, bestVisibleScore = nil, math.huge
+			local bestFallback, bestFallbackScore = nil, math.huge
+			local radii = {}
+			for _, requested in ipairs({ preferredDistance, preferredDistance + 4, preferredDistance + 8, 20 }) do
+				local radius = math.min(requested, 20)
+				if #radii == 0 or radii[#radii] ~= radius then
+					table.insert(radii, radius)
+				end
+			end
+
+			for _, radius in ipairs(radii) do
+				for _, degrees in ipairs({ 40, -40, 70, -70, 105, -105, 140, -140, 180 }) do
+					local angle = math.rad(degrees)
+					local direction = Vector3.new(
+						toward.X * math.cos(angle) - toward.Z * math.sin(angle),
+						0,
+						toward.X * math.sin(angle) + toward.Z * math.cos(angle)
+					)
+					local offset = direction * radius
+					local candidateXZ = root.Position + offset
+					local legHit = workspace:Raycast(
+						root.Position + Vector3.new(0, 1.5, 0),
+						offset,
+						params
+					)
+					if not legHit then
+						local ground = getWalkableGround(candidateXZ, params)
+						if ground and (not rootGround or math.abs(ground.Position.Y - rootGround.Position.Y) <= 12) then
+							local candidate = Vector3.new(
+								candidateXZ.X,
+							ground.Position.Y + rootHeight,
+							candidateXZ.Z
+							)
+							local towardGoal = Vector3.new(goal.X - candidate.X, 0, goal.Z - candidate.Z)
+							local goalHit = towardGoal.Magnitude > 0.1
+								and workspace:Raycast(candidate + Vector3.new(0, 1.5, 0), towardGoal, params)
+							local side = degrees > 0 and 1 or -1
+							local sidePenalty = degrees ~= 180 and side ~= preferredSide and 3 or 0
+							local score = towardGoal.Magnitude + math.abs(degrees) * 0.035 + sidePenalty
+								+ (radius - preferredDistance) * 0.2
+							if not goalHit and score < bestVisibleScore then
+								bestVisible, bestVisibleScore = candidate, score
+							end
+							if score < bestFallbackScore then
+								bestFallback, bestFallbackScore = candidate, score
+							end
+						end
+					end
+				end
+				if bestVisible then return bestVisible end
+			end
+			return bestFallback
+		end
+
+		local function navigateFollow(humanoid, root, goal, now)
+			local navigation = state.Navigation
+			local params = makeNavigationRaycastParams(root)
+			local direction = Vector3.new(goal.X - root.Position.X, 0, goal.Z - root.Position.Z)
+			local obstruction = direction.Magnitude > 0.1
+				and workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), direction, params)
+			local destination = goal
+			local mode = "direct"
+
+			local forceDetour = now < navigation.ForceDetourUntil
+			if obstruction or forceDetour then
+				navigation.DetourClearSince = nil
+				local sameGoal = navigation.DetourFor
+					and flatDistance(navigation.DetourFor, goal) <= navigation.GoalTolerance
+				if not sameGoal then
+					navigation.DetourGoal = nil
+					navigation.DetourFor = nil
+					navigation.DetourSearchAt = 0
+				end
+				local keepDetour = sameGoal and navigation.DetourGoal
+					and flatDistance(root.Position, navigation.DetourGoal) > FOLLOW_DETOUR_REACHED_RADIUS
+				if keepDetour then
+					destination = navigation.DetourGoal
+				else
+					if sameGoal and navigation.DetourGoal then
+						navigation.DetourGoal = nil
+						navigation.DetourFor = nil
+						navigation.DetourSearchAt = 0
+					end
+					if now - navigation.DetourSearchAt >= FOLLOW_SEARCH_INTERVAL then
+						navigation.DetourGoal = chooseFollowDetour(root, goal, params)
+						navigation.DetourFor = goal
+						navigation.DetourSearchAt = now
+					end
+					destination = navigation.DetourGoal or goal
+				end
+				mode = navigation.DetourGoal and "detouring" or "direct"
+			else
+				local sameGoal = navigation.DetourFor
+					and flatDistance(navigation.DetourFor, goal) <= navigation.GoalTolerance
+				local detourStillAhead = sameGoal and navigation.DetourGoal
+					and flatDistance(root.Position, navigation.DetourGoal) > FOLLOW_DETOUR_REACHED_RADIUS
+				if detourStillAhead then
+					navigation.DetourClearSince = navigation.DetourClearSince or now
+					if now - navigation.DetourClearSince < FOLLOW_DIRECT_CLEAR_CONFIRMATION then
+						destination = navigation.DetourGoal
+						mode = "detouring"
+					else
+						navigation.DetourGoal = nil
+						navigation.DetourFor = nil
+						navigation.DetourSearchAt = 0
+						navigation.DetourClearSince = nil
+					end
+				else
+					navigation.DetourGoal = nil
+					navigation.DetourFor = nil
+					navigation.DetourSearchAt = 0
+					navigation.DetourClearSince = nil
+				end
+			end
+
+			if not navigation.Active or now - navigation.LastMoveAt >= FOLLOW_MOVE_INTERVAL then
+				humanoid:MoveTo(destination)
+				navigation.Active = true
+				navigation.Goal = destination
+				navigation.LastMoveAt = now
+			end
+			navigation.NavigationMode = mode
+			return mode
 		end
 
 		local function getDirectFollowGoal(leaderRoot, spacing, now)
@@ -312,7 +505,7 @@ return {
 			end
 			if now - state.LastProgressAt < 1.35 then return goal end
 
-			local moved = state.ProgressPosition and (root.Position - state.ProgressPosition).Magnitude or math.huge
+			local moved = state.ProgressPosition and flatDistance(root.Position, state.ProgressPosition) or math.huge
 			local stuck = moved < 0.55 and flatDistance(root.Position, goal) > 3
 			state.ProgressPosition = root.Position
 			state.LastProgressAt = now
@@ -354,6 +547,7 @@ return {
 			state.Navigation.DetourSideBias = -(state.Navigation.DetourSideBias or 1)
 			state.Navigation.DetourDistance = math.min((state.Navigation.DetourDistance or 8) + 4, 20)
 			resetNavigation()
+			state.Navigation.ForceDetourUntil = now + 1.5
 			state.RecoveryAttempts = 0
 			state.RecoveryGoal = goal
 			state.RecoveryUntil = now + 1.2
@@ -455,6 +649,9 @@ return {
 
 			local baseSpacing = math.max(3, configuration.FollowDistance or 8)
 			updateFollowInteraction(root, followedCharacter, leaderRoot, baseSpacing, now)
+			local leaderVelocity = leaderRoot.AssemblyLinearVelocity
+			local leaderFlatSpeed = Vector3.new(leaderVelocity.X, 0, leaderVelocity.Z).Magnitude
+			state.Navigation.GoalTolerance = math.clamp(6 + leaderFlatSpeed * 0.22, 8, 16)
 			local goal = getDirectFollowGoal(leaderRoot, baseSpacing, now)
 			goal += getFormationOffset(root, leaderRoot, baseSpacing, followedPlayer, snapshots, now)
 			goal = updateRecovery(root, humanoid, goal, now)
@@ -462,19 +659,17 @@ return {
 			renderTargetLine(root, goal)
 
 			ClaimMovement("Follow", humanoid, root)
-			local _, navigationState = CombatSystem.NavigateMoveTo(
-				humanoid,
-				root,
-				goal,
-				followedCharacter,
-				state.Navigation,
-				0.4,
-				2.2,
-				false,
-				true
-			)
-			state.Navigation.NavigationMode = navigationState
-			return true, navigationState
+			if flatDistance(root.Position, goal) <= 2.2 then
+				if state.Navigation.Active then humanoid:MoveTo(root.Position) end
+				state.Navigation.Active = false
+				state.Navigation.Goal = nil
+				state.Navigation.DetourGoal = nil
+				state.Navigation.DetourFor = nil
+				state.Navigation.DetourClearSince = nil
+				state.Navigation.ForceDetourUntil = 0
+				return true, "arrived"
+			end
+			return true, navigateFollow(humanoid, root, goal, now)
 		end
 
 		return api

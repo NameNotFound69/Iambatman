@@ -327,10 +327,11 @@ configuration.WaypointNavigator = configuration.WaypointNavigator.Initialize(con
 	MobsFolder = MobsFolder,
 })
 configuration.FollowSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.15.0"
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.0"
 )))()
 configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration, {
 	Players = Players,
+	MobsFolder = MobsFolder,
 	ClaimMovement = ClaimMovement,
 	ReleaseMovement = ReleaseMovement,
 	Interact = InvokeFollowInteract,
