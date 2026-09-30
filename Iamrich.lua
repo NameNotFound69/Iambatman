@@ -1,4 +1,4 @@
-local VERSION = "2.6.2"
+local VERSION = "2.6.3"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,6 +11,22 @@ local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
 
 local Player = Players.LocalPlayer
+local function NotifyUser(title, message, duration)
+	task.spawn(function()
+		for _ = 1, 4 do
+			local ok = pcall(function()
+				StarterGui:SetCore("SendNotification", {
+					Title = tostring(title),
+					Text = tostring(message),
+					Duration = duration or 5,
+				})
+			end)
+			if ok then return end
+			task.wait(0.75)
+		end
+	end)
+end
+
 local MobsFolder = workspace:WaitForChild("Mobs", 10)
 if not MobsFolder then
 	warn("[Iamrich] Startup stopped: workspace.Mobs was not found.")
@@ -222,6 +238,7 @@ local configuration: {[string]: any} = {
 	WaypointReturnEnabled = false,
 	WaypointBillboardEnabled = true,
 	MovementBoostEnabled = true,
+	SafeBoosterResetEnabled = false,
 	AutoAttackEnabled = false,
 	AutoBossTargetEnabled = false,
 	AutoMiniBossTargetEnabled = false,
@@ -252,6 +269,7 @@ local configuration: {[string]: any} = {
 	AutoResumeAfterAlert = true,
 	EmergencyStopActive = false,
 	AlertsEnabled = true,
+	JoinAlertsEnabled = false,
 	AlertFlashEnabled = true,
 	AutoBlockEnabled = true,
 	AlertCombatPending = false,
@@ -335,6 +353,14 @@ configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration
 	ClaimMovement = ClaimMovement,
 	ReleaseMovement = ReleaseMovement,
 	Interact = InvokeFollowInteract,
+})
+configuration.SafeBoosterResetSystem = assert(loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/SafeBoosterResetSystem.lua?v=1.0.0"
+)))()
+configuration.SafeBoosterResetSystem = configuration.SafeBoosterResetSystem.Initialize(configuration, {
+	Player = Player,
+	ReplicatedStorage = ReplicatedStorage,
+	Notify = NotifyUser,
 })
 configuration.FPSBoostSystem = assert(loadstring(game:HttpGet(
 	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.2.0"
@@ -470,6 +496,7 @@ function configuration.LoadConfig()
 	configuration.WhitelistPanelWidthScale = math.clamp(ReadNumber("WhitelistPanelWidthScale", configuration.WhitelistPanelWidthScale, 0.26, false), 0.26, 0.8)
 	configuration.WhitelistPanelHeightScale = math.clamp(ReadNumber("WhitelistPanelHeightScale", configuration.WhitelistPanelHeightScale, 0.32, false), 0.32, 0.9)
 	if type(config.AlertsEnabled) == "boolean" then configuration.AlertsEnabled = config.AlertsEnabled end
+	if type(config.JoinAlertsEnabled) == "boolean" then configuration.JoinAlertsEnabled = config.JoinAlertsEnabled end
 	if config.AutoResumeAfterAlertVersion == 1 and type(config.AutoResumeAfterAlert) == "boolean" then
 		configuration.AutoResumeAfterAlert = config.AutoResumeAfterAlert
 	elseif config.AutoResumeAfterAlertVersion ~= 1 then
@@ -480,6 +507,7 @@ function configuration.LoadConfig()
 	if type(config.AlertFlashEnabled) == "boolean" then configuration.AlertFlashEnabled = config.AlertFlashEnabled end
 	if type(config.AutoBlockEnabled) == "boolean" then configuration.AutoBlockEnabled = config.AutoBlockEnabled end
 	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
+	if type(config.SafeBoosterResetEnabled) == "boolean" then configuration.SafeBoosterResetEnabled = config.SafeBoosterResetEnabled end
 	if type(config.AutoAttackEnabled) == "boolean" then configuration.AutoAttackEnabled = config.AutoAttackEnabled end
 	if type(config.AutoBossTargetEnabled) == "boolean" then configuration.AutoBossTargetEnabled = config.AutoBossTargetEnabled end
 	if type(config.AutoMiniBossTargetEnabled) == "boolean" then configuration.AutoMiniBossTargetEnabled = config.AutoMiniBossTargetEnabled end
@@ -554,11 +582,13 @@ function configuration.SaveConfig()
 		WhitelistPanelWidthScale = configuration.WhitelistPanelWidthScale,
 		WhitelistPanelHeightScale = configuration.WhitelistPanelHeightScale,
 		AlertsEnabled = configuration.AlertsEnabled,
+		JoinAlertsEnabled = configuration.JoinAlertsEnabled,
 		AutoResumeAfterAlert = configuration.AutoResumeAfterAlert,
 		AutoResumeAfterAlertVersion = 1,
 		AlertFlashEnabled = configuration.AlertFlashEnabled,
 		AutoBlockEnabled = configuration.AutoBlockEnabled,
 		MovementBoostEnabled = configuration.MovementBoostEnabled,
+		SafeBoosterResetEnabled = configuration.SafeBoosterResetEnabled,
 		ESPEnabled = configuration.ESPEnabled,
 		ESPLineEnabled = configuration.ESPLineEnabled,
 		ESPBoxEnabled = configuration.ESPBoxEnabled,
@@ -592,6 +622,48 @@ if configuration.MigratedLegacyConfig then
 end
 function configuration.IsWhitelisted(otherPlayer)
 	return configuration.WhitelistIds[tostring(otherPlayer.UserId)] == true
+end
+
+local JoinAlertSeen = {}
+local function notifyUnwhitelistedPlayer(player, wasAlreadyHere)
+	if not player or player == Player or configuration.JoinAlertsEnabled ~= true
+		or configuration.IsWhitelisted(player) then
+		return false
+	end
+	local userId = tostring(player.UserId)
+	if JoinAlertSeen[userId] then return false end
+	JoinAlertSeen[userId] = true
+	local title = wasAlreadyHere and "Player already in server" or "Player joined"
+	local message = "@" .. player.Name .. (wasAlreadyHere and " is already here." or " joined the server.")
+	NotifyUser(title, message, 6)
+	return true
+end
+
+function configuration.ScanServerJoinAlerts()
+	local alerted = 0
+	for _, player in ipairs(Players:GetPlayers()) do
+		if notifyUnwhitelistedPlayer(player, true) then alerted += 1 end
+	end
+	return alerted
+end
+
+function configuration.SetJoinAlertsEnabled(enabled)
+	configuration.JoinAlertsEnabled = enabled == true
+	if configuration.JoinAlertsEnabled then
+		configuration.ScanServerJoinAlerts()
+	end
+	configuration.SaveConfig()
+	return configuration.JoinAlertsEnabled
+end
+
+Players.PlayerAdded:Connect(function(player)
+	task.defer(notifyUnwhitelistedPlayer, player, false)
+end)
+Players.PlayerRemoving:Connect(function(player)
+	JoinAlertSeen[tostring(player.UserId)] = nil
+end)
+if configuration.JoinAlertsEnabled then
+	task.defer(configuration.ScanServerJoinAlerts)
 end
 
 function configuration.GetBlockedUserSet()
@@ -2681,6 +2753,7 @@ end)
 local AlertToggleButton = configuration.MakeToggle("Player alert", configuration.AlertsEnabled, GREEN, GREEN_DIM, 1, AlertsGrid, "Alert when a non-whitelisted player gets close.")
 local AlertFlashButton = configuration.MakeToggle("Screen flash", configuration.AlertFlashEnabled, RED, RED_DIM, 2, AlertsGrid, "Flash the screen when an alert triggers.")
 local AutoResumeButton = configuration.MakeToggle("Auto resume", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
+local JoinAlertButton = configuration.MakeToggle("Join alerts", configuration.JoinAlertsEnabled, GREEN, GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
 local ESPToggleButton = configuration.MakeToggle("Player ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2, nil, "Show markers for other players.")
 local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw lines to players.")
 local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw boxes around players.")
@@ -2694,7 +2767,7 @@ FollowToggleButton = configuration.MakeToggle("Follow", configuration.FollowEnab
 function configuration.UpdateFollowButtons()
 	local selectedId = configuration.SelectedFollowUserId
 	local selectedPlayer = selectedId and Players:GetPlayerByUserId(tonumber(selectedId))
-	local targetLabel = selectedPlayer and ("Target: " .. selectedPlayer.DisplayName)
+	local targetLabel = selectedPlayer and ("Target: @" .. selectedPlayer.Name)
 		or (selectedId and "Target: offline" or "Choose follow target")
 	configuration.SetActionVisual(FollowSelectButton, targetLabel, selectedId ~= nil)
 	configuration.SetToggleVisual(FollowToggleButton, "Follow", configuration.FollowEnabled, ACCENT, ACCENT_DIM)
@@ -2737,6 +2810,11 @@ AutoResumeButton.MouseButton1Click:Connect(function()
 	configuration.AutoResumeAfterAlert = not configuration.AutoResumeAfterAlert
 	configuration.SetToggleVisual(AutoResumeButton, "Auto resume", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM)
 	configuration.SaveConfig()
+end)
+
+JoinAlertButton.MouseButton1Click:Connect(function()
+	configuration.SetJoinAlertsEnabled(not configuration.JoinAlertsEnabled)
+	configuration.SetToggleVisual(JoinAlertButton, "Join alerts", configuration.JoinAlertsEnabled, GREEN, GREEN_DIM)
 end)
 
 ESPToggleButton.MouseButton1Click:Connect(function()
@@ -3019,6 +3097,29 @@ ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
+local SafeBoosterResetButton = configuration.MakeToggle(
+	"Safe booster reset",
+	configuration.SafeBoosterResetEnabled,
+	RED,
+	RED_DIM,
+	6,
+	FarmPage,
+	"Reset on positive EXP Boost updates unless the mob-damage tag is present."
+)
+SafeBoosterResetButton.MouseButton1Click:Connect(function()
+	configuration.SafeBoosterResetEnabled = configuration.SafeBoosterResetSystem.SetEnabled(
+		not configuration.SafeBoosterResetEnabled
+	)
+	configuration.SetToggleVisual(
+		SafeBoosterResetButton,
+		"Safe booster reset",
+		configuration.SafeBoosterResetEnabled,
+		RED,
+		RED_DIM
+	)
+	configuration.SaveConfig()
+end)
+
 AmountBox.FocusLost:Connect(function()
 	local v = tonumber(AmountBox.Text)
 	if v and v > 0 then
@@ -3226,17 +3327,30 @@ configuration.WhitelistHeaderRule.ZIndex = 92
 configuration.WhitelistHeaderRule.Parent = configuration.WhitelistHeader
 
 configuration.WhitelistTitle = Instance.new("TextLabel")
-configuration.WhitelistTitle.Size = UDim2.new(1, -20, 0, 22)
+configuration.WhitelistTitle.Size = UDim2.new(1, -116, 0, 22)
 configuration.WhitelistTitle.Position = UDim2.fromOffset(14, 11)
 configuration.WhitelistTitle.ZIndex = 92
 configuration.WhitelistTitle.Active = true
 configuration.WhitelistTitle.BackgroundTransparency = 1
-configuration.WhitelistTitle.Text = "Whitelist by UserId"
+configuration.WhitelistTitle.Text = "Whitelist"
 configuration.WhitelistTitle.TextColor3 = TEXT
 configuration.WhitelistTitle.TextSize = 14
 configuration.WhitelistTitle.Font = Enum.Font.GothamBold
 configuration.WhitelistTitle.TextXAlignment = Enum.TextXAlignment.Left
 configuration.WhitelistTitle.Parent = configuration.WhitelistHeader
+
+configuration.AddAllWhitelistButton = Instance.new("TextButton")
+configuration.AddAllWhitelistButton.Size = UDim2.fromOffset(62, 26)
+configuration.AddAllWhitelistButton.Position = UDim2.new(1, -101, 0, 9)
+configuration.AddAllWhitelistButton.ZIndex = 92
+configuration.AddAllWhitelistButton.BackgroundColor3 = ACCENT_DIM
+configuration.AddAllWhitelistButton.BorderSizePixel = 0
+configuration.AddAllWhitelistButton.Text = "Add all"
+configuration.AddAllWhitelistButton.TextColor3 = ACCENT
+configuration.AddAllWhitelistButton.TextSize = 10
+configuration.AddAllWhitelistButton.Font = Enum.Font.GothamBold
+configuration.AddAllWhitelistButton.Parent = configuration.WhitelistHeader
+Instance.new("UICorner", configuration.AddAllWhitelistButton).CornerRadius = UDim.new(0, 6)
 
 configuration.WhitelistInput = Instance.new("TextBox")
 configuration.WhitelistInput.Size = UDim2.new(1, -112, 0, 34)
@@ -3455,7 +3569,27 @@ function configuration.AddWhitelistId()
 	configuration.RefreshWhitelist()
 end
 
+function configuration.AddAllServerPlayersToWhitelist()
+	local added = 0
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= Player then
+			local userId = tostring(player.UserId)
+			if not configuration.WhitelistIds[userId] then
+				configuration.WhitelistIds[userId] = true
+				added += 1
+			end
+		end
+	end
+	if added > 0 then
+		configuration.SaveConfig()
+		configuration.RefreshWhitelist()
+	end
+	NotifyUser("Whitelist", added > 0 and ("Added " .. added .. " player(s).") or "All players are already whitelisted.")
+	return added
+end
+
 configuration.AddWhitelistButton.MouseButton1Click:Connect(configuration.AddWhitelistId)
+configuration.AddAllWhitelistButton.MouseButton1Click:Connect(configuration.AddAllServerPlayersToWhitelist)
 configuration.WhitelistInput.FocusLost:Connect(function(enterPressed)
 	if enterPressed then configuration.AddWhitelistId() end
 end)
@@ -4987,7 +5121,7 @@ task.spawn(function()
 					local isFollowSelected = configuration.SelectedFollowUserId == tostring(selectedPlayer.UserId)
 					row.BackgroundColor3 = isFollowSelected and SEL_BG or CARD
 					row.BorderSizePixel = 0
-					row.Text = "  " .. selectedPlayer.DisplayName
+					row.Text = "  @" .. selectedPlayer.Name
 					row.TextColor3 = isFollowSelected and SEL_TEXT or TEXT
 					row.TextSize = 13
 					row.Font = Enum.Font.GothamBold
