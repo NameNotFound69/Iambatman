@@ -1,4 +1,4 @@
-local VERSION = "2.6.4"
+local VERSION = "2.6.7"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -655,6 +655,26 @@ function configuration.IsWhitelisted(otherPlayer)
 end
 
 configuration.JoinAlertSeen = {}
+configuration.PlayerJoinLog = {}
+configuration.JoinLogOnline = {}
+function configuration.RecordPlayerLog(player, eventType)
+	if not player or player == Player then return false end
+	table.insert(configuration.PlayerJoinLog, {
+		Time = os.date("%H:%M:%S"),
+		Event = eventType,
+		Username = player.Name,
+		UserId = tostring(player.UserId),
+		Whitelisted = configuration.IsWhitelisted(player),
+	})
+	while #configuration.PlayerJoinLog > 100 do
+		table.remove(configuration.PlayerJoinLog, 1)
+	end
+	if configuration.JoinLogPanel and configuration.JoinLogPanel.Visible then
+		configuration.RefreshJoinLog()
+	end
+	return true
+end
+
 function configuration.NotifyUnwhitelistedPlayer(player, wasAlreadyHere)
 	if not player or player == Player or configuration.JoinAlertsEnabled ~= true
 		or configuration.IsWhitelisted(player) then
@@ -687,11 +707,34 @@ function configuration.SetJoinAlertsEnabled(enabled)
 end
 
 Players.PlayerAdded:Connect(function(player)
+	if player ~= Player then
+		local userId = tostring(player.UserId)
+		if not configuration.JoinLogOnline[userId] then
+			configuration.JoinLogOnline[userId] = true
+			configuration.RecordPlayerLog(player, "joined")
+		end
+	end
 	task.defer(configuration.NotifyUnwhitelistedPlayer, player, false)
 end)
 Players.PlayerRemoving:Connect(function(player)
+	if player ~= Player then
+		local userId = tostring(player.UserId)
+		if configuration.JoinLogOnline[userId] then
+			configuration.RecordPlayerLog(player, "left")
+		end
+		configuration.JoinLogOnline[userId] = nil
+	end
 	configuration.JoinAlertSeen[tostring(player.UserId)] = nil
 end)
+for _, existingPlayer in ipairs(Players:GetPlayers()) do
+	if existingPlayer ~= Player then
+		local userId = tostring(existingPlayer.UserId)
+		if not configuration.JoinLogOnline[userId] then
+			configuration.JoinLogOnline[userId] = true
+			configuration.RecordPlayerLog(existingPlayer, "present")
+		end
+	end
+end
 if configuration.JoinAlertsEnabled then
 	task.defer(configuration.ScanServerJoinAlerts)
 end
@@ -709,7 +752,10 @@ function configuration.GetBlockedUserSet()
 end
 
 function configuration.IsPlayerESPEnabled(otherPlayer)
-	return configuration.PlayerESPEnabled[tostring(otherPlayer.UserId)] ~= false
+	local userId = tostring(otherPlayer.UserId)
+	local explicitSetting = configuration.PlayerESPEnabled[userId]
+	if explicitSetting ~= nil then return explicitSetting == true end
+	return not configuration.IsWhitelisted(otherPlayer)
 end
 
 function configuration.GetPlayerHealth(otherPlayer)
@@ -731,6 +777,44 @@ end
 function configuration.FormatPlayerStats(otherPlayer)
 	local level, defense = configuration.GetPlayerStats(otherPlayer)
 	return string.format("Level %s  •  Defense %s", level ~= nil and tostring(level) or "—", defense ~= nil and tostring(defense) or "—")
+end
+
+function configuration.GetPlayerListStatValues(otherPlayer)
+	local statsFolder = otherPlayer:FindFirstChild("PlayerStats")
+	local valueObjects = {}
+	if statsFolder then
+		for _, child in ipairs(statsFolder:GetChildren()) do
+			valueObjects[string.lower(child.Name)] = child
+		end
+	end
+	local function readValue(fullName, shortName)
+		local valueObject = valueObjects[string.lower(fullName)] or valueObjects[string.lower(shortName)]
+		if not valueObject or not valueObject:IsA("ValueBase") then return "—" end
+		local value = valueObject.Value
+		if type(value) == "number" then return string.format("%.0f", value) end
+		return tostring(value)
+	end
+	return {
+		Level = readValue("Level", "LVL"),
+		Defense = readValue("Defense", "DEF"),
+		Strength = readValue("Strength", "STR"),
+		Agility = readValue("Agility", "AGI"),
+		Luck = readValue("Luck", "LUK"),
+		Vitality = readValue("Vitality", "VIT"),
+	}
+end
+
+function configuration.FormatPlayerListStats(otherPlayer)
+	local stats = configuration.GetPlayerListStatValues(otherPlayer)
+	return string.format(
+		"LVL %s\nDEF %s  STR %s  AGI %s\nLUK %s  VIT %s",
+		stats.Level,
+		stats.Defense,
+		stats.Strength,
+		stats.Agility,
+		stats.Luck,
+		stats.Vitality
+	)
 end
 
 -- Local player level + EXP progress from PlayerStats and/or the game's HUD ("EXP: 58354/59211").
@@ -1708,7 +1792,7 @@ configuration.SetMainTab("EXP")
 --==================================================
 local ServerCard = Instance.new("Frame")
 ServerCard.Name = "ServerCard"
-ServerCard.Size = UDim2.new(1, 0, 0, 64)
+ServerCard.Size = UDim2.new(1, 0, 0, 90)
 ServerCard.LayoutOrder = 2
 ServerCard.BackgroundColor3 = CARD
 ServerCard.BorderSizePixel = 0
@@ -1732,20 +1816,22 @@ ServerTitle.Parent = ServerCard
 
 local ServerPlayersLabel = Instance.new("TextLabel")
 ServerPlayersLabel.Name = "ServerPlayers"
-ServerPlayersLabel.Size = UDim2.new(0.5, -12, 0, 14)
-ServerPlayersLabel.Position = UDim2.new(0.5, 0, 0, 10)
-ServerPlayersLabel.BackgroundTransparency = 1
-ServerPlayersLabel.Text = "0 players"
-ServerPlayersLabel.TextColor3 = MUTED
-ServerPlayersLabel.TextSize = 11
-ServerPlayersLabel.Font = Enum.Font.Gotham
-ServerPlayersLabel.TextXAlignment = Enum.TextXAlignment.Right
+ServerPlayersLabel.Size = UDim2.fromOffset(134, 26)
+ServerPlayersLabel.Position = UDim2.new(1, -148, 0, 5)
+ServerPlayersLabel.BackgroundColor3 = ACCENT_DIM
+ServerPlayersLabel.BorderSizePixel = 0
+ServerPlayersLabel.Text = "0 PLAYERS"
+ServerPlayersLabel.TextColor3 = ACCENT
+ServerPlayersLabel.TextSize = 14
+ServerPlayersLabel.Font = Enum.Font.GothamBold
+ServerPlayersLabel.TextXAlignment = Enum.TextXAlignment.Center
 ServerPlayersLabel.Parent = ServerCard
+Instance.new("UICorner", ServerPlayersLabel).CornerRadius = UDim.new(0, 7)
 
 local ServerPlaceLabel = Instance.new("TextLabel")
 ServerPlaceLabel.Name = "ServerPlace"
 ServerPlaceLabel.Size = UDim2.new(1, -28, 0, 18)
-ServerPlaceLabel.Position = UDim2.fromOffset(14, 28)
+ServerPlaceLabel.Position = UDim2.fromOffset(14, 29)
 ServerPlaceLabel.BackgroundTransparency = 1
 ServerPlaceLabel.Text = "—"
 ServerPlaceLabel.TextColor3 = TEXT
@@ -1758,7 +1844,7 @@ ServerPlaceLabel.Parent = ServerCard
 local ServerJobLabel = Instance.new("TextLabel")
 ServerJobLabel.Name = "ServerJob"
 ServerJobLabel.Size = UDim2.new(1, -28, 0, 12)
-ServerJobLabel.Position = UDim2.fromOffset(14, 46)
+ServerJobLabel.Position = UDim2.fromOffset(14, 49)
 ServerJobLabel.BackgroundTransparency = 1
 ServerJobLabel.Text = "Job —"
 ServerJobLabel.TextColor3 = MUTED
@@ -1768,9 +1854,37 @@ ServerJobLabel.TextXAlignment = Enum.TextXAlignment.Left
 ServerJobLabel.TextTruncate = Enum.TextTruncate.AtEnd
 ServerJobLabel.Parent = ServerCard
 
+configuration.ServerFPSLabel = Instance.new("TextLabel")
+configuration.ServerFPSLabel.Name = "ServerFPS"
+configuration.ServerFPSLabel.Size = UDim2.fromOffset(92, 18)
+configuration.ServerFPSLabel.Position = UDim2.fromOffset(14, 67)
+configuration.ServerFPSLabel.BackgroundColor3 = INPUT
+configuration.ServerFPSLabel.BorderSizePixel = 0
+configuration.ServerFPSLabel.Text = "FPS --"
+configuration.ServerFPSLabel.TextColor3 = GREEN
+configuration.ServerFPSLabel.TextSize = 11
+configuration.ServerFPSLabel.Font = Enum.Font.GothamBold
+configuration.ServerFPSLabel.TextXAlignment = Enum.TextXAlignment.Center
+configuration.ServerFPSLabel.Parent = ServerCard
+Instance.new("UICorner", configuration.ServerFPSLabel).CornerRadius = UDim.new(0, 6)
+
+configuration.ServerPingLabel = Instance.new("TextLabel")
+configuration.ServerPingLabel.Name = "ServerPing"
+configuration.ServerPingLabel.Size = UDim2.fromOffset(104, 18)
+configuration.ServerPingLabel.Position = UDim2.fromOffset(112, 67)
+configuration.ServerPingLabel.BackgroundColor3 = INPUT
+configuration.ServerPingLabel.BorderSizePixel = 0
+configuration.ServerPingLabel.Text = "Ping -- ms"
+configuration.ServerPingLabel.TextColor3 = ACCENT
+configuration.ServerPingLabel.TextSize = 11
+configuration.ServerPingLabel.Font = Enum.Font.GothamBold
+configuration.ServerPingLabel.TextXAlignment = Enum.TextXAlignment.Center
+configuration.ServerPingLabel.Parent = ServerCard
+Instance.new("UICorner", configuration.ServerPingLabel).CornerRadius = UDim.new(0, 6)
+
 function configuration.RefreshServerWidget()
 	local count = #Players:GetPlayers()
-	ServerPlayersLabel.Text = string.format("%d player%s", count, count == 1 and "" or "s")
+	ServerPlayersLabel.Text = string.format("%d PLAYERS", count)
 	local placeName = "Place " .. tostring(game.PlaceId)
 	pcall(function()
 		local info = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
@@ -1784,6 +1898,32 @@ end
 configuration.RefreshServerWidget()
 Players.PlayerAdded:Connect(function() configuration.RefreshServerWidget() end)
 Players.PlayerRemoving:Connect(function() task.defer(configuration.RefreshServerWidget) end)
+
+configuration.ServerFPSFrames = 0
+configuration.ServerFPSSampleAt = os.clock()
+RunService.RenderStepped:Connect(function()
+	configuration.ServerFPSFrames += 1
+	local sampleAt = os.clock()
+	local elapsed = sampleAt - configuration.ServerFPSSampleAt
+	if elapsed < 1 then return end
+	local fps = math.floor(configuration.ServerFPSFrames / elapsed + 0.5)
+	configuration.ServerFPSFrames = 0
+	configuration.ServerFPSSampleAt = sampleAt
+	configuration.ServerFPSLabel.Text = string.format("FPS %d", fps)
+	configuration.ServerFPSLabel.TextColor3 = fps >= 50 and GREEN or (fps >= 30 and YELLOW or RED)
+
+	local pingOk, pingSeconds = pcall(function()
+		return Player:GetNetworkPing()
+	end)
+	if pingOk and type(pingSeconds) == "number" then
+		local pingMs = math.floor(pingSeconds * 1000 + 0.5)
+		configuration.ServerPingLabel.Text = string.format("Ping %d ms", pingMs)
+		configuration.ServerPingLabel.TextColor3 = pingMs < 100 and GREEN or (pingMs < 200 and YELLOW or RED)
+	else
+		configuration.ServerPingLabel.Text = "Ping -- ms"
+		configuration.ServerPingLabel.TextColor3 = MUTED
+	end
+end)
 
 --==================================================
 -- HERO EXP CARD (big numbers)
@@ -2784,6 +2924,7 @@ local AlertToggleButton = configuration.MakeToggle("Player alert", configuration
 local AlertFlashButton = configuration.MakeToggle("Screen flash", configuration.AlertFlashEnabled, RED, RED_DIM, 2, AlertsGrid, "Flash the screen when an alert triggers.")
 local AutoResumeButton = configuration.MakeToggle("Auto resume", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
 configuration.JoinAlertButton = configuration.MakeToggle("Join alerts", configuration.JoinAlertsEnabled, GREEN, GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
+configuration.JoinLogButton = configuration.MakeActionRow("Join log", 5, AlertsGrid, "Open the player join and leave log.")
 local ESPToggleButton = configuration.MakeToggle("Player ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2, nil, "Show markers for other players.")
 local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw lines to players.")
 local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw boxes around players.")
@@ -3429,6 +3570,126 @@ configuration.WhitelistLayout.Padding = UDim.new(0, 6)
 configuration.WhitelistLayout.SortOrder = Enum.SortOrder.LayoutOrder
 configuration.WhitelistLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
+configuration.JoinLogPanel = Instance.new("Frame")
+configuration.JoinLogPanel.Name = "PlayerJoinLogPanel"
+configuration.JoinLogPanel.Size = UDim2.fromScale(0.38, 0.54)
+configuration.JoinLogPanel.Position = UDim2.fromScale(0.31, 0.2)
+configuration.JoinLogPanel.ZIndex = 90
+configuration.JoinLogPanel.BackgroundColor3 = BG
+configuration.JoinLogPanel.BorderSizePixel = 0
+configuration.JoinLogPanel.Visible = false
+configuration.JoinLogPanel.Parent = ScreenGui
+Instance.new("UICorner", configuration.JoinLogPanel).CornerRadius = UDim.new(0, 12)
+configuration.JoinLogPanelStroke = Instance.new("UIStroke", configuration.JoinLogPanel)
+configuration.JoinLogPanelStroke.Color = BORDER
+configuration.JoinLogPanelStroke.Thickness = 1
+configuration.JoinLogPanelStroke.Transparency = 0.35
+
+configuration.JoinLogHeader = Instance.new("Frame")
+configuration.JoinLogHeader.Name = "Header"
+configuration.JoinLogHeader.Size = UDim2.new(1, 0, 0, 44)
+configuration.JoinLogHeader.ZIndex = 91
+configuration.JoinLogHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configuration.JoinLogHeader.BorderSizePixel = 0
+configuration.JoinLogHeader.Parent = configuration.JoinLogPanel
+Instance.new("UICorner", configuration.JoinLogHeader).CornerRadius = UDim.new(0, 12)
+
+configuration.JoinLogHeaderFix = Instance.new("Frame")
+configuration.JoinLogHeaderFix.Size = UDim2.new(1, 0, 0, 16)
+configuration.JoinLogHeaderFix.Position = UDim2.new(0, 0, 1, -16)
+configuration.JoinLogHeaderFix.ZIndex = 91
+configuration.JoinLogHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configuration.JoinLogHeaderFix.BorderSizePixel = 0
+configuration.JoinLogHeaderFix.Parent = configuration.JoinLogHeader
+
+configuration.JoinLogTitle = Instance.new("TextLabel")
+configuration.JoinLogTitle.Size = UDim2.new(1, -56, 0, 22)
+configuration.JoinLogTitle.Position = UDim2.fromOffset(14, 11)
+configuration.JoinLogTitle.ZIndex = 92
+configuration.JoinLogTitle.BackgroundTransparency = 1
+configuration.JoinLogTitle.Text = "Player activity"
+configuration.JoinLogTitle.TextColor3 = TEXT
+configuration.JoinLogTitle.TextSize = 14
+configuration.JoinLogTitle.Font = Enum.Font.GothamBold
+configuration.JoinLogTitle.TextXAlignment = Enum.TextXAlignment.Left
+configuration.JoinLogTitle.Parent = configuration.JoinLogHeader
+
+configuration.JoinLogCloseButton = Instance.new("TextButton")
+configuration.JoinLogCloseButton.Size = UDim2.fromOffset(26, 26)
+configuration.JoinLogCloseButton.Position = UDim2.new(1, -34, 0, 9)
+configuration.JoinLogCloseButton.ZIndex = 92
+configuration.JoinLogCloseButton.BackgroundColor3 = INPUT
+configuration.JoinLogCloseButton.BorderSizePixel = 0
+configuration.JoinLogCloseButton.Text = "×"
+configuration.JoinLogCloseButton.TextColor3 = TEXT
+configuration.JoinLogCloseButton.TextSize = 15
+configuration.JoinLogCloseButton.Font = Enum.Font.GothamBold
+configuration.JoinLogCloseButton.Parent = configuration.JoinLogHeader
+Instance.new("UICorner", configuration.JoinLogCloseButton).CornerRadius = UDim.new(0, 6)
+
+configuration.JoinLogScroll = Instance.new("ScrollingFrame")
+configuration.JoinLogScroll.Size = UDim2.new(1, -20, 1, -58)
+configuration.JoinLogScroll.Position = UDim2.fromOffset(10, 50)
+configuration.JoinLogScroll.ZIndex = 91
+configuration.JoinLogScroll.BackgroundTransparency = 1
+configuration.JoinLogScroll.BorderSizePixel = 0
+configuration.JoinLogScroll.ScrollBarThickness = 3
+configuration.JoinLogScroll.ScrollBarImageColor3 = MUTED
+configuration.JoinLogScroll.CanvasSize = UDim2.new()
+configuration.JoinLogScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configuration.JoinLogScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+configuration.JoinLogScroll.Parent = configuration.JoinLogPanel
+configuration.JoinLogLayout = Instance.new("UIListLayout", configuration.JoinLogScroll)
+configuration.JoinLogLayout.Padding = UDim.new(0, 5)
+configuration.JoinLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configuration.JoinLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+function configuration.RefreshJoinLog()
+	for _, child in ipairs(configuration.JoinLogScroll:GetChildren()) do
+		if child.Name:match("^JoinLogRow_") then child:Destroy() end
+	end
+	for order = #configuration.PlayerJoinLog, 1, -1 do
+		local entry = configuration.PlayerJoinLog[order]
+		local row = Instance.new("Frame")
+		row.Name = "JoinLogRow_" .. tostring(order)
+		row.Size = UDim2.new(1, -8, 0, 34)
+		row.LayoutOrder = #configuration.PlayerJoinLog - order + 1
+		row.ZIndex = 92
+		row.BackgroundColor3 = CARD
+		row.BorderSizePixel = 0
+		row.Parent = configuration.JoinLogScroll
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 7)
+
+		local eventLabel = Instance.new("TextLabel")
+		eventLabel.Size = UDim2.new(1, -16, 1, 0)
+		eventLabel.Position = UDim2.fromOffset(8, 0)
+		eventLabel.ZIndex = 93
+		eventLabel.BackgroundTransparency = 1
+		local eventName = entry.Event == "joined" and "JOINED"
+			or (entry.Event == "left" and "LEFT" or "HERE")
+		local whitelistTag = entry.Whitelisted and "  ·  WHITELIST" or ""
+		eventLabel.Text = string.format("%s  %s  @%s%s", entry.Time, eventName, entry.Username, whitelistTag)
+		eventLabel.TextColor3 = entry.Event == "left" and RED
+			or (entry.Event == "present" and MUTED or GREEN)
+		eventLabel.TextSize = 11
+		eventLabel.Font = Enum.Font.GothamBold
+		eventLabel.TextXAlignment = Enum.TextXAlignment.Left
+		eventLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		eventLabel.Parent = row
+	end
+end
+
+configuration.JoinLogButton.MouseButton1Click:Connect(function()
+	local isOpen = not configuration.JoinLogPanel.Visible
+	configuration.JoinLogPanel.Visible = isOpen
+	configuration.SetActionVisual(configuration.JoinLogButton, isOpen and "Close log" or "Join log", isOpen)
+	if isOpen then configuration.RefreshJoinLog() end
+end)
+configuration.JoinLogCloseButton.MouseButton1Click:Connect(function()
+	configuration.JoinLogPanel.Visible = false
+	configuration.SetActionVisual(configuration.JoinLogButton, "Join log", false)
+end)
+
 function configuration.MakeDraggable(panel, handle)
 	local dragging = false
 	local dragStart
@@ -3461,6 +3722,7 @@ end
 
 configuration.MakeDraggable(PlayerPanel, PlayerPanelHeader)
 configuration.MakeDraggable(configuration.WhitelistPanel, configuration.WhitelistHeader)
+configuration.MakeDraggable(configuration.JoinLogPanel, configuration.JoinLogHeader)
 
 function configuration.MakeResizable(panel, name, minWidth, minHeight, onReleased)
 	local handle = Instance.new("TextButton")
@@ -5183,7 +5445,7 @@ task.spawn(function()
 
 				local row = Instance.new("Frame")
 				row.Name = "PlayerRow_" .. otherPlayer.UserId
-				row.Size = UDim2.new(1, -4, 0, 118)
+				row.Size = UDim2.new(1, -4, 0, 132)
 				row.LayoutOrder = order
 				row.ZIndex = 92
 				row.BackgroundColor3 = CARD
@@ -5276,15 +5538,16 @@ task.spawn(function()
 
 				local statsLabel = Instance.new("TextLabel")
 				statsLabel.Name = "PlayerStats"
-				statsLabel.Size = UDim2.new(1, -78, 0, 15)
+				statsLabel.Size = UDim2.new(1, -78, 0, 42)
 				statsLabel.Position = UDim2.fromOffset(66, 84)
 				statsLabel.ZIndex = 93
 				statsLabel.BackgroundTransparency = 1
-				statsLabel.Text = configuration.FormatPlayerStats(otherPlayer)
+				statsLabel.Text = configuration.FormatPlayerListStats(otherPlayer)
 				statsLabel.TextColor3 = MUTED
-				statsLabel.TextSize = 11
+				statsLabel.TextSize = 10
 				statsLabel.Font = Enum.Font.Gotham
 				statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+				statsLabel.TextYAlignment = Enum.TextYAlignment.Top
 				statsLabel.TextTruncate = Enum.TextTruncate.AtEnd
 				statsLabel.Parent = row
 
@@ -5400,7 +5663,7 @@ task.spawn(function()
 						end
 						local statsLabel = row:FindFirstChild("PlayerStats")
 						if statsLabel then
-							local statsText = configuration.FormatPlayerStats(listedPlayer)
+							local statsText = configuration.FormatPlayerListStats(listedPlayer)
 							if statsLabel.Text ~= statsText then statsLabel.Text = statsText end
 						end
 					end
@@ -5511,7 +5774,7 @@ task.spawn(function()
 					visual.HealthLabel.Text = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
 					visual.HealthLabel.TextColor3 = configuration.GetHealthColor(currentHP, maximumHP)
 					visual.StatsLabel.Text = configuration.FormatPlayerStats(otherPlayer)
-					local visible = configuration.ESPEnabled and configuration.IsPlayerESPEnabled(otherPlayer) and not configuration.IsWhitelisted(otherPlayer)
+					local visible = configuration.ESPEnabled and configuration.IsPlayerESPEnabled(otherPlayer)
 					visual.Highlight.Enabled = visible and configuration.ESPBoxEnabled
 					visual.NameTag.Visible = false
 					visual.Tracer.Visible = false
