@@ -1,4 +1,4 @@
-local VERSION = "2.6.3"
+local VERSION = "2.6.4"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,22 +11,6 @@ local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
 
 local Player = Players.LocalPlayer
-local function NotifyUser(title, message, duration)
-	task.spawn(function()
-		for _ = 1, 4 do
-			local ok = pcall(function()
-				StarterGui:SetCore("SendNotification", {
-					Title = tostring(title),
-					Text = tostring(message),
-					Duration = duration or 5,
-				})
-			end)
-			if ok then return end
-			task.wait(0.75)
-		end
-	end)
-end
-
 local MobsFolder = workspace:WaitForChild("Mobs", 10)
 if not MobsFolder then
 	warn("[Iamrich] Startup stopped: workspace.Mobs was not found.")
@@ -308,6 +292,22 @@ local configuration: {[string]: any} = {
 	Combat = {},
 }
 
+function configuration.NotifyUser(title, message, duration)
+	task.spawn(function()
+		for _ = 1, 4 do
+			local ok = pcall(function()
+				StarterGui:SetCore("SendNotification", {
+					Title = tostring(title),
+					Text = tostring(message),
+					Duration = duration or 5,
+				})
+			end)
+			if ok then return end
+			task.wait(0.75)
+		end
+	end)
+end
+
 local FollowInteractBindable
 local function InvokeFollowInteract()
 	local playerGui = Player:FindFirstChildOfClass("PlayerGui")
@@ -354,14 +354,43 @@ configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration
 	ReleaseMovement = ReleaseMovement,
 	Interact = InvokeFollowInteract,
 })
-configuration.SafeBoosterResetSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/SafeBoosterResetSystem.lua?v=1.0.0"
-)))()
-configuration.SafeBoosterResetSystem = configuration.SafeBoosterResetSystem.Initialize(configuration, {
-	Player = Player,
-	ReplicatedStorage = ReplicatedStorage,
-	Notify = NotifyUser,
-})
+configuration.SafeBoosterResetLoadOk, configuration.SafeBoosterResetLoadResult = pcall(function()
+	local source = game:HttpGet(
+		"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/SafeBoosterResetSystem.lua?v=1.0.0"
+	)
+	local moduleFactory, compileError = loadstring(source)
+	assert(moduleFactory, compileError)
+	local module = moduleFactory()
+	assert(type(module) == "table" and type(module.Initialize) == "function", "SafeBoosterReset module has no Initialize function")
+	return module
+end)
+if configuration.SafeBoosterResetLoadOk then
+	configuration.SafeBoosterResetInitOk, configuration.SafeBoosterResetInitResult = pcall(function()
+		return configuration.SafeBoosterResetLoadResult.Initialize(configuration, {
+			Player = Player,
+			ReplicatedStorage = ReplicatedStorage,
+			Notify = configuration.NotifyUser,
+		})
+	end)
+end
+configuration.SafeBoosterResetAvailable = configuration.SafeBoosterResetInitOk == true
+	and type(configuration.SafeBoosterResetInitResult) == "table"
+if configuration.SafeBoosterResetAvailable then
+	configuration.SafeBoosterResetSystem = configuration.SafeBoosterResetInitResult
+else
+	configuration.SafeBoosterResetEnabled = false
+	configuration.SafeBoosterResetSystem = {
+		SetEnabled = function(enabled)
+			if enabled then
+				configuration.NotifyUser("Safe booster reset", "Module unavailable; upload SafeBoosterResetSystem.lua first.", 6)
+			end
+			return false
+		end,
+	}
+	warn("[Iamrich] SafeBoosterReset is unavailable:",
+		configuration.SafeBoosterResetLoadOk and configuration.SafeBoosterResetInitResult
+			or configuration.SafeBoosterResetLoadResult)
+end
 configuration.FPSBoostSystem = assert(loadstring(game:HttpGet(
 	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.2.0"
 )))()
@@ -615,6 +644,7 @@ function configuration.SetFPSBoost(enabled)
 end
 
 configuration.LoadConfig()
+if not configuration.SafeBoosterResetAvailable then configuration.SafeBoosterResetEnabled = false end
 if configuration.FPSBoostEnabled then configuration.FPSBoostSystem.SetEnabled(true) end
 configuration.FollowSystem.SetTargetLineVisible(configuration.FollowTargetVisible)
 if configuration.MigratedLegacyConfig then
@@ -624,25 +654,25 @@ function configuration.IsWhitelisted(otherPlayer)
 	return configuration.WhitelistIds[tostring(otherPlayer.UserId)] == true
 end
 
-local JoinAlertSeen = {}
-local function notifyUnwhitelistedPlayer(player, wasAlreadyHere)
+configuration.JoinAlertSeen = {}
+function configuration.NotifyUnwhitelistedPlayer(player, wasAlreadyHere)
 	if not player or player == Player or configuration.JoinAlertsEnabled ~= true
 		or configuration.IsWhitelisted(player) then
 		return false
 	end
 	local userId = tostring(player.UserId)
-	if JoinAlertSeen[userId] then return false end
-	JoinAlertSeen[userId] = true
+	if configuration.JoinAlertSeen[userId] then return false end
+	configuration.JoinAlertSeen[userId] = true
 	local title = wasAlreadyHere and "Player already in server" or "Player joined"
 	local message = "@" .. player.Name .. (wasAlreadyHere and " is already here." or " joined the server.")
-	NotifyUser(title, message, 6)
+	configuration.NotifyUser(title, message, 6)
 	return true
 end
 
 function configuration.ScanServerJoinAlerts()
 	local alerted = 0
 	for _, player in ipairs(Players:GetPlayers()) do
-		if notifyUnwhitelistedPlayer(player, true) then alerted += 1 end
+		if configuration.NotifyUnwhitelistedPlayer(player, true) then alerted += 1 end
 	end
 	return alerted
 end
@@ -657,10 +687,10 @@ function configuration.SetJoinAlertsEnabled(enabled)
 end
 
 Players.PlayerAdded:Connect(function(player)
-	task.defer(notifyUnwhitelistedPlayer, player, false)
+	task.defer(configuration.NotifyUnwhitelistedPlayer, player, false)
 end)
 Players.PlayerRemoving:Connect(function(player)
-	JoinAlertSeen[tostring(player.UserId)] = nil
+	configuration.JoinAlertSeen[tostring(player.UserId)] = nil
 end)
 if configuration.JoinAlertsEnabled then
 	task.defer(configuration.ScanServerJoinAlerts)
@@ -2753,7 +2783,7 @@ end)
 local AlertToggleButton = configuration.MakeToggle("Player alert", configuration.AlertsEnabled, GREEN, GREEN_DIM, 1, AlertsGrid, "Alert when a non-whitelisted player gets close.")
 local AlertFlashButton = configuration.MakeToggle("Screen flash", configuration.AlertFlashEnabled, RED, RED_DIM, 2, AlertsGrid, "Flash the screen when an alert triggers.")
 local AutoResumeButton = configuration.MakeToggle("Auto resume", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
-local JoinAlertButton = configuration.MakeToggle("Join alerts", configuration.JoinAlertsEnabled, GREEN, GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
+configuration.JoinAlertButton = configuration.MakeToggle("Join alerts", configuration.JoinAlertsEnabled, GREEN, GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
 local ESPToggleButton = configuration.MakeToggle("Player ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2, nil, "Show markers for other players.")
 local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw lines to players.")
 local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw boxes around players.")
@@ -2812,9 +2842,9 @@ AutoResumeButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
-JoinAlertButton.MouseButton1Click:Connect(function()
+configuration.JoinAlertButton.MouseButton1Click:Connect(function()
 	configuration.SetJoinAlertsEnabled(not configuration.JoinAlertsEnabled)
-	configuration.SetToggleVisual(JoinAlertButton, "Join alerts", configuration.JoinAlertsEnabled, GREEN, GREEN_DIM)
+	configuration.SetToggleVisual(configuration.JoinAlertButton, "Join alerts", configuration.JoinAlertsEnabled, GREEN, GREEN_DIM)
 end)
 
 ESPToggleButton.MouseButton1Click:Connect(function()
@@ -3097,7 +3127,7 @@ ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
-local SafeBoosterResetButton = configuration.MakeToggle(
+configuration.SafeBoosterResetButton = configuration.MakeToggle(
 	"Safe booster reset",
 	configuration.SafeBoosterResetEnabled,
 	RED,
@@ -3106,12 +3136,12 @@ local SafeBoosterResetButton = configuration.MakeToggle(
 	FarmPage,
 	"Reset on positive EXP Boost updates unless the mob-damage tag is present."
 )
-SafeBoosterResetButton.MouseButton1Click:Connect(function()
+configuration.SafeBoosterResetButton.MouseButton1Click:Connect(function()
 	configuration.SafeBoosterResetEnabled = configuration.SafeBoosterResetSystem.SetEnabled(
 		not configuration.SafeBoosterResetEnabled
 	)
 	configuration.SetToggleVisual(
-		SafeBoosterResetButton,
+		configuration.SafeBoosterResetButton,
 		"Safe booster reset",
 		configuration.SafeBoosterResetEnabled,
 		RED,
@@ -3584,7 +3614,7 @@ function configuration.AddAllServerPlayersToWhitelist()
 		configuration.SaveConfig()
 		configuration.RefreshWhitelist()
 	end
-	NotifyUser("Whitelist", added > 0 and ("Added " .. added .. " player(s).") or "All players are already whitelisted.")
+	configuration.NotifyUser("Whitelist", added > 0 and ("Added " .. added .. " player(s).") or "All players are already whitelisted.")
 	return added
 end
 
@@ -3625,32 +3655,32 @@ configuration.PlayerEspLayer.Active = false
 configuration.PlayerEspLayer.ZIndex = 0
 configuration.PlayerEspLayer.Parent = ScreenGui
 
-local ResizeHandle = Instance.new("TextButton")
-ResizeHandle.Name = "ResizeHandle"
-ResizeHandle.Visible = not configuration.IsMinimized
-ResizeHandle.Size = UDim2.fromOffset(18, 18)
-ResizeHandle.AnchorPoint = Vector2.new(1, 1)
-ResizeHandle.Position = UDim2.new(1, -5, 1, -5)
-ResizeHandle.ZIndex = 92
-ResizeHandle.BackgroundColor3 = CARD
-ResizeHandle.BackgroundTransparency = 0.1
-ResizeHandle.BorderSizePixel = 0
-ResizeHandle.Text = "◢"
-ResizeHandle.TextColor3 = MUTED
-ResizeHandle.TextSize = 11
-ResizeHandle.Font = Enum.Font.GothamBold
-ResizeHandle.Parent = Main
-Instance.new("UICorner", ResizeHandle).CornerRadius = UDim.new(0, 4)
+configuration.ResizeHandle = Instance.new("TextButton")
+configuration.ResizeHandle.Name = "ResizeHandle"
+configuration.ResizeHandle.Visible = not configuration.IsMinimized
+configuration.ResizeHandle.Size = UDim2.fromOffset(18, 18)
+configuration.ResizeHandle.AnchorPoint = Vector2.new(1, 1)
+configuration.ResizeHandle.Position = UDim2.new(1, -5, 1, -5)
+configuration.ResizeHandle.ZIndex = 92
+configuration.ResizeHandle.BackgroundColor3 = CARD
+configuration.ResizeHandle.BackgroundTransparency = 0.1
+configuration.ResizeHandle.BorderSizePixel = 0
+configuration.ResizeHandle.Text = "◢"
+configuration.ResizeHandle.TextColor3 = MUTED
+configuration.ResizeHandle.TextSize = 11
+configuration.ResizeHandle.Font = Enum.Font.GothamBold
+configuration.ResizeHandle.Parent = Main
+Instance.new("UICorner", configuration.ResizeHandle).CornerRadius = UDim.new(0, 4)
 
-local Resizing, ResizeStart, ResizeStartSize = false, nil, nil
-ResizeHandle.InputBegan:Connect(function(input)
+configuration.Resizing, configuration.ResizeStart, configuration.ResizeStartSize = false, nil, nil
+configuration.ResizeHandle.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		Resizing = true
-		ResizeStart = input.Position
-		ResizeStartSize = Vector2.new(Main.Size.X.Scale, Main.Size.Y.Scale)
+		configuration.Resizing = true
+		configuration.ResizeStart = input.Position
+		configuration.ResizeStartSize = Vector2.new(Main.Size.X.Scale, Main.Size.Y.Scale)
 		input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
-				Resizing = false
+				configuration.Resizing = false
 				configuration.SaveConfig()
 			end
 		end)
@@ -3658,19 +3688,19 @@ ResizeHandle.InputBegan:Connect(function(input)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-	if not Resizing then return end
+	if not configuration.Resizing then return end
 	if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
 	local camera = workspace.CurrentCamera
 	if not camera then return end
 	local viewport = camera.ViewportSize
-	local delta = input.Position - ResizeStart
+	local delta = input.Position - configuration.ResizeStart
 	local maxWidth = math.max(0.2, math.min(1400 / viewport.X, 1 - Main.Position.X.Scale, 1 - 16 / viewport.X))
 	local minWidth = math.min(640 / viewport.X, maxWidth)
 	local maxHeight = math.max(0.4, math.min(900 / viewport.Y, 1 - Main.Position.Y.Scale, 1 - 16 / viewport.Y))
 	local minHeight = math.min(480 / viewport.Y, maxHeight)
-	configuration.MainWidthScale = math.clamp(ResizeStartSize.X + delta.X / viewport.X, minWidth, maxWidth)
+	configuration.MainWidthScale = math.clamp(configuration.ResizeStartSize.X + delta.X / viewport.X, minWidth, maxWidth)
 	if not configuration.IsMinimized then
-		configuration.MainHeightScale = math.clamp(ResizeStartSize.Y + delta.Y / viewport.Y, minHeight, maxHeight)
+		configuration.MainHeightScale = math.clamp(configuration.ResizeStartSize.Y + delta.Y / viewport.Y, minHeight, maxHeight)
 	end
 	configuration.MainWindowInitialized = true
 	configuration.ApplyResponsiveMainSize()
