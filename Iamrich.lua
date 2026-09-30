@@ -694,13 +694,20 @@ function configuration.RecordPlayerLog(player, eventType)
 end
 
 function configuration.StartSpecialGroupServerHop(player)
-	if configuration.SpecialGroupHopStarted or not player or player.Parent ~= Players then return false end
+	if configuration.SpecialGroupHopStarted or not player or player.Parent ~= Players
+		or configuration.IsWhitelisted(player) then
+		return false
+	end
 	configuration.SpecialGroupHopStarted = true
 	configuration.SpecialGroupHopAttempts += 1
 	configuration.Farming = false
 	configuration.PendingServerHop = false
 	configuration.ServerHopKillTarget = nil
 	task.spawn(function()
+		if player.Parent ~= Players or configuration.IsWhitelisted(player) then
+			configuration.SpecialGroupHopStarted = false
+			return
+		end
 		local ok, err = pcall(function()
 			TeleportService:Teleport(game.PlaceId, Player)
 		end)
