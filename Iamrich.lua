@@ -320,7 +320,7 @@ configuration.CombatSystem.Initialize(configuration, {
 	MobsFolder = MobsFolder,
 })
 configuration.WaypointNavigator = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.0.0"
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.0"
 )))()
 configuration.WaypointNavigator = configuration.WaypointNavigator.Initialize(configuration, {
 	Players = Players,

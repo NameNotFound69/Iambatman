@@ -1,9 +1,9 @@
 -- Dedicated waypoint movement. Uses Humanoid:MoveTo and local obstacle probes only.
-local VERSION = "1.0.0"
-print("[WaypointNavigation] Version " .. VERSION .. " (direct visibility + stable MoveTo detours)")
+local VERSION = "1.2.0"
+print("[WaypointNavigation] Version " .. VERSION .. " (AIC-style ground probes + stuck recovery)")
 
 return {
-	Initialize = function(configuration, dependencies)
+	Initialize = function(_configuration, dependencies)
 		local players = dependencies.Players
 		local mobsFolder = dependencies.MobsFolder
 		local state = {
@@ -14,10 +14,12 @@ return {
 			DetourGoal = nil,
 			DetourFor = nil,
 			LastSearchAt = 0,
-			ProgressPosition = nil,
 			ProgressAt = 0,
+			ProgressGoal = nil,
+			ProgressDistance = nil,
 			DetourSideBias = 1,
 			DetourDistance = 8,
+			DirectClearSince = nil,
 			JumpUntil = 0,
 			LastJumpAt = 0,
 		}
@@ -26,6 +28,9 @@ return {
 		local PROGRESS_INTERVAL = 1.25
 		local MOVE_REFRESH_INTERVAL = 5
 		local ARRIVAL_RADIUS = 0.75
+		local DETOUR_REACHED_RADIUS = 3
+		local DIRECT_CLEAR_CONFIRMATION = 0.75
+		local MIN_PROGRESS = 0.6
 
 		local function flatDistance(a, b)
 			local offset = b - a
@@ -40,10 +45,12 @@ return {
 			state.DetourGoal = nil
 			state.DetourFor = nil
 			state.LastSearchAt = 0
-			state.ProgressPosition = nil
 			state.ProgressAt = 0
+			state.ProgressGoal = nil
+			state.ProgressDistance = nil
 			state.DetourSideBias = 1
 			state.DetourDistance = 8
+			state.DirectClearSince = nil
 			state.JumpUntil = 0
 			state.LastJumpAt = 0
 		end
@@ -70,11 +77,15 @@ return {
 		end
 
 		local function floorAt(point, params)
-			return workspace:Raycast(
-				point + Vector3.new(0, 24, 0),
-				Vector3.new(0, -160, 0),
+			local result = workspace:Raycast(
+				Vector3.new(point.X, point.Y + 60, point.Z),
+				Vector3.new(0, -250, 0),
 				params
 			)
+			if not result or result.Material == Enum.Material.Water or result.Normal.Y < 0.5 then
+				return nil
+			end
+			return result
 		end
 
 		local function directObstruction(root, goal, params)
@@ -92,7 +103,13 @@ return {
 			local feet = root.Position - Vector3.new(0, root.Size.Y * 0.5, 0)
 			local lowHit = workspace:Raycast(feet + Vector3.new(0, 0.6, 0), probe, params)
 			local highHit = workspace:Raycast(feet + Vector3.new(0, 3.2, 0), probe, params)
-			if lowHit and not highHit then
+			local stepUp = false
+			local ahead = root.Position + probe
+			local groundAhead = floorAt(ahead, params)
+			if groundAhead then
+				stepUp = groundAhead.Position.Y - feet.Y >= 1.2
+			end
+			if (lowHit and not highHit) or stepUp then
 				humanoid.Jump = true
 				state.LastJumpAt = now
 				state.JumpUntil = now + 0.6
@@ -164,18 +181,25 @@ return {
 			return bestFallback
 		end
 
-		local function updateProgress(root, goal, now)
-			if not state.ProgressAt then
+		local function updateProgress(root, fallbackGoal, now)
+			local trackedGoal = state.CommandGoal or fallbackGoal
+			local distanceNow = flatDistance(root.Position, trackedGoal)
+			if not state.ProgressAt or not state.ProgressGoal
+				or flatDistance(state.ProgressGoal, trackedGoal) > 1.5 then
 				state.ProgressAt = now
-				state.ProgressPosition = root.Position
+				state.ProgressGoal = trackedGoal
+				state.ProgressDistance = distanceNow
 				return false
 			end
 			if now - state.ProgressAt < PROGRESS_INTERVAL then return false end
 
-			local moved = state.ProgressPosition and (root.Position - state.ProgressPosition).Magnitude or math.huge
-			state.ProgressPosition = root.Position
+			-- Measure progress toward the active MoveTo destination in XZ. Vertical
+			-- bobbing on uneven terrain must not count as forward movement.
+			local progress = (state.ProgressDistance or distanceNow) - distanceNow
 			state.ProgressAt = now
-			if moved >= 0.6 or flatDistance(root.Position, goal) <= 3 then return false end
+			state.ProgressGoal = trackedGoal
+			state.ProgressDistance = distanceNow
+			if progress >= MIN_PROGRESS or distanceNow <= DETOUR_REACHED_RADIUS then return false end
 
 			state.DetourSideBias = -(state.DetourSideBias or 1)
 			state.DetourDistance = math.min((state.DetourDistance or 8) + 4, 20)
@@ -205,7 +229,8 @@ return {
 				clearState()
 				state.Goal = goal
 				state.ProgressAt = now
-				state.ProgressPosition = root.Position
+				state.ProgressGoal = goal
+				state.ProgressDistance = flatDistance(root.Position, goal)
 			end
 
 			if (root.Position - goal).Magnitude <= ARRIVAL_RADIUS then
@@ -216,34 +241,65 @@ return {
 
 			local stalled = updateProgress(root, goal, now)
 			local params = makeRaycastParams(root)
-			local obstruction, direction = directObstruction(root, goal, params)
+			local obstruction = directObstruction(root, goal, params)
 			local destination = goal
 			local mode = "direct"
+			local activeGoal = state.CommandGoal or goal
+			local recoveryDirection = Vector3.new(
+				activeGoal.X - root.Position.X,
+				0,
+				activeGoal.Z - root.Position.Z
+			)
+			local shouldRecover = obstruction ~= nil or stalled
+			local shouldJump = now < state.JumpUntil
+				or (shouldRecover and canJumpOver(root, humanoid, recoveryDirection, params, now))
 
-			if obstruction then
-				if now < state.JumpUntil or canJumpOver(root, humanoid, direction, params, now) then
-					mode = "jumping"
+			if shouldJump then
+				state.DirectClearSince = nil
+				mode = "jumping"
+				destination = activeGoal
+			elseif shouldRecover then
+				state.DirectClearSince = nil
+				local sameGoal = state.DetourFor and flatDistance(state.DetourFor, goal) < 2
+				local stillOnDetour = sameGoal and state.DetourGoal
+					and flatDistance(root.Position, state.DetourGoal) > DETOUR_REACHED_RADIUS
+				if stillOnDetour and not stalled then
+					destination = state.DetourGoal
 				else
-					local sameGoal = state.DetourFor and flatDistance(state.DetourFor, goal) < 2
-					local stillOnDetour = sameGoal and state.DetourGoal
-						and flatDistance(root.Position, state.DetourGoal) > 2.5
-					if stillOnDetour and not stalled then
-						destination = state.DetourGoal
-					else
-						local canSearch = now - state.LastSearchAt >= SEARCH_INTERVAL
-						if canSearch then
-							state.DetourGoal = chooseDetour(root, goal, params)
-							state.DetourFor = goal
-							state.LastSearchAt = now
-						end
-						destination = state.DetourGoal or goal
+					if sameGoal and state.DetourGoal then
+						state.DetourGoal = nil
+						state.DetourFor = nil
+						state.LastSearchAt = 0
 					end
-					mode = state.DetourGoal and "detouring" or "direct"
+					local canSearch = now - state.LastSearchAt >= SEARCH_INTERVAL
+					if canSearch then
+						state.DetourGoal = chooseDetour(root, goal, params)
+						state.DetourFor = goal
+						state.LastSearchAt = now
+					end
+					destination = state.DetourGoal or goal
 				end
+				mode = state.DetourGoal and "detouring" or "direct"
 			else
-				state.DetourGoal = nil
-				state.DetourFor = nil
-				state.LastSearchAt = 0
+				local detourStillAhead = state.DetourGoal
+					and flatDistance(root.Position, state.DetourGoal) > DETOUR_REACHED_RADIUS
+				if detourStillAhead then
+					state.DirectClearSince = state.DirectClearSince or now
+					if now - state.DirectClearSince < DIRECT_CLEAR_CONFIRMATION then
+						destination = state.DetourGoal
+						mode = "detouring"
+					else
+						state.DetourGoal = nil
+						state.DetourFor = nil
+						state.LastSearchAt = 0
+						state.DirectClearSince = nil
+					end
+				else
+					state.DetourGoal = nil
+					state.DetourFor = nil
+					state.LastSearchAt = 0
+					state.DirectClearSince = nil
+				end
 			end
 
 			local destinationChanged = not state.CommandGoal
@@ -254,6 +310,9 @@ return {
 				state.Active = true
 				state.CommandGoal = destination
 				state.LastCommandAt = now
+				state.ProgressAt = now
+				state.ProgressGoal = destination
+				state.ProgressDistance = flatDistance(root.Position, destination)
 			end
 			return false, mode
 		end
