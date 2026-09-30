@@ -1,4 +1,4 @@
-local VERSION = "2.6.1"
+local VERSION = "2.6.2"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -221,7 +221,6 @@ local configuration: {[string]: any} = {
 	WaypointPosition = nil,
 	WaypointReturnEnabled = false,
 	WaypointBillboardEnabled = true,
-	WaypointMoveState = { Active = false, Goal = nil, LastMoveAt = 0 },
 	MovementBoostEnabled = true,
 	AutoAttackEnabled = false,
 	AutoBossTargetEnabled = false,
@@ -318,6 +317,13 @@ configuration.CombatSystem = assert(loadstring(game:HttpGet(
 	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua?v=2.2.2"
 )))()
 configuration.CombatSystem.Initialize(configuration, {
+	MobsFolder = MobsFolder,
+})
+configuration.WaypointNavigator = assert(loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.0.0"
+)))()
+configuration.WaypointNavigator = configuration.WaypointNavigator.Initialize(configuration, {
+	Players = Players,
 	MobsFolder = MobsFolder,
 })
 configuration.FollowSystem = assert(loadstring(game:HttpGet(
@@ -2318,7 +2324,7 @@ local ClearWaypointButton = configuration.MakeActionRow("Clear waypoint", 6, Way
 ClearWaypointButton.MouseButton1Click:Connect(function()
 	configuration.WaypointPosition = nil
 	configuration.WaypointReturnEnabled = false
-	configuration.CombatSystem.ResetNavigationState(configuration.WaypointMoveState or {})
+	configuration.WaypointNavigator.Reset()
 	UpdateWaypointInfo()
 	configuration.SaveConfig()
 end)
@@ -4478,7 +4484,6 @@ end)
 
 -- Return to the pinned position when no higher-priority combat/EXP movement owns the character.
 task.spawn(function()
-	local moveState = configuration.WaypointMoveState
 	while true do
 		local character = Player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -4504,30 +4509,20 @@ task.spawn(function()
 		-- Combat has exclusive ownership of Humanoid movement while attacking.
 		-- Never let waypoint-return navigation issue MoveTo calls over combat pursuit.
 		if MovementOwner == "Combat" then
-			configuration.CombatSystem.ResetNavigationState(moveState)
+			configuration.WaypointNavigator.Reset()
 		else
 			if configuration.WaypointReturnEnabled and point and root and humanoid and not paused then
 				local distance = (root.Position - point).Magnitude
 				if distance > 0.75 then
 					ClaimMovement("Waypoint", humanoid, root)
-					local _, navigationState = configuration.CombatSystem.NavigateMoveTo(
-						humanoid,
-						root,
-						point,
-						nil,
-						moveState,
-						0.18,
-						0.75,
-						true
-					)
-					moveState.NavigationMode = navigationState
+					configuration.WaypointNavigator.Update(humanoid, root, point)
 				else
 					ReleaseMovement("Waypoint", humanoid, root)
-					configuration.CombatSystem.ResetNavigationState(moveState)
+					configuration.WaypointNavigator.Reset()
 				end
 			else
 				if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
-				configuration.CombatSystem.ResetNavigationState(moveState)
+				configuration.WaypointNavigator.Reset()
 			end
 		end
 		local waypointBusy = MovementOwner == "Combat"
