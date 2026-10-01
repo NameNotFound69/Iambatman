@@ -1,4 +1,4 @@
-local VERSION = "2.6.14"
+local VERSION = "2.6.15"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -231,6 +231,8 @@ local configuration: {[string]: any} = {
 	AutoBossTargetEnabled = false,
 	AutoMiniBossTargetEnabled = false,
 	ExpTargetRetaliationEnabled = false,
+	ExpHitFeedbackEnabled = true,
+	ExpHitFeedbackTarget = nil,
 	ExpRetaliationTarget = nil,
 	AutoSkillEnabled = false,
 	AutoAttackRange = 25,
@@ -259,7 +261,6 @@ local configuration: {[string]: any} = {
 	ExpHitWatchHitsConnection = nil,
 	ExpHitLastHits = nil,
 	ExpHitDamageTagWasAdded = false,
-	ExpHitFeedbackUntil = 0,
 	LastTarget = nil,
 	TargetStartTime = 0,
 	AccumulatedTime = 0,
@@ -586,6 +587,7 @@ function configuration.LoadConfig()
 	if type(config.WaypointReturnEnabled) == "boolean" then configuration.WaypointReturnEnabled = config.WaypointReturnEnabled end
 	if type(config.WaypointBillboardEnabled) == "boolean" then configuration.WaypointBillboardEnabled = config.WaypointBillboardEnabled end
 	if type(config.ExpTargetRetaliationEnabled) == "boolean" then configuration.ExpTargetRetaliationEnabled = config.ExpTargetRetaliationEnabled end
+	if type(config.ExpHitFeedbackEnabled) == "boolean" then configuration.ExpHitFeedbackEnabled = config.ExpHitFeedbackEnabled end
 	if type(config.AutoSkillEnabled) == "boolean" then configuration.AutoSkillEnabled = config.AutoSkillEnabled end
 	if type(config.ESPEnabled) == "boolean" then configuration.ESPEnabled = config.ESPEnabled end
 	if type(config.ESPLineEnabled) == "boolean" then configuration.ESPLineEnabled = config.ESPLineEnabled end
@@ -639,6 +641,7 @@ function configuration.SaveConfig()
 		AutoBossTargetEnabled = configuration.AutoBossTargetEnabled,
 		AutoMiniBossTargetEnabled = configuration.AutoMiniBossTargetEnabled,
 		ExpTargetRetaliationEnabled = configuration.ExpTargetRetaliationEnabled,
+		ExpHitFeedbackEnabled = configuration.ExpHitFeedbackEnabled,
 		AutoAttackRange = configuration.AutoAttackRange,
 		AutoAttackSearchRange = configuration.AutoAttackSearchRange,
 		WaypointPosition = configuration.WaypointPosition and {
@@ -3515,6 +3518,31 @@ configuration.SafeBoosterResetButton.MouseButton1Click:Connect(function()
 	configuration.SaveConfig()
 end)
 
+configuration.ExpHitFeedbackButton = configuration.MakeToggle(
+	"EXP hit alert",
+	configuration.ExpHitFeedbackEnabled,
+	ACCENT,
+	ACCENT_DIM,
+	7,
+	FarmPage,
+	"Keep the hit confirmation visible until that EXP mob dies."
+)
+configuration.ExpHitFeedbackButton.MouseButton1Click:Connect(function()
+	configuration.ExpHitFeedbackEnabled = not configuration.ExpHitFeedbackEnabled
+	configuration.SetToggleVisual(
+		configuration.ExpHitFeedbackButton,
+		"EXP hit alert",
+		configuration.ExpHitFeedbackEnabled,
+		ACCENT,
+		ACCENT_DIM
+	)
+	if not configuration.ExpHitFeedbackEnabled then
+		configuration.ExpHitFeedbackTarget = nil
+	end
+	configuration.UpdateExpHitFeedback()
+	configuration.SaveConfig()
+end)
+
 AmountBox.FocusLost:Connect(function()
 	local v = tonumber(AmountBox.Text)
 	if v and v > 0 then
@@ -4166,9 +4194,23 @@ configuration.ExpHitFeedbackTextConstraint.MaxTextSize = 48
 configuration.ExpHitFeedbackTextConstraint.Parent = configuration.ExpHitFeedbackLabel
 
 function configuration.ShowExpHitFeedback()
-	configuration.ExpHitFeedbackUntil = os.clock() + 1.4
+	if not configuration.ExpHitFeedbackEnabled then return end
+	local target = configuration.ExpHitWatchTarget
+	if not target or not target:IsDescendantOf(MobsFolder) then return end
+	local humanoid = target:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then return end
+	configuration.ExpHitFeedbackTarget = target
+	configuration.UpdateExpHitFeedback()
+end
+
+function configuration.UpdateExpHitFeedback()
+	local target = configuration.ExpHitFeedbackTarget
+	local humanoid = target and target:FindFirstChildOfClass("Humanoid")
+	local alive = target ~= nil and target:IsDescendantOf(MobsFolder)
+		and humanoid ~= nil and humanoid.Health > 0
+	if not alive then configuration.ExpHitFeedbackTarget = nil end
 	if configuration.ExpHitFeedbackLabel then
-		configuration.ExpHitFeedbackLabel.Visible = true
+		configuration.ExpHitFeedbackLabel.Visible = configuration.ExpHitFeedbackEnabled and alive == true
 	end
 end
 
@@ -5334,9 +5376,7 @@ task.spawn(function()
 			or configuration.AlertCombatTarget
 			or configuration.ExpRetaliationTarget or configuration.CurrentTarget
 			or configuration.ExpLastShotTarget)
-		if configuration.ExpHitFeedbackLabel then
-			configuration.ExpHitFeedbackLabel.Visible = os.clock() < configuration.ExpHitFeedbackUntil
-		end
+		configuration.UpdateExpHitFeedback()
 		if configuration.Farming and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
 			local cfg = configuration.CurrentTarget:FindFirstChild("Config")
 			local exp = cfg and cfg:FindFirstChild("EXP")
