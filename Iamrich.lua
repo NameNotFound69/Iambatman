@@ -1,4 +1,4 @@
-local VERSION = "2.6.19"
+local VERSION = "2.6.20"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -439,6 +439,11 @@ end
 -- Runtime controllers: Studio uses ModuleScripts; executor/Git uses HttpGet + loadstring.
 if configurations.IsStudio then
 	configurations.CombatSystem = require(script:WaitForChild("CombatSystem.lua"))
+	local routePlannerModule = script:FindFirstChild("LocalRoutePlanner.lua")
+	configurations.LocalRoutePlannerLoadOk, configurations.LocalRoutePlanner = pcall(function()
+		assert(routePlannerModule and routePlannerModule:IsA("ModuleScript"), "LocalRoutePlanner.lua ModuleScript is missing")
+		return require(routePlannerModule)
+	end)
 	configurations.WaypointNavigator = require(script:WaitForChild("WaypointNavigation.lua"))
 	configurations.FollowSystem = require(script:WaitForChild("FollowSystem.lua"))
 	configurations.SafeBoosterResetLoadOk, configurations.SafeBoosterResetLoadResult = pcall(function()
@@ -450,8 +455,16 @@ if configurations.IsStudio then
 	end)
 else
 	configurations.CombatSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua?v=2.2.2")))()
-	configurations.WaypointNavigator = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.1")))()
-	configurations.FollowSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.1")))()
+	configurations.LocalRoutePlannerLoadOk, configurations.LocalRoutePlanner = pcall(function()
+		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/LocalRoutePlanner.lua?v=1.0.0")
+		local factory, compileError = loadstring(source)
+		assert(factory, compileError)
+		local module = factory()
+		assert(type(module) == "table" and type(module.FindRoute) == "function", "LocalRoutePlanner has no FindRoute function")
+		return module
+	end)
+	configurations.WaypointNavigator = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.2")))()
+	configurations.FollowSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.2")))()
 	configurations.SafeBoosterResetLoadOk, configurations.SafeBoosterResetLoadResult = pcall(function()
 		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/SafeBoosterResetSystem.lua?v=1.0.0")
 		local moduleFactory, compileError = loadstring(source)
@@ -471,9 +484,13 @@ else
 	end)
 end
 
+if not configurations.LocalRoutePlannerLoadOk then
+	warn("[Iamrich] LocalRoutePlanner unavailable; movement will use legacy detours until the module is installed.")
+end
+
 configurations.CombatSystem.Initialize(configurations, { MobsFolder = MobsFolder })
-configurations.WaypointNavigator = configurations.WaypointNavigator.Initialize(configurations, { Players = Players, MobsFolder = MobsFolder })
-configurations.FollowSystem = configurations.FollowSystem.Initialize(configurations, { Players = Players, MobsFolder = MobsFolder, ClaimMovement = ClaimMovement, ReleaseMovement = ReleaseMovement, Interact = InvokeFollowInteract })
+configurations.WaypointNavigator = configurations.WaypointNavigator.Initialize(configurations, { Players = Players, MobsFolder = MobsFolder, RoutePlanner = configurations.LocalRoutePlanner })
+configurations.FollowSystem = configurations.FollowSystem.Initialize(configurations, { Players = Players, MobsFolder = MobsFolder, ClaimMovement = ClaimMovement, ReleaseMovement = ReleaseMovement, Interact = InvokeFollowInteract, RoutePlanner = configurations.LocalRoutePlanner })
 if configurations.SafeBoosterResetLoadOk then
 	configurations.SafeBoosterResetInitOk, configurations.SafeBoosterResetInitResult = pcall(function()
 		return configurations.SafeBoosterResetLoadResult.Initialize(configurations, { Player = Player, ReplicatedStorage = ReplicatedStorage, Notify = configurations.NotifyUser })
@@ -4890,19 +4907,32 @@ configurations.PlayerEspLayer.Parent = ScreenGui
 configurations.ResizeHandle = Instance.new("TextButton")
 configurations.ResizeHandle.Name = "ResizeHandle"
 configurations.ResizeHandle.Visible = not configurations.IsMinimized
-configurations.ResizeHandle.Size = UDim2.fromOffset(18, 18)
+configurations.ResizeHandle.Size = UDim2.fromOffset(24, 24)
 configurations.ResizeHandle.AnchorPoint = Vector2.new(1, 1)
-configurations.ResizeHandle.Position = UDim2.new(1, -5, 1, -5)
-configurations.ResizeHandle.ZIndex = 92
-configurations.ResizeHandle.BackgroundColor3 = UIColors.CARD
-configurations.ResizeHandle.BackgroundTransparency = 0.1
+configurations.ResizeHandle.Position = UDim2.new(1, -8, 1, -8)
+configurations.ResizeHandle.ZIndex = 95
+configurations.ResizeHandle.BackgroundColor3 = UIColors.INPUT
+configurations.ResizeHandle.BackgroundTransparency = 0.05
 configurations.ResizeHandle.BorderSizePixel = 0
-configurations.ResizeHandle.Text = "◢"
-configurations.ResizeHandle.TextColor3 = UIColors.MUTED
-configurations.ResizeHandle.TextSize = 11
+configurations.ResizeHandle.AutoButtonColor = false
+configurations.ResizeHandle.Text = "↘"
+configurations.ResizeHandle.TextColor3 = UIColors.ACCENT
+configurations.ResizeHandle.TextSize = 15
 configurations.ResizeHandle.Font = Enum.Font.GothamBold
 configurations.ResizeHandle.Parent = Main
-Instance.new("UICorner", configurations.ResizeHandle).CornerRadius = UDim.new(0, 4)
+Instance.new("UICorner", configurations.ResizeHandle).CornerRadius = UDim.new(0, 8)
+local mainResizeStroke = Instance.new("UIStroke", configurations.ResizeHandle)
+mainResizeStroke.Color = UIColors.BORDER
+mainResizeStroke.Transparency = 0.15
+mainResizeStroke.Thickness = 1
+configurations.ResizeHandle.MouseEnter:Connect(function()
+	configurations.ResizeHandle.BackgroundColor3 = UIColors.ACCENT_DIM
+	configurations.ResizeHandle.TextColor3 = UIColors.ACCENT_SEL
+end)
+configurations.ResizeHandle.MouseLeave:Connect(function()
+	configurations.ResizeHandle.BackgroundColor3 = UIColors.INPUT
+	configurations.ResizeHandle.TextColor3 = UIColors.ACCENT
+end)
 
 configurations.Resizing, configurations.ResizeStart, configurations.ResizeStartSize = false, nil, nil
 configurations.ResizeHandle.InputBegan:Connect(function(input)

@@ -1,11 +1,12 @@
--- Direct player follow controller with a Follow-specific MoveTo route search.
-local VERSION = "1.16.1"
-print("[FollowSystem] Version " .. VERSION .. " (goal-progress detection + repeated jump recovery)")
+-- Direct player follow controller with bounded local MoveTo route planning.
+local VERSION = "1.16.2"
+print("[FollowSystem] Version " .. VERSION .. " (local route queue + goal-progress recovery)")
 
 return {
 	Initialize = function(configuration, dependencies)
 		local Players = dependencies.Players
 		local MobsFolder = dependencies.MobsFolder
+		local routePlanner = dependencies.RoutePlanner
 		local ClaimMovement = dependencies.ClaimMovement
 		local ReleaseMovement = dependencies.ReleaseMovement
 		local targetLineFolderName = "IamrichFollowTargetLine_" .. tostring(Players.LocalPlayer.UserId)
@@ -55,6 +56,11 @@ return {
 				DetourGoal = nil,
 				DetourFor = nil,
 				DetourSearchAt = 0,
+				Route = nil,
+				RouteFor = nil,
+				RouteIndex = 1,
+				RouteReachesGoal = false,
+				RouteSearchAt = 0,
 				DetourClearSince = nil,
 				ForceDetourUntil = 0,
 				DetourSideBias = 1,
@@ -141,6 +147,11 @@ return {
 			navigation.DetourGoal = nil
 			navigation.DetourFor = nil
 			navigation.DetourSearchAt = 0
+			navigation.Route = nil
+			navigation.RouteFor = nil
+			navigation.RouteIndex = 1
+			navigation.RouteReachesGoal = false
+			navigation.RouteSearchAt = 0
 			navigation.DetourClearSince = nil
 			navigation.ForceDetourUntil = 0
 			navigation.NavigationMode = nil
@@ -186,6 +197,12 @@ return {
 			params.FilterDescendantsInstances = excluded
 			params.RespectCanCollide = true
 			return params
+		end
+
+		local function routeLegObstructed(root, destination, params)
+			local direction = destination - root.Position
+			return direction.Magnitude > 0.1
+				and workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), direction, params) ~= nil
 		end
 
 		local function getWalkableGround(point, params)
@@ -265,6 +282,51 @@ return {
 			return bestFallback
 		end
 
+		local function clearFollowRoute()
+			local navigation = state.Navigation
+			navigation.Route = nil
+			navigation.RouteFor = nil
+			navigation.RouteIndex = 1
+			navigation.RouteReachesGoal = false
+		end
+
+		local function findFollowRoute(root, goal, params, now)
+			local navigation = state.Navigation
+			navigation.RouteSearchAt = now
+			if type(routePlanner) ~= "table" or type(routePlanner.FindRoute) ~= "function" then return false end
+			local ok, route, reachesGoal = pcall(function()
+				return routePlanner.FindRoute(root, goal, params)
+			end)
+			if not ok or type(route) ~= "table" or #route == 0 then
+				clearFollowRoute()
+				return false
+			end
+			navigation.Route = route
+			navigation.RouteFor = goal
+			navigation.RouteIndex = 1
+			navigation.RouteReachesGoal = reachesGoal == true
+			navigation.DetourGoal = nil
+			navigation.DetourFor = nil
+			navigation.DetourSearchAt = 0
+			return true
+		end
+
+		local function advanceFollowRoute(root, liveGoal)
+			local navigation = state.Navigation
+			if not navigation.Route then return nil end
+			while navigation.RouteIndex <= #navigation.Route do
+				local point = navigation.Route[navigation.RouteIndex]
+				if flatDistance(root.Position, point) > FOLLOW_DETOUR_REACHED_RADIUS
+					or math.abs(root.Position.Y - point.Y) > 7 then
+					return point
+				end
+				navigation.RouteIndex += 1
+			end
+			if navigation.RouteReachesGoal then return liveGoal end
+			clearFollowRoute()
+			return nil
+		end
+
 		local function navigateFollow(humanoid, root, goal, now)
 			local navigation = state.Navigation
 			local params = makeNavigationRaycastParams(root)
@@ -275,58 +337,83 @@ return {
 			local mode = "direct"
 
 			local forceDetour = now < navigation.ForceDetourUntil
+			local routeMatches = navigation.RouteFor
+				and flatDistance(navigation.RouteFor, goal) <= navigation.GoalTolerance
+			if navigation.Route and not routeMatches then clearFollowRoute() end
+			local routeDestination = advanceFollowRoute(root, goal)
+			if navigation.Route and routeDestination and routeLegObstructed(root, routeDestination, params) then
+				clearFollowRoute()
+				navigation.RouteSearchAt = now
+				routeDestination = nil
+			end
 			if obstruction or forceDetour then
 				navigation.DetourClearSince = nil
-				local sameGoal = navigation.DetourFor
-					and flatDistance(navigation.DetourFor, goal) <= navigation.GoalTolerance
-				if not sameGoal then
-					navigation.DetourGoal = nil
-					navigation.DetourFor = nil
-					navigation.DetourSearchAt = 0
+				if not routeDestination and now - navigation.RouteSearchAt >= FOLLOW_SEARCH_INTERVAL then
+					findFollowRoute(root, goal, params, now)
+					routeDestination = advanceFollowRoute(root, goal)
 				end
-				local keepDetour = sameGoal and navigation.DetourGoal
-					and flatDistance(root.Position, navigation.DetourGoal) > FOLLOW_DETOUR_REACHED_RADIUS
-				if keepDetour then
-					destination = navigation.DetourGoal
+				if routeDestination then
+					destination = routeDestination
+					mode = "routing"
 				else
-					if sameGoal and navigation.DetourGoal then
+					local sameGoal = navigation.DetourFor
+						and flatDistance(navigation.DetourFor, goal) <= navigation.GoalTolerance
+					if not sameGoal then
 						navigation.DetourGoal = nil
 						navigation.DetourFor = nil
 						navigation.DetourSearchAt = 0
 					end
-					if now - navigation.DetourSearchAt >= FOLLOW_SEARCH_INTERVAL then
-						navigation.DetourGoal = chooseFollowDetour(root, goal, params)
-						navigation.DetourFor = goal
-						navigation.DetourSearchAt = now
+					local keepDetour = sameGoal and navigation.DetourGoal
+						and flatDistance(root.Position, navigation.DetourGoal) > FOLLOW_DETOUR_REACHED_RADIUS
+					if keepDetour then
+						destination = navigation.DetourGoal
+					else
+						if now - navigation.DetourSearchAt >= FOLLOW_SEARCH_INTERVAL then
+							navigation.DetourGoal = chooseFollowDetour(root, goal, params)
+							navigation.DetourFor = goal
+							navigation.DetourSearchAt = now
+						end
+						destination = navigation.DetourGoal or goal
 					end
-					destination = navigation.DetourGoal or goal
+					mode = navigation.DetourGoal and "detouring" or "direct"
 				end
-				mode = navigation.DetourGoal and "detouring" or "direct"
 			else
-				local sameGoal = navigation.DetourFor
-					and flatDistance(navigation.DetourFor, goal) <= navigation.GoalTolerance
-				local detourStillAhead = sameGoal and navigation.DetourGoal
-					and flatDistance(root.Position, navigation.DetourGoal) > FOLLOW_DETOUR_REACHED_RADIUS
-				if detourStillAhead then
+				if routeDestination then
 					navigation.DetourClearSince = navigation.DetourClearSince or now
 					if now - navigation.DetourClearSince < FOLLOW_DIRECT_CLEAR_CONFIRMATION then
-						destination = navigation.DetourGoal
-						mode = "detouring"
+						destination = routeDestination
+						mode = "routing"
+					else
+						clearFollowRoute()
+						navigation.DetourClearSince = nil
+					end
+				else
+					local sameGoal = navigation.DetourFor
+						and flatDistance(navigation.DetourFor, goal) <= navigation.GoalTolerance
+					local detourStillAhead = sameGoal and navigation.DetourGoal
+						and flatDistance(root.Position, navigation.DetourGoal) > FOLLOW_DETOUR_REACHED_RADIUS
+					if detourStillAhead then
+						navigation.DetourClearSince = navigation.DetourClearSince or now
+						if now - navigation.DetourClearSince < FOLLOW_DIRECT_CLEAR_CONFIRMATION then
+							destination = navigation.DetourGoal
+							mode = "detouring"
+						else
+							navigation.DetourGoal = nil
+							navigation.DetourFor = nil
+							navigation.DetourSearchAt = 0
+							navigation.DetourClearSince = nil
+						end
 					else
 						navigation.DetourGoal = nil
 						navigation.DetourFor = nil
 						navigation.DetourSearchAt = 0
 						navigation.DetourClearSince = nil
 					end
-				else
-					navigation.DetourGoal = nil
-					navigation.DetourFor = nil
-					navigation.DetourSearchAt = 0
-					navigation.DetourClearSince = nil
 				end
 			end
 
-			if not navigation.Active or now - navigation.LastMoveAt >= FOLLOW_MOVE_INTERVAL then
+			local destinationChanged = not navigation.Goal or (navigation.Goal - destination).Magnitude > 1.5
+			if not navigation.Active or destinationChanged or now - navigation.LastMoveAt >= FOLLOW_MOVE_INTERVAL then
 				humanoid:MoveTo(destination)
 				navigation.Active = true
 				navigation.Goal = destination
@@ -681,6 +768,7 @@ return {
 				state.Navigation.Goal = nil
 				state.Navigation.DetourGoal = nil
 				state.Navigation.DetourFor = nil
+				clearFollowRoute()
 				state.Navigation.DetourClearSince = nil
 				state.Navigation.ForceDetourUntil = 0
 				return true, "arrived"

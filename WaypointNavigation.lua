@@ -1,11 +1,12 @@
 -- Dedicated waypoint movement. Uses Humanoid:MoveTo and local obstacle probes only.
-local VERSION = "1.2.1"
-print("[WaypointNavigation] Version " .. VERSION .. " (waypoint-distance progress + repeated jump recovery)")
+local VERSION = "1.2.2"
+print("[WaypointNavigation] Version " .. VERSION .. " (local route queue + waypoint-progress recovery)")
 
 return {
 	Initialize = function(_configuration, dependencies)
 		local players = dependencies.Players
 		local mobsFolder = dependencies.MobsFolder
+		local routePlanner = dependencies.RoutePlanner
 		local state = {
 			Active = false,
 			Goal = nil,
@@ -14,6 +15,11 @@ return {
 			DetourGoal = nil,
 			DetourFor = nil,
 			LastSearchAt = 0,
+			Route = nil,
+			RouteFor = nil,
+			RouteIndex = 1,
+			RouteReachesGoal = false,
+			RouteLastSearchAt = 0,
 			ProgressAt = 0,
 			ProgressGoal = nil,
 			ProgressDistance = nil,
@@ -49,6 +55,11 @@ return {
 			state.DetourGoal = nil
 			state.DetourFor = nil
 			state.LastSearchAt = 0
+			state.Route = nil
+			state.RouteFor = nil
+			state.RouteIndex = 1
+			state.RouteReachesGoal = false
+			state.RouteLastSearchAt = 0
 			state.ProgressAt = 0
 			state.ProgressGoal = nil
 			state.ProgressDistance = nil
@@ -99,6 +110,12 @@ return {
 			if direction.Magnitude <= 0.1 then return nil, direction end
 			local hit = workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), direction, params)
 			return hit, direction
+		end
+
+		local function routeLegObstructed(root, destination, params)
+			local direction = destination - root.Position
+			return direction.Magnitude > 0.1
+				and workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), direction, params) ~= nil
 		end
 
 		local function canJumpOver(root, humanoid, direction, params, now)
@@ -187,6 +204,48 @@ return {
 			return bestFallback
 		end
 
+		local function clearRoute()
+			state.Route = nil
+			state.RouteFor = nil
+			state.RouteIndex = 1
+			state.RouteReachesGoal = false
+		end
+
+		local function findLocalRoute(root, goal, params, now)
+			state.RouteLastSearchAt = now
+			if type(routePlanner) ~= "table" or type(routePlanner.FindRoute) ~= "function" then return false end
+			local ok, route, reachesGoal = pcall(function()
+				return routePlanner.FindRoute(root, goal, params)
+			end)
+			if not ok or type(route) ~= "table" or #route == 0 then
+				clearRoute()
+				return false
+			end
+			state.Route = route
+			state.RouteFor = goal
+			state.RouteIndex = 1
+			state.RouteReachesGoal = reachesGoal == true
+			state.DetourGoal = nil
+			state.DetourFor = nil
+			state.LastSearchAt = 0
+			return true
+		end
+
+		local function advanceRoute(root)
+			if not state.Route then return nil end
+			while state.RouteIndex <= #state.Route do
+				local point = state.Route[state.RouteIndex]
+				if flatDistance(root.Position, point) > DETOUR_REACHED_RADIUS
+					or math.abs(root.Position.Y - point.Y) > 7 then
+					return point
+				end
+				state.RouteIndex += 1
+			end
+			if state.RouteReachesGoal then return state.Goal end
+			clearRoute()
+			return nil
+		end
+
 		local function updateProgress(root, fallbackGoal, now)
 			-- Judge progress against the pinned waypoint itself. Progress toward a
 			-- detour alone must not hide pacing or backtracking around the same spot.
@@ -218,6 +277,8 @@ return {
 			state.DetourGoal = nil
 			state.DetourFor = nil
 			state.LastSearchAt = 0
+			clearRoute()
+			state.RouteLastSearchAt = 0
 			state.LastCommandAt = 0
 			return true
 		end
@@ -276,6 +337,15 @@ return {
 			local shouldRecover = obstruction ~= nil or stalled
 			local shouldJump = now < state.JumpUntil
 				or (shouldRecover and canJumpOver(root, humanoid, recoveryDirection, params, now))
+			local routeMatches = state.RouteFor and flatDistance(state.RouteFor, goal) <= 2
+				and math.abs(state.RouteFor.Y - goal.Y) <= 2
+			if state.Route and not routeMatches then clearRoute() end
+			local routeDestination = advanceRoute(root)
+			if state.Route and routeDestination and routeLegObstructed(root, routeDestination, params) then
+				clearRoute()
+				state.RouteLastSearchAt = now
+				routeDestination = nil
+			end
 
 			if shouldJump then
 				state.DirectClearSince = nil
@@ -283,45 +353,69 @@ return {
 				destination = activeGoal
 			elseif shouldRecover then
 				state.DirectClearSince = nil
-				local sameGoal = state.DetourFor and flatDistance(state.DetourFor, goal) < 2
-				local stillOnDetour = sameGoal and state.DetourGoal
-					and flatDistance(root.Position, state.DetourGoal) > DETOUR_REACHED_RADIUS
-				if stillOnDetour and not stalled then
-					destination = state.DetourGoal
-				else
-					if sameGoal and state.DetourGoal then
-						state.DetourGoal = nil
-						state.DetourFor = nil
-						state.LastSearchAt = 0
+				if not routeDestination then
+					local sameGoal = state.DetourFor and flatDistance(state.DetourFor, goal) < 2
+					local stillOnDetour = sameGoal and state.DetourGoal
+						and flatDistance(root.Position, state.DetourGoal) > DETOUR_REACHED_RADIUS
+					if not stalled and stillOnDetour then
+						routeDestination = state.DetourGoal
+					else
+						if now - state.RouteLastSearchAt >= SEARCH_INTERVAL then
+							findLocalRoute(root, goal, params, now)
+							routeDestination = advanceRoute(root)
+						end
 					end
-					local canSearch = now - state.LastSearchAt >= SEARCH_INTERVAL
-					if canSearch then
-						state.DetourGoal = chooseDetour(root, goal, params)
-						state.DetourFor = goal
-						state.LastSearchAt = now
+					if not routeDestination then
+						if sameGoal and state.DetourGoal then
+							state.DetourGoal = nil
+							state.DetourFor = nil
+							state.LastSearchAt = 0
+						end
+						if now - state.LastSearchAt >= SEARCH_INTERVAL then
+							state.DetourGoal = chooseDetour(root, goal, params)
+							state.DetourFor = goal
+							state.LastSearchAt = now
+						end
+						routeDestination = state.DetourGoal
 					end
-					destination = state.DetourGoal or goal
 				end
-				mode = state.DetourGoal and "detouring" or "direct"
+				if routeDestination then
+					destination = routeDestination
+					mode = state.Route and "routing" or "detouring"
+				else
+					destination = goal
+					mode = "direct"
+				end
 			else
-				local detourStillAhead = state.DetourGoal
-					and flatDistance(root.Position, state.DetourGoal) > DETOUR_REACHED_RADIUS
-				if detourStillAhead then
+				if routeDestination then
 					state.DirectClearSince = state.DirectClearSince or now
 					if now - state.DirectClearSince < DIRECT_CLEAR_CONFIRMATION then
-						destination = state.DetourGoal
-						mode = "detouring"
+						destination = routeDestination
+						mode = "routing"
+					else
+						clearRoute()
+						state.DirectClearSince = nil
+					end
+				else
+					local detourStillAhead = state.DetourGoal
+						and flatDistance(root.Position, state.DetourGoal) > DETOUR_REACHED_RADIUS
+					if detourStillAhead then
+						state.DirectClearSince = state.DirectClearSince or now
+						if now - state.DirectClearSince < DIRECT_CLEAR_CONFIRMATION then
+							destination = state.DetourGoal
+							mode = "detouring"
+						else
+							state.DetourGoal = nil
+							state.DetourFor = nil
+							state.LastSearchAt = 0
+							state.DirectClearSince = nil
+						end
 					else
 						state.DetourGoal = nil
 						state.DetourFor = nil
 						state.LastSearchAt = 0
 						state.DirectClearSince = nil
 					end
-				else
-					state.DetourGoal = nil
-					state.DetourFor = nil
-					state.LastSearchAt = 0
-					state.DirectClearSince = nil
 				end
 			end
 
