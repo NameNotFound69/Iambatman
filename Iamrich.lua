@@ -1001,7 +1001,7 @@ end
 function configurations.FormatPlayerListStats(otherPlayer)
 	local level, defense, strength, agility, luck, vitality = configurations.GetPlayerListStatValues(otherPlayer)
 	return string.format(
-		"LVL %s\nDEF %s  STR %s  AGI %s  LUK %s  VIT %s",
+		"Lv %s   DEF %s  STR %s  AGI %s  LUK %s  VIT %s",
 		level, defense, strength, agility, luck, vitality
 	)
 end
@@ -4045,7 +4045,7 @@ PlayerScrollPad.PaddingRight = UDim.new(0, 2)
 PlayerScrollPad.Parent = PlayerScroll
 
 local PlayerScrollLayout = Instance.new("UIListLayout", PlayerScroll)
-PlayerScrollLayout.Padding = UDim.new(0, 8)
+PlayerScrollLayout.Padding = UDim.new(0, 10)
 PlayerScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
 PlayerScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
@@ -4279,7 +4279,7 @@ configurations.JoinLogScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 configurations.JoinLogScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 configurations.JoinLogScroll.Parent = configurations.JoinLogPanel
 configurations.JoinLogLayout = Instance.new("UIListLayout", configurations.JoinLogScroll)
-configurations.JoinLogLayout.Padding = UDim.new(0, 5)
+configurations.JoinLogLayout.Padding = UDim.new(0, 6)
 configurations.JoinLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
 configurations.JoinLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
@@ -4291,36 +4291,67 @@ function configurations.RefreshJoinLog()
 		local entry = configurations.PlayerJoinLog[order]
 		local row = Instance.new("Frame")
 		row.Name = "JoinLogRow_" .. tostring(order)
-		row.Size = UDim2.new(1, -8, 0, 42)
+		row.Size = UDim2.new(1, -6, 0, 52)
 		row.LayoutOrder = #configurations.PlayerJoinLog - order + 1
 		row.ZIndex = 92
 		row.BackgroundColor3 = UIColors.CARD
 		row.BorderSizePixel = 0
 		row.Parent = configurations.JoinLogScroll
-		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 7)
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+		local stroke = Instance.new("UIStroke", row)
+		stroke.Color = UIColors.BORDER
+		stroke.Transparency = 0.55
+		stroke.Thickness = 1
 
-		local eventLabel = Instance.new("TextLabel")
-		eventLabel.Size = UDim2.new(1, -16, 1, 0)
-		eventLabel.Position = UDim2.fromOffset(8, 0)
-		eventLabel.ZIndex = 93
-		eventLabel.BackgroundTransparency = 1
 		local eventName = entry.Event == "joined" and "JOINED"
 			or (entry.Event == "left" and "LEFT" or "HERE")
 		local currentlyWhitelisted = configurations.WhitelistIds[entry.UserId] == true
-		if entry.SpecialThreat and not currentlyWhitelisted then
-			eventLabel.Text = string.format("%s  SPECIAL DANGER  @%s", entry.Time, entry.Username)
-			eventLabel.TextColor3 = UIColors.RED
-		else
-			local whitelistTag = (entry.Whitelisted or currentlyWhitelisted) and "  ·  WHITELIST" or ""
-			eventLabel.Text = string.format("%s  %s  @%s%s", entry.Time, eventName, entry.Username, whitelistTag)
-			eventLabel.TextColor3 = entry.Event == "left" and UIColors.RED
-				or (entry.Event == "present" and UIColors.MUTED or UIColors.GREEN)
-		end
-		eventLabel.TextSize = 13
-		eventLabel.Font = Enum.Font.GothamBold
-		eventLabel.TextXAlignment = Enum.TextXAlignment.Left
-		eventLabel.TextTruncate = Enum.TextTruncate.AtEnd
-		eventLabel.Parent = row
+		local isDanger = entry.SpecialThreat and not currentlyWhitelisted
+		local eventColor = isDanger and UIColors.RED
+			or (entry.Event == "left" and UIColors.RED
+			or (entry.Event == "present" and UIColors.MUTED or UIColors.GREEN))
+
+		local timeBadge = Instance.new("TextLabel")
+		timeBadge.Size = UDim2.fromOffset(58, 22)
+		timeBadge.Position = UDim2.fromOffset(10, 8)
+		timeBadge.ZIndex = 93
+		timeBadge.BackgroundColor3 = UIColors.INPUT
+		timeBadge.BorderSizePixel = 0
+		timeBadge.Text = entry.Time
+		timeBadge.TextColor3 = UIColors.MUTED
+		timeBadge.TextSize = 11
+		timeBadge.Font = Enum.Font.GothamBold
+		timeBadge.Parent = row
+		Instance.new("UICorner", timeBadge).CornerRadius = UDim.new(0, 6)
+
+		local eventBadge = Instance.new("TextLabel")
+		eventBadge.Size = UDim2.fromOffset(isDanger and 110 or 58, 22)
+		eventBadge.Position = UDim2.fromOffset(74, 8)
+		eventBadge.ZIndex = 93
+		eventBadge.BackgroundColor3 = isDanger and UIColors.RED_DIM
+			or (entry.Event == "left" and UIColors.RED_DIM
+			or (entry.Event == "joined" and UIColors.GREEN_DIM or UIColors.INPUT))
+		eventBadge.BorderSizePixel = 0
+		eventBadge.Text = isDanger and "DANGER" or eventName
+		eventBadge.TextColor3 = eventColor
+		eventBadge.TextSize = 11
+		eventBadge.Font = Enum.Font.GothamBold
+		eventBadge.Parent = row
+		Instance.new("UICorner", eventBadge).CornerRadius = UDim.new(0, 6)
+
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size = UDim2.new(1, -16, 0, 16)
+		nameLabel.Position = UDim2.fromOffset(10, 32)
+		nameLabel.ZIndex = 93
+		nameLabel.BackgroundTransparency = 1
+		local whitelistTag = (entry.Whitelisted or currentlyWhitelisted) and "  ·  WL" or ""
+		nameLabel.Text = "@" .. entry.Username .. whitelistTag
+		nameLabel.TextColor3 = isDanger and UIColors.RED or UIColors.TEXT
+		nameLabel.TextSize = 13
+		nameLabel.Font = Enum.Font.GothamMedium
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		nameLabel.Parent = row
 	end
 	configurations.ApplyTextScale(configurations.JoinLogPanel)
 end
@@ -4469,45 +4500,67 @@ function configurations.RefreshWhitelist()
 	for userId in pairs(configurations.WhitelistIds) do table.insert(ids, userId) end
 	table.sort(ids, function(a, b) return tonumber(a) < tonumber(b) end)
 	for order, userId in ipairs(ids) do
-		local playerName = ""
+		local playerName = nil
+		local online = false
 		for _, onlinePlayer in ipairs(Players:GetPlayers()) do
 			if tostring(onlinePlayer.UserId) == userId then
-				playerName = "  @" .. onlinePlayer.Name
+				playerName = onlinePlayer.Name
+				online = true
 				break
 			end
 		end
 
 		local row = Instance.new("Frame")
-		row.Size = UDim2.new(1, -12, 0, 40)
+		row.Size = UDim2.new(1, -8, 0, 52)
 		row.LayoutOrder = order
 		row.ZIndex = 92
-		row.BackgroundTransparency = 1
+		row.BackgroundColor3 = UIColors.CARD
+		row.BorderSizePixel = 0
 		row.Parent = configurations.WhitelistScroll
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+		local stroke = Instance.new("UIStroke", row)
+		stroke.Color = UIColors.BORDER
+		stroke.Transparency = 0.55
+		stroke.Thickness = 1
 
 		local idLabel = Instance.new("TextLabel")
-		idLabel.Size = UDim2.new(1, -48, 1, 0)
+		idLabel.Size = UDim2.new(1, -56, 0, 18)
+		idLabel.Position = UDim2.fromOffset(12, 8)
 		idLabel.ZIndex = 93
 		idLabel.BackgroundTransparency = 1
-		idLabel.Text = userId .. playerName
-		idLabel.TextColor3 = UIColors.TEXT
-		idLabel.TextSize = 13
+		idLabel.Text = userId
+		idLabel.TextColor3 = UIColors.MUTED
+		idLabel.TextSize = 12
 		idLabel.Font = Enum.Font.Gotham
 		idLabel.TextXAlignment = Enum.TextXAlignment.Left
 		idLabel.TextTruncate = Enum.TextTruncate.AtEnd
 		idLabel.Parent = row
 
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size = UDim2.new(1, -56, 0, 18)
+		nameLabel.Position = UDim2.fromOffset(12, 28)
+		nameLabel.ZIndex = 93
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = playerName and ("@" .. playerName) or "Offline"
+		nameLabel.TextColor3 = online and UIColors.TEXT or UIColors.MUTED
+		nameLabel.TextSize = 13
+		nameLabel.Font = Enum.Font.GothamMedium
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		nameLabel.Parent = row
+
 		local removeButton = Instance.new("TextButton")
-		removeButton.Size = UDim2.fromOffset(42, 30)
-		removeButton.Position = UDim2.new(1, -46, 0.5, -15)
+		removeButton.Size = UDim2.fromOffset(36, 36)
+		removeButton.Position = UDim2.new(1, -46, 0.5, -18)
 		removeButton.ZIndex = 93
-		removeButton.BackgroundColor3 = Color3.fromRGB(60, 30, 35)
+		removeButton.BackgroundColor3 = UIColors.RED_DIM
 		removeButton.BorderSizePixel = 0
 		removeButton.Text = "×"
 		removeButton.TextColor3 = UIColors.RED
 		removeButton.TextSize = 18
 		removeButton.Font = Enum.Font.GothamBold
 		removeButton.Parent = row
-		Instance.new("UICorner", removeButton).CornerRadius = UDim.new(0, 5)
+		Instance.new("UICorner", removeButton).CornerRadius = UDim.new(0, 8)
 		removeButton.MouseButton1Click:Connect(function()
 			configurations.WhitelistIds[userId] = nil
 			configurations.SaveConfig()
@@ -6300,22 +6353,22 @@ task.spawn(function()
 
 					local row = Instance.new("Frame")
 					row.Name = "PlayerRow_" .. otherPlayer.UserId
-					row.Size = UDim2.new(1, -4, 0, 174)
+					row.Size = UDim2.new(1, -6, 0, 168)
 					row.LayoutOrder = order
 					row.ZIndex = 92
 					row.BackgroundColor3 = UIColors.CARD
 					row.BorderSizePixel = 0
 					row.Parent = PlayerScroll
-					Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+					Instance.new("UICorner", row).CornerRadius = UDim.new(0, 12)
 					local rowStroke = Instance.new("UIStroke", row)
 					rowStroke.Color = UIColors.BORDER
 					rowStroke.Thickness = 1
-					rowStroke.Transparency = 0.55
+					rowStroke.Transparency = 0.5
 
 					local avatar = Instance.new("ImageLabel")
 					avatar.Name = "Avatar"
-					avatar.Size = UDim2.fromOffset(52, 52)
-					avatar.Position = UDim2.fromOffset(12, 16)
+					avatar.Size = UDim2.fromOffset(48, 48)
+					avatar.Position = UDim2.fromOffset(14, 14)
 					avatar.ZIndex = 93
 					avatar.BackgroundColor3 = UIColors.INPUT
 					avatar.BorderSizePixel = 0
@@ -6325,34 +6378,37 @@ task.spawn(function()
 
 					if not ThumbnailCache[otherPlayer.UserId] then
 						local ok, imageUrl = pcall(function()
-							return Players:GetUserThumbnailAsync(otherPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+							return Players:GetUserThumbnailAsync(otherPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size60x60)
 						end)
 						if ok then ThumbnailCache[otherPlayer.UserId] = imageUrl end
 					end
 					avatar.Image = ThumbnailCache[otherPlayer.UserId] or ""
 
+					local textRightPad = (otherPlayer == Player) and 20 or 156
+
 					local displayName = Instance.new("TextLabel")
 					displayName.Name = "DisplayName"
-					displayName.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 20)
-					displayName.Position = UDim2.fromOffset(66, 11)
+					displayName.Size = UDim2.new(1, -(74 + textRightPad), 0, 20)
+					displayName.Position = UDim2.fromOffset(74, 12)
 					displayName.ZIndex = 93
 					displayName.BackgroundTransparency = 1
 					displayName.Text = configurations.FormatPlayerDisplayName(otherPlayer)
 					displayName.TextColor3 = UIColors.TEXT
-					displayName.TextSize = 16
+					displayName.TextSize = 15
 					displayName.Font = Enum.Font.GothamBold
 					displayName.TextXAlignment = Enum.TextXAlignment.Left
 					displayName.TextTruncate = Enum.TextTruncate.AtEnd
 					displayName.Parent = row
 
 					local usernameLabel = Instance.new("TextLabel")
-					usernameLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 18)
-					usernameLabel.Position = UDim2.fromOffset(66, 33)
+					usernameLabel.Name = "Username"
+					usernameLabel.Size = UDim2.new(1, -(74 + textRightPad), 0, 16)
+					usernameLabel.Position = UDim2.fromOffset(74, 32)
 					usernameLabel.ZIndex = 93
 					usernameLabel.BackgroundTransparency = 1
 					usernameLabel.Text = "@" .. otherPlayer.Name
 					usernameLabel.TextColor3 = UIColors.MUTED
-					usernameLabel.TextSize = 13
+					usernameLabel.TextSize = 12
 					usernameLabel.Font = Enum.Font.Gotham
 					usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
 					usernameLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -6360,14 +6416,14 @@ task.spawn(function()
 
 					local detail = Instance.new("TextLabel")
 					detail.Name = "Distance"
-					detail.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 18)
-					detail.Position = UDim2.fromOffset(66, 53)
+					detail.Size = UDim2.new(1, -(74 + textRightPad), 0, 16)
+					detail.Position = UDim2.fromOffset(74, 50)
 					detail.ZIndex = 93
 					detail.BackgroundTransparency = 1
 					detail.Text = distanceText
 					detail.TextColor3 = UIColors.MUTED
-					detail.TextSize = 13
-					detail.Font = Enum.Font.Gotham
+					detail.TextSize = 12
+					detail.Font = Enum.Font.GothamMedium
 					detail.TextXAlignment = Enum.TextXAlignment.Left
 					detail.TextTruncate = Enum.TextTruncate.AtEnd
 					detail.Parent = row
@@ -6375,54 +6431,53 @@ task.spawn(function()
 					local currentHP, maximumHP = configurations.GetPlayerHealth(otherPlayer)
 					local healthLabel = Instance.new("TextLabel")
 					healthLabel.Name = "Health"
-					healthLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 18)
-					healthLabel.Position = UDim2.fromOffset(66, 74)
+					healthLabel.Size = UDim2.new(1, -28, 0, 18)
+					healthLabel.Position = UDim2.fromOffset(14, 76)
 					healthLabel.ZIndex = 93
 					healthLabel.BackgroundTransparency = 1
-					healthLabel.Text = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
+					healthLabel.Text = currentHP and string.format("HP  %s / %s", configurations.FormatNumber(currentHP), configurations.FormatNumber(maximumHP)) or "HP  —"
 					if configurations.IsWhitelisted(otherPlayer) then
-						healthLabel.Text ..= "  •  WHITELIST"
+						healthLabel.Text ..= "   ·   WHITELIST"
 					end
 					healthLabel.TextColor3 = configurations.GetHealthColor(currentHP, maximumHP)
 					healthLabel.TextSize = 13
-					healthLabel.Font = Enum.Font.Gotham
+					healthLabel.Font = Enum.Font.GothamMedium
 					healthLabel.TextXAlignment = Enum.TextXAlignment.Left
 					healthLabel.TextTruncate = Enum.TextTruncate.AtEnd
 					healthLabel.Parent = row
 
 					local statsLabel = Instance.new("TextLabel")
 					statsLabel.Name = "PlayerStats"
-					statsLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 46)
-					statsLabel.Position = UDim2.fromOffset(66, 96)
+					statsLabel.Size = UDim2.new(1, -28, 0, 18)
+					statsLabel.Position = UDim2.fromOffset(14, 96)
 					statsLabel.ZIndex = 93
 					statsLabel.BackgroundTransparency = 1
 					statsLabel.Text = configurations.FormatPlayerListStats(otherPlayer)
-					statsLabel.TextColor3 = UIColors.MUTED
-					statsLabel.TextSize = 11
+					statsLabel.TextColor3 = Color3.fromRGB(160, 170, 190)
+					statsLabel.TextSize = 12
 					statsLabel.Font = Enum.Font.Gotham
 					statsLabel.TextXAlignment = Enum.TextXAlignment.Left
-					statsLabel.TextYAlignment = Enum.TextYAlignment.Top
 					statsLabel.TextTruncate = Enum.TextTruncate.AtEnd
 					statsLabel.Parent = row
 
 					local expLevel, expCurrent, expMax, expRatio = configurations.GetPlayerExpProgress(otherPlayer)
 					local expLabel = Instance.new("TextLabel")
 					expLabel.Name = "PlayerExp"
-					expLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 16)
-					expLabel.Position = UDim2.fromOffset(66, 139)
+					expLabel.Size = UDim2.new(1, -28, 0, 16)
+					expLabel.Position = UDim2.fromOffset(14, 120)
 					expLabel.ZIndex = 93
 					expLabel.BackgroundTransparency = 1
-					expLabel.Text = expCurrent and expMax and string.format("EXP %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP unavailable"
-					expLabel.TextColor3 = UIColors.MUTED
-					expLabel.TextSize = 10
-					expLabel.Font = Enum.Font.Gotham
+					expLabel.Text = expCurrent and expMax and string.format("EXP  %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP  —"
+					expLabel.TextColor3 = UIColors.ACCENT_SEL
+					expLabel.TextSize = 12
+					expLabel.Font = Enum.Font.GothamMedium
 					expLabel.TextXAlignment = Enum.TextXAlignment.Left
 					expLabel.Parent = row
 
 					local expBarBg = Instance.new("Frame")
 					expBarBg.Name = "PlayerExpBar"
-					expBarBg.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 5)
-					expBarBg.Position = UDim2.fromOffset(66, 156)
+					expBarBg.Size = UDim2.new(1, -28, 0, 8)
+					expBarBg.Position = UDim2.fromOffset(14, 142)
 					expBarBg.ZIndex = 93
 					expBarBg.BackgroundColor3 = UIColors.INPUT
 					expBarBg.BorderSizePixel = 0
@@ -6438,41 +6493,29 @@ task.spawn(function()
 					Instance.new("UICorner", expBarFill).CornerRadius = UDim.new(1, 0)
 
 					if otherPlayer ~= Player then
-						local playerEspButton = Instance.new("TextButton")
-						playerEspButton.Name = "PlayerESPToggle"
-						playerEspButton.Size = UDim2.fromOffset(66, 28)
-						playerEspButton.Position = UDim2.new(1, -74, 0, 10)
-						playerEspButton.ZIndex = 93
-						playerEspButton.BackgroundColor3 = configurations.IsPlayerESPEnabled(otherPlayer) and UIColors.GREEN_DIM or UIColors.INPUT
-						playerEspButton.BorderSizePixel = 0
-						playerEspButton.Text = configurations.IsPlayerESPEnabled(otherPlayer) and "ESP ON" or "ESP OFF"
-						playerEspButton.TextColor3 = configurations.IsPlayerESPEnabled(otherPlayer) and UIColors.GREEN or UIColors.MUTED
-						playerEspButton.TextSize = 11
-						playerEspButton.Font = Enum.Font.GothamBold
-						playerEspButton.Parent = row
-						Instance.new("UICorner", playerEspButton).CornerRadius = UDim.new(0, 6)
-						playerEspButton.MouseButton1Click:Connect(function()
-							local enabled = not configurations.IsPlayerESPEnabled(otherPlayer)
-							configurations.PlayerESPEnabled[tostring(otherPlayer.UserId)] = enabled
-							playerEspButton.Text = enabled and "ESP ON" or "ESP OFF"
-							playerEspButton.TextColor3 = enabled and UIColors.GREEN or UIColors.MUTED
-							playerEspButton.BackgroundColor3 = enabled and UIColors.GREEN_DIM or UIColors.INPUT
-						end)
+						local function makeActionBtn(name, label, x, y, bg, fg)
+							local b = Instance.new("TextButton")
+							b.Name = name
+							b.Size = UDim2.fromOffset(68, 26)
+							b.Position = UDim2.new(1, x, 0, y)
+							b.ZIndex = 93
+							b.BackgroundColor3 = bg
+							b.BorderSizePixel = 0
+							b.Text = label
+							b.TextColor3 = fg
+							b.TextSize = 11
+							b.Font = Enum.Font.GothamBold
+							b.Parent = row
+							Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
+							return b
+						end
 
-						configurations.PlayerPanelPinButton = Instance.new("TextButton")
-						configurations.PlayerPanelPinButton.Name = "PlayerPinToggle"
-						configurations.PlayerPanelPinButton.Size = UDim2.fromOffset(66, 28)
-						configurations.PlayerPanelPinButton.Position = UDim2.new(1, -146, 0, 10)
-						configurations.PlayerPanelPinButton.ZIndex = 93
-						configurations.PlayerPanelPinButton.BackgroundColor3 = configurations.PinnedPlayerIds[tostring(otherPlayer.UserId)] and Color3.fromRGB(55, 45, 22) or UIColors.INPUT
-						configurations.PlayerPanelPinButton.BorderSizePixel = 0
-						configurations.PlayerPanelPinButton.Text = configurations.PinnedPlayerIds[tostring(otherPlayer.UserId)] and "PINNED" or "PIN"
-						configurations.PlayerPanelPinButton.TextColor3 = configurations.PinnedPlayerIds[tostring(otherPlayer.UserId)] and UIColors.YELLOW or UIColors.MUTED
-						configurations.PlayerPanelPinButton.TextSize = 11
-						configurations.PlayerPanelPinButton.Font = Enum.Font.GothamBold
-						configurations.PlayerPanelPinButton.Parent = row
-						Instance.new("UICorner", configurations.PlayerPanelPinButton).CornerRadius = UDim.new(0, 6)
-						configurations.PlayerPanelPinButton.MouseButton1Click:Connect(function()
+						local pinOn = configurations.PinnedPlayerIds[tostring(otherPlayer.UserId)] == true
+						local pinBtn = makeActionBtn("PlayerPinToggle", pinOn and "PINNED" or "PIN", -148, 12,
+							pinOn and Color3.fromRGB(55, 45, 22) or UIColors.INPUT,
+							pinOn and UIColors.YELLOW or UIColors.MUTED)
+						configurations.PlayerPanelPinButton = pinBtn
+						pinBtn.MouseButton1Click:Connect(function()
 							local userId = tostring(otherPlayer.UserId)
 							local isPinned = configurations.PinnedPlayerIds[userId] == true
 							if isPinned then
@@ -6481,26 +6524,30 @@ task.spawn(function()
 								configurations.PinnedPlayerIds[userId] = true
 							end
 							configurations.SaveConfig()
-							row:FindFirstChild("PlayerPinToggle").Text = isPinned and "PIN" or "PINNED"
-							row:FindFirstChild("PlayerPinToggle").TextColor3 = isPinned and UIColors.MUTED or UIColors.YELLOW
-							row:FindFirstChild("PlayerPinToggle").BackgroundColor3 = isPinned and UIColors.INPUT or Color3.fromRGB(55, 45, 22)
+							local on = configurations.PinnedPlayerIds[userId] == true
+							pinBtn.Text = on and "PINNED" or "PIN"
+							pinBtn.TextColor3 = on and UIColors.YELLOW or UIColors.MUTED
+							pinBtn.BackgroundColor3 = on and Color3.fromRGB(55, 45, 22) or UIColors.INPUT
 							PlayerPanelBuildSignature = nil
 						end)
 
-						local whitelistToggle = Instance.new("TextButton")
-						whitelistToggle.Name = "WhitelistToggle"
-						whitelistToggle.Size = UDim2.fromOffset(66, 28)
-						whitelistToggle.Position = UDim2.new(1, -146, 0, 42)
-						whitelistToggle.ZIndex = 93
-						whitelistToggle.BackgroundColor3 = configurations.IsWhitelisted(otherPlayer) and Color3.fromRGB(55, 45, 22) or UIColors.INPUT
-						whitelistToggle.BorderSizePixel = 0
-						whitelistToggle.Text = configurations.IsWhitelisted(otherPlayer) and "WL ON" or "WL ADD"
-						whitelistToggle.TextColor3 = configurations.IsWhitelisted(otherPlayer) and UIColors.YELLOW or UIColors.MUTED
-						whitelistToggle.TextSize = 11
-						whitelistToggle.Font = Enum.Font.GothamBold
-						whitelistToggle.Parent = row
-						Instance.new("UICorner", whitelistToggle).CornerRadius = UDim.new(0, 6)
-						whitelistToggle.MouseButton1Click:Connect(function()
+						local espOn = configurations.IsPlayerESPEnabled(otherPlayer)
+						local espBtn = makeActionBtn("PlayerESPToggle", espOn and "ESP ON" or "ESP OFF", -74, 12,
+							espOn and UIColors.GREEN_DIM or UIColors.INPUT,
+							espOn and UIColors.GREEN or UIColors.MUTED)
+						espBtn.MouseButton1Click:Connect(function()
+							local enabled = not configurations.IsPlayerESPEnabled(otherPlayer)
+							configurations.PlayerESPEnabled[tostring(otherPlayer.UserId)] = enabled
+							espBtn.Text = enabled and "ESP ON" or "ESP OFF"
+							espBtn.TextColor3 = enabled and UIColors.GREEN or UIColors.MUTED
+							espBtn.BackgroundColor3 = enabled and UIColors.GREEN_DIM or UIColors.INPUT
+						end)
+
+						local wlOn = configurations.IsWhitelisted(otherPlayer)
+						local wlBtn = makeActionBtn("WhitelistToggle", wlOn and "WL ON" or "WL ADD", -148, 44,
+							wlOn and Color3.fromRGB(55, 45, 22) or UIColors.INPUT,
+							wlOn and UIColors.YELLOW or UIColors.MUTED)
+						wlBtn.MouseButton1Click:Connect(function()
 							local userId = tostring(otherPlayer.UserId)
 							if configurations.IsWhitelisted(otherPlayer) then
 								configurations.WhitelistIds[userId] = nil
@@ -6509,26 +6556,14 @@ task.spawn(function()
 							end
 							configurations.SaveConfig()
 							local enabled = configurations.IsWhitelisted(otherPlayer)
-							whitelistToggle.Text = enabled and "WL ON" or "WL ADD"
-							whitelistToggle.TextColor3 = enabled and UIColors.YELLOW or UIColors.MUTED
-							whitelistToggle.BackgroundColor3 = enabled and Color3.fromRGB(55, 45, 22) or UIColors.INPUT
+							wlBtn.Text = enabled and "WL ON" or "WL ADD"
+							wlBtn.TextColor3 = enabled and UIColors.YELLOW or UIColors.MUTED
+							wlBtn.BackgroundColor3 = enabled and Color3.fromRGB(55, 45, 22) or UIColors.INPUT
 							if configurations.WhitelistPanel.Visible then configurations.RefreshWhitelist() end
 							configurations.OnWhitelistChanged(userId)
 						end)
 
-						local blockButton = Instance.new("TextButton")
-						blockButton.Name = "BlockButton"
-						blockButton.Size = UDim2.fromOffset(66, 28)
-						blockButton.Position = UDim2.new(1, -74, 0, 42)
-						blockButton.ZIndex = 93
-						blockButton.BackgroundColor3 = UIColors.RED_DIM
-						blockButton.BorderSizePixel = 0
-						blockButton.Text = "Block"
-						blockButton.TextColor3 = UIColors.RED
-						blockButton.TextSize = 11
-						blockButton.Font = Enum.Font.GothamBold
-						blockButton.Parent = row
-						Instance.new("UICorner", blockButton).CornerRadius = UDim.new(0, 6)
+						local blockButton = makeActionBtn("BlockButton", "Block", -74, 44, UIColors.RED_DIM, UIColors.RED)
 						blockButton.MouseButton1Click:Connect(function()
 							if configurations.BlockPromptCache[otherPlayer.UserId] then return end
 							configurations.BlockPromptCache[otherPlayer.UserId] = true
@@ -6580,8 +6615,8 @@ task.spawn(function()
 						local healthLabel = row:FindFirstChild("Health")
 						if healthLabel then
 							local currentHP, maximumHP = configurations.GetPlayerHealth(listedPlayer)
-							local healthText = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
-							if configurations.IsWhitelisted(listedPlayer) then healthText ..= "  •  WHITELIST" end
+							local healthText = currentHP and string.format("HP  %s / %s", configurations.FormatNumber(currentHP), configurations.FormatNumber(maximumHP)) or "HP  —"
+							if configurations.IsWhitelisted(listedPlayer) then healthText ..= "   ·   WHITELIST" end
 							if healthLabel.Text ~= healthText then healthLabel.Text = healthText end
 							local healthColor = configurations.GetHealthColor(currentHP, maximumHP)
 							if healthLabel.TextColor3 ~= healthColor then healthLabel.TextColor3 = healthColor end
@@ -6595,7 +6630,7 @@ task.spawn(function()
 						local expBar = row:FindFirstChild("PlayerExpBar")
 						if expLabel and expBar then
 							local _, expCurrent, expMax, expRatio = configurations.GetPlayerExpProgress(listedPlayer)
-							local expText = expCurrent and expMax and string.format("EXP %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP unavailable"
+							local expText = expCurrent and expMax and string.format("EXP  %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP  —"
 							if expLabel.Text ~= expText then expLabel.Text = expText end
 							local fill = expBar:FindFirstChild("Fill")
 							if fill then fill.Size = UDim2.new(expRatio, 0, 1, 0) end
