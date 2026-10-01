@@ -202,121 +202,125 @@ end
 --==================================================
 -- CONFIG
 --==================================================
-local configuration: {[string]: any} = {
-	Amount = 5000,
-	MaxDistance = 250,
-	ExpApproachDistance = 30,
-	ExpAutoApproachEnabled = false,
-	Interval = 1,
-	ExpGoal = 2000000,
-	AutoExecuteEnabled = true,
-	AlertsDistance = 1000,
-	FollowDistance = 8,
-	FollowTargetVisible = false,
-	SelectedFollowUserId = nil,
-	FollowEnabled = false,
-	PartyFollowEnabled = false,
-	PartyLeaderUserId = nil,
-	PartyLeaderName = nil,
-	PartyResumeFarmOnJoin = false,
-	FPSBoostEnabled = false,
-	PlayerPanelMode = "server",
-	SelectedCombatMob = nil,
-	WaypointPosition = nil,
-	WaypointReturnEnabled = false,
-	PartyWaypointSuspended = false,
-	WaypointBillboardEnabled = true,
-	MovementBoostEnabled = true,
-	SafeBoosterResetEnabled = false,
-	AutoAttackEnabled = false,
-	AutoBossTargetEnabled = false,
-	AutoMiniBossTargetEnabled = false,
-	ExpTargetRetaliationEnabled = false,
-	ExpHitFeedbackEnabled = true,
-	ExpHitFeedbackTarget = nil,
-	ExpRetaliationTarget = nil,
-	AutoSkillEnabled = false,
-	AutoAttackRange = 25,
-	AutoAttackSearchRange = 1000,
-	AutoAttackInterval = 1,
-	AutoSkillInterval = 3,
-	AutoAttackStandoff = 4,
-	Farming = false,
-	CurrentTarget = nil,
-	ExpMaxCombatTarget = nil,
-	ExpFinishTarget = nil,
-	ExpLastShotTarget = nil,
-	SpecialGroupCheckInFlight = {},
-	SpecialGroupCheckedUsers = {},
-	SpecialGroupCheckFailures = {},
-	SpecialGroupThreatUsers = {},
-	SpecialGroupHopStarted = false,
-	SpecialGroupHopAttempts = 0,
-	ExpHitWatchTarget = nil,
-	ExpHitWatchHumanoid = nil,
-	ExpHitWatchHumanoidChildAddedConnection = nil,
-	ExpHitWatchHumanoidChildRemovedConnection = nil,
-	ExpHitWatchDamageTag = nil,
-	ExpHitWatchTagChildAddedConnection = nil,
-	ExpHitWatchHits = nil,
-	ExpHitWatchHitsConnection = nil,
-	ExpHitLastHits = nil,
-	ExpHitDamageTagWasAdded = false,
-	LastTarget = nil,
-	TargetStartTime = 0,
-	AccumulatedTime = 0,
-	IsPaused = false,
-	CurrentBillboard = nil,
-	SessionStartEXP = 0,
-	SessionStartTime = 0,
-	RecentCycle = "รอบล่าสุด  -",
-	SessionExpGained = 0,
-	SessionFarmSeconds = 0,
-	NoProgressCycles = 0,
-	AutoResumeAfterAlert = true,
-	EmergencyStopActive = false,
-	AlertsEnabled = true,
-	JoinAlertsEnabled = false,
-	AlertFlashEnabled = true,
-	AutoBlockEnabled = true,
-	AlertCombatPending = false,
-	AlertCombatTarget = nil,
-	AlertCombatHold = false,
-	AlertCombatBlockReady = false,
-	AlertResumeRequired = false,
-	AlertWasFarming = false,
-	AlertBlockPromptShown = false,
-	AlertBlockTarget = nil,
-	LastAlertCombatUserId = nil,
-	PendingServerHop = false,
-	ServerHopKillTarget = nil,
-	ESPEnabled = true,
-	ESPLineEnabled = true,
-	ESPBoxEnabled = true,
-	AntiAFKEnabled = true,
-	WhitelistIds = {},
-	PinnedPlayerIds = {},
-	PlayerESPEnabled = {},
-	BlockPromptCache = {},
-	SavedMinimized = false,
-	MainWidthScale = 0.72,
-	MainHeightScale = 0.84,
-	PlayerPanelWidthScale = 0.42,
-	PlayerPanelHeightScale = 0.62,
-	WhitelistPanelWidthScale = 0.40,
-	WhitelistPanelHeightScale = 0.58,
-	ConfigFileName = "",
-	ConfigSaveWarningShown = false,
-	ConfigRootFolder = "Iamrich",
-	ConfigUserFolder = "",
-	LegacyConfigFileName = "EXPPlus_Config.json",
-	LegacyConfigOwnerFileName = "Iamrich_LegacyConfigOwner.txt",
-	MigratedLegacyConfig = false,
-	IsMinimized = false,
-	Combat = {},
-}
+local configurations = {}
+configurations.IsStudio = RunService:IsStudio()
+configurations.Amount = 5000
+configurations.MaxDistance = 250
+configurations.ExpApproachDistance = 30
+configurations.ExpAutoApproachEnabled = false
+configurations.Interval = 1
+configurations.ExpGoal = 2000000
+configurations.AutoExecuteEnabled = true
+configurations.AlertsDistance = 1000
+configurations.FollowDistance = 8
+configurations.FollowTargetVisible = false
+configurations.SelectedFollowUserId = nil
+configurations.FollowEnabled = false
+configurations.PartyFollowEnabled = false
+configurations.PartyLeaderUserId = nil
+configurations.PartyLeaderName = nil
+configurations.PartyResumeFarmOnJoin = false
+configurations.FPSBoostEnabled = false
+configurations.PlayerPanelMode = "server"
+configurations.SelectedCombatMob = nil
+configurations.WaypointPosition = nil
+configurations.WaypointReturnEnabled = false
+configurations.PartyWaypointSuspended = false
+configurations.WaypointBillboardEnabled = true
+configurations.MovementBoostEnabled = true
+configurations.SafeBoosterResetEnabled = false
+configurations.AutoAttackEnabled = false
+configurations.AutoBossTargetEnabled = false
+configurations.AutoMiniBossTargetEnabled = false
+configurations.ExpTargetRetaliationEnabled = false
+configurations.ExpHitFeedbackEnabled = true
+configurations.ExpHitFeedbackTarget = nil
+configurations.ExpRetaliationTarget = nil
+configurations.AutoSkillEnabled = false
+configurations.AutoAttackRange = 25
+configurations.AutoAttackSearchRange = 1000
+configurations.AutoAttackInterval = 1
+configurations.AutoSkillInterval = 3
+configurations.AutoAttackStandoff = 4
+configurations.Farming = false
+configurations.CurrentTarget = nil
+configurations.ExpMaxCombatTarget = nil
+configurations.ExpFinishTarget = nil
+configurations.ExpLastShotTarget = nil
+configurations.SpecialGroupCheckInFlight = {}
+configurations.SpecialGroupCheckedUsers = {}
+configurations.SpecialGroupCheckFailures = {}
+configurations.SpecialGroupThreatUsers = {}
+configurations.SpecialGroupHopStarted = false
+configurations.SpecialGroupHopAttempts = 0
+configurations.ExpHitWatchTarget = nil
+configurations.ExpHitWatchHumanoid = nil
+configurations.ExpHitWatchHumanoidChildAddedConnection = nil
+configurations.ExpHitWatchHumanoidChildRemovedConnection = nil
+configurations.ExpHitWatchDamageTag = nil
+configurations.ExpHitWatchTagChildAddedConnection = nil
+configurations.ExpHitWatchHits = nil
+configurations.ExpHitWatchHitsConnection = nil
+configurations.ExpHitLastHits = nil
+configurations.ExpHitDamageTagWasAdded = false
+configurations.LastTarget = nil
+configurations.TargetStartTime = 0
+configurations.AccumulatedTime = 0
+configurations.IsPaused = false
+configurations.CurrentBillboard = nil
+configurations.SessionStartEXP = 0
+configurations.SessionStartTime = 0
+configurations.RecentCycle = "รอบล่าสุด  -"
+configurations.SessionExpGained = 0
+configurations.SessionFarmSeconds = 0
+configurations.NoProgressCycles = 0
+configurations.AutoResumeAfterAlert = true
+configurations.EmergencyStopActive = false
+configurations.AlertsEnabled = true
+configurations.JoinAlertsEnabled = false
+configurations.AlertFlashEnabled = true
+configurations.AutoBlockEnabled = true
+configurations.AlertCombatPending = false
+configurations.AlertCombatTarget = nil
+configurations.AlertCombatHold = false
+configurations.AlertCombatBlockReady = false
+configurations.AlertResumeRequired = false
+configurations.AlertWasFarming = false
+configurations.AlertBlockPromptShown = false
+configurations.AlertBlockTarget = nil
+configurations.LastAlertCombatUserId = nil
+configurations.PendingServerHop = false
+configurations.ServerHopKillTarget = nil
+configurations.ESPEnabled = true
+configurations.ESPLineEnabled = true
+configurations.ESPBoxEnabled = true
+configurations.AntiAFKEnabled = true
+configurations.WhitelistIds = {}
+configurations.PinnedPlayerIds = {}
+configurations.PlayerESPEnabled = {}
+configurations.BlockPromptCache = {}
+configurations.SavedMinimized = false
+configurations.MainWidthScale = 0.72
+configurations.MainHeightScale = 0.84
+configurations.GuiScale = 1.0
+configurations.TextScale = 1.0
+configurations.PlayerPanelWidthScale = 0.42
+configurations.PlayerPanelHeightScale = 0.62
+configurations.WhitelistPanelWidthScale = 0.40
+configurations.WhitelistPanelHeightScale = 0.58
+configurations.JoinLogWidthScale = 0.38
+configurations.JoinLogHeightScale = 0.54
+configurations.ConfigFileName = ""
+configurations.ConfigSaveWarningShown = false
+configurations.ConfigRootFolder = "Iamrich"
+configurations.ConfigUserFolder = ""
+configurations.LegacyConfigFileName = "EXPPlus_Config.json"
+configurations.LegacyConfigOwnerFileName = "Iamrich_LegacyConfigOwner.txt"
+configurations.MigratedLegacyConfig = false
+configurations.IsMinimized = false
+configurations.Combat = {}
 
-function configuration.NotifyUser(title, message, duration)
+function configurations.NotifyUser(title, message, duration)
 	task.spawn(function()
 		for _ = 1, 4 do
 			local ok = pcall(function()
@@ -353,118 +357,97 @@ local function InvokeFollowInteract()
 	return ok
 end
 
--- Runtime controllers are separate source chunks. Publish the modules beside
--- this file so the loaders can fetch them from the same branch.
-configuration.CombatSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua?v=2.2.2"
-)))()
-configuration.CombatSystem.Initialize(configuration, {
-	MobsFolder = MobsFolder,
-})
-configuration.WaypointNavigator = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.0"
-)))()
-configuration.WaypointNavigator = configuration.WaypointNavigator.Initialize(configuration, {
-	Players = Players,
-	MobsFolder = MobsFolder,
-})
-configuration.FollowSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.0"
-)))()
-configuration.FollowSystem = configuration.FollowSystem.Initialize(configuration, {
-	Players = Players,
-	MobsFolder = MobsFolder,
-	ClaimMovement = ClaimMovement,
-	ReleaseMovement = ReleaseMovement,
-	Interact = InvokeFollowInteract,
-})
-configuration.SafeBoosterResetLoadOk, configuration.SafeBoosterResetLoadResult = pcall(function()
-	local source = game:HttpGet(
-		"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/SafeBoosterResetSystem.lua?v=1.0.0"
-	)
-	local moduleFactory, compileError = loadstring(source)
-	assert(moduleFactory, compileError)
-	local module = moduleFactory()
-	assert(type(module) == "table" and type(module.Initialize) == "function", "SafeBoosterReset module has no Initialize function")
-	return module
-end)
-if configuration.SafeBoosterResetLoadOk then
-	configuration.SafeBoosterResetInitOk, configuration.SafeBoosterResetInitResult = pcall(function()
-		return configuration.SafeBoosterResetLoadResult.Initialize(configuration, {
-			Player = Player,
-			ReplicatedStorage = ReplicatedStorage,
-			Notify = configuration.NotifyUser,
-		})
+-- Runtime controllers: Studio uses ModuleScripts; executor/Git uses HttpGet + loadstring.
+if configurations.IsStudio then
+	configurations.CombatSystem = require(script:WaitForChild("CombatSystem.lua"))
+	configurations.WaypointNavigator = require(script:WaitForChild("WaypointNavigation.lua"))
+	configurations.FollowSystem = require(script:WaitForChild("FollowSystem.lua"))
+	configurations.SafeBoosterResetLoadOk, configurations.SafeBoosterResetLoadResult = pcall(function()
+		return require(script:WaitForChild("SafeBoosterResetSystem.lua"))
+	end)
+	configurations.FPSBoostSystem = require(script:WaitForChild("FPSBoostSystem.lua"))
+	configurations.PartySystemLoadOk, configurations.PartySystemLoadResult = pcall(function()
+		return require(script:WaitForChild("PartySystem.lua"))
+	end)
+else
+	configurations.CombatSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua?v=2.2.2")))()
+	configurations.WaypointNavigator = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.0")))()
+	configurations.FollowSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.0")))()
+	configurations.SafeBoosterResetLoadOk, configurations.SafeBoosterResetLoadResult = pcall(function()
+		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/SafeBoosterResetSystem.lua?v=1.0.0")
+		local moduleFactory, compileError = loadstring(source)
+		assert(moduleFactory, compileError)
+		local module = moduleFactory()
+		assert(type(module) == "table" and type(module.Initialize) == "function", "SafeBoosterReset module has no Initialize function")
+		return module
+	end)
+	configurations.FPSBoostSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.2.0")))()
+	configurations.PartySystemLoadOk, configurations.PartySystemLoadResult = pcall(function()
+		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.0.1")
+		local moduleFactory, compileError = loadstring(source)
+		assert(moduleFactory, compileError)
+		local module = moduleFactory()
+		assert(type(module) == "table" and type(module.Initialize) == "function", "PartySystem has no Initialize function")
+		return module
 	end)
 end
-configuration.SafeBoosterResetAvailable = configuration.SafeBoosterResetInitOk == true
-	and type(configuration.SafeBoosterResetInitResult) == "table"
-if configuration.SafeBoosterResetAvailable then
-	configuration.SafeBoosterResetSystem = configuration.SafeBoosterResetInitResult
-else
-	configuration.SafeBoosterResetEnabled = false
-	configuration.SafeBoosterResetSystem = {
-		SetEnabled = function(enabled)
-			if enabled then
-				configuration.NotifyUser("Safe booster reset", "Module unavailable; upload SafeBoosterResetSystem.lua first.", 6)
-			end
-			return false
-		end,
-	}
-	warn("[Iamrich] SafeBoosterReset is unavailable:",
-		configuration.SafeBoosterResetLoadOk and configuration.SafeBoosterResetInitResult
-			or configuration.SafeBoosterResetLoadResult)
+
+configurations.CombatSystem.Initialize(configurations, { MobsFolder = MobsFolder })
+configurations.WaypointNavigator = configurations.WaypointNavigator.Initialize(configurations, { Players = Players, MobsFolder = MobsFolder })
+configurations.FollowSystem = configurations.FollowSystem.Initialize(configurations, { Players = Players, MobsFolder = MobsFolder, ClaimMovement = ClaimMovement, ReleaseMovement = ReleaseMovement, Interact = InvokeFollowInteract })
+if configurations.SafeBoosterResetLoadOk then
+	configurations.SafeBoosterResetInitOk, configurations.SafeBoosterResetInitResult = pcall(function()
+		return configurations.SafeBoosterResetLoadResult.Initialize(configurations, { Player = Player, ReplicatedStorage = ReplicatedStorage, Notify = configurations.NotifyUser })
+	end)
 end
-configuration.FPSBoostSystem = assert(loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.2.0"
-)))()
-configuration.FPSBoostSystem = configuration.FPSBoostSystem.Initialize(configuration, {
-	Lighting = Lighting,
-})
-configuration.PartySystemLoadOk, configuration.PartySystemLoadResult = pcall(function()
-	local source = game:HttpGet(
-		"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.0.1"
-	)
-	local moduleFactory, compileError = loadstring(source)
-	assert(moduleFactory, compileError)
-	local module = moduleFactory()
-	assert(type(module) == "table" and type(module.Initialize) == "function", "PartySystem has no Initialize function")
-	return module
-end)
-if configuration.PartySystemLoadOk then
-	configuration.PartySystem = configuration.PartySystemLoadResult
+configurations.SafeBoosterResetAvailable = configurations.SafeBoosterResetInitOk == true and type(configurations.SafeBoosterResetInitResult) == "table"
+if configurations.SafeBoosterResetAvailable then
+	configurations.SafeBoosterResetSystem = configurations.SafeBoosterResetInitResult
 else
-	warn("[Iamrich] PartySystem is unavailable:", configuration.PartySystemLoadResult)
+	configurations.SafeBoosterResetEnabled = false
+	configurations.SafeBoosterResetSystem = { SetEnabled = function(enabled)
+		if enabled then configurations.NotifyUser("Safe booster reset", "Module unavailable; upload SafeBoosterResetSystem.lua first.", 6) end
+		return false
+	end }
+	if not configurations.IsStudio then warn("[Iamrich] SafeBoosterReset is unavailable:", configurations.SafeBoosterResetLoadOk and configurations.SafeBoosterResetInitResult or configurations.SafeBoosterResetLoadResult) end
+end
+configurations.FPSBoostSystem = configurations.FPSBoostSystem.Initialize(configurations, { Lighting = Lighting })
+if configurations.PartySystemLoadOk then
+	configurations.PartySystem = configurations.PartySystemLoadResult
+else
+	warn("[Iamrich] PartySystem is unavailable:", configurations.PartySystemLoadResult)
 end
 
-function configuration.PrepareConfigStorage()
+function configurations.PrepareConfigStorage()
+	if configurations.IsStudio then return false end
 	local userId = tostring(Player.UserId)
-	configuration.ConfigUserFolder = configuration.ConfigRootFolder .. "/" .. userId
-	local nestedPath = configuration.ConfigUserFolder .. "/Config.json"
-	local flatPath = configuration.ConfigRootFolder .. "_" .. userId .. ".json"
+	configurations.ConfigUserFolder = configurations.ConfigRootFolder .. "/" .. userId
+	local nestedPath = configurations.ConfigUserFolder .. "/Config.json"
+	local flatPath = configurations.ConfigRootFolder .. "_" .. userId .. ".json"
 
 	if type(makefolder) == "function" then
-		pcall(makefolder, configuration.ConfigRootFolder)
-		pcall(makefolder, configuration.ConfigUserFolder)
+		pcall(makefolder, configurations.ConfigRootFolder)
+		pcall(makefolder, configurations.ConfigUserFolder)
 		local folderReady = type(isfolder) ~= "function"
 		if type(isfolder) == "function" then
-			local ok, exists = pcall(isfolder, configuration.ConfigUserFolder)
+			local ok, exists = pcall(isfolder, configurations.ConfigUserFolder)
 			folderReady = ok and exists == true
 		end
 		if folderReady then
-			configuration.ConfigFileName = nestedPath
+			configurations.ConfigFileName = nestedPath
 			return
 		end
 	end
 
 	-- Keep per-user isolation even on executors without folder APIs.
-	configuration.ConfigFileName = flatPath
+	configurations.ConfigFileName = flatPath
 end
 
 
-function configuration.LoadConfig()
+function configurations.LoadConfig()
+	if configurations.IsStudio then return end
 	if type(readfile) ~= "function" then return end
-	configuration.PrepareConfigStorage()
+	configurations.PrepareConfigStorage()
 	local function ReadConfig(path)
 		local ok, config = pcall(function()
 			return HttpService:JSONDecode(readfile(path))
@@ -472,24 +455,24 @@ function configuration.LoadConfig()
 		return ok and type(config) == "table" and config or nil
 	end
 
-	local config = ReadConfig(configuration.ConfigFileName)
+	local config = ReadConfig(configurations.ConfigFileName)
 	if not config then
 		-- Import the old shared config once, assigning it to the first UserId that runs this version.
 		local owner = ""
 		local ownerOk, ownerValue = pcall(function()
-			return readfile(configuration.LegacyConfigOwnerFileName)
+			return readfile(configurations.LegacyConfigOwnerFileName)
 		end)
 		if ownerOk then
 			owner = tostring(ownerValue)
 		end
 		if owner == "" and type(writefile) == "function" then
-			local legacyConfig = ReadConfig(configuration.LegacyConfigFileName)
+			local legacyConfig = ReadConfig(configurations.LegacyConfigFileName)
 			if legacyConfig then
 				local markerWritten = pcall(function()
-					writefile(configuration.LegacyConfigOwnerFileName, tostring(Player.UserId))
+					writefile(configurations.LegacyConfigOwnerFileName, tostring(Player.UserId))
 				end)
 				if markerWritten then
-					configuration.MigratedLegacyConfig = true
+					configurations.MigratedLegacyConfig = true
 					config = legacyConfig
 				end
 			end
@@ -505,102 +488,106 @@ function configuration.LoadConfig()
 		return current
 	end
 
-	configuration.Amount = math.floor(ReadNumber("Amount", configuration.Amount, 0, false))
-	configuration.ExpApproachDistance = math.clamp(ReadNumber("ExpApproachDistance", configuration.ExpApproachDistance, 5, false), 5, 100)
+	configurations.Amount = math.floor(ReadNumber("Amount", configurations.Amount, 0, false))
+	configurations.ExpApproachDistance = math.clamp(ReadNumber("ExpApproachDistance", configurations.ExpApproachDistance, 5, false), 5, 100)
 	if type(config.ExpAutoApproachEnabled) == "boolean" then
-		configuration.ExpAutoApproachEnabled = config.ExpAutoApproachEnabled
+		configurations.ExpAutoApproachEnabled = config.ExpAutoApproachEnabled
 	end
-	configuration.MaxDistance = math.clamp(ReadNumber("MaxDistance", configuration.MaxDistance, 5, false), 5, 100000)
-	configuration.Interval = ReadNumber("Interval", configuration.Interval, 0, true)
-	configuration.ExpGoal = ReadNumber("ExpGoal", configuration.ExpGoal, 0, false)
-	if type(config.AutoExecuteEnabled) == "boolean" then configuration.AutoExecuteEnabled = config.AutoExecuteEnabled end
-	configuration.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configuration.AlertsDistance, 0, true), 0, 100000)
-	configuration.FollowDistance = math.clamp(ReadNumber("FollowDistance", configuration.FollowDistance, 2, false), 2, 100)
+	configurations.MaxDistance = math.clamp(ReadNumber("MaxDistance", configurations.MaxDistance, 5, false), 5, 100000)
+	configurations.Interval = ReadNumber("Interval", configurations.Interval, 0, true)
+	configurations.ExpGoal = ReadNumber("ExpGoal", configurations.ExpGoal, 0, false)
+	if type(config.AutoExecuteEnabled) == "boolean" then configurations.AutoExecuteEnabled = config.AutoExecuteEnabled end
+	configurations.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configurations.AlertsDistance, 0, true), 0, 100000)
+	configurations.FollowDistance = math.clamp(ReadNumber("FollowDistance", configurations.FollowDistance, 2, false), 2, 100)
 	if type(config.FollowTargetVisible) == "boolean" then
-		configuration.FollowTargetVisible = config.FollowTargetVisible
+		configurations.FollowTargetVisible = config.FollowTargetVisible
 	end
 	if type(config.FPSBoostEnabled) == "boolean" then
-		configuration.FPSBoostEnabled = config.FPSBoostEnabled
+		configurations.FPSBoostEnabled = config.FPSBoostEnabled
 	end
-	configuration.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configuration.AutoAttackRange, 5, false), 5, 500)
-	local savedMobSearchRange = ReadNumber("AutoAttackSearchRange", configuration.AutoAttackSearchRange, 5, false)
+	configurations.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configurations.AutoAttackRange, 5, false), 5, 500)
+	local savedMobSearchRange = ReadNumber("AutoAttackSearchRange", configurations.AutoAttackSearchRange, 5, false)
 	-- Earlier builds defaulted mob visibility to 100 studs. The intended default
 	-- is 1000, so migrate that legacy default instead of silently keeping targets
 	-- such as the 955-stud mob outside the eligible-target search.
 	if savedMobSearchRange == 100 then savedMobSearchRange = 1000 end
-	configuration.AutoAttackSearchRange = math.clamp(savedMobSearchRange, 5, 1000)
+	configurations.AutoAttackSearchRange = math.clamp(savedMobSearchRange, 5, 1000)
 	local waypoint = config.WaypointPosition
 	if type(waypoint) == "table" then
 		local x, y, z = tonumber(waypoint.X), tonumber(waypoint.Y), tonumber(waypoint.Z)
-		if x and y and z then configuration.WaypointPosition = Vector3.new(x, y, z) end
+		if x and y and z then configurations.WaypointPosition = Vector3.new(x, y, z) end
 	end
-	configuration.AutoAttackInterval = math.clamp(ReadNumber("AutoAttackInterval", configuration.AutoAttackInterval, 1, false), 1, 10)
-	configuration.AutoSkillInterval = math.clamp(ReadNumber("AutoSkillInterval", configuration.AutoSkillInterval, 1, false), 1, 30)
+	configurations.AutoAttackInterval = math.clamp(ReadNumber("AutoAttackInterval", configurations.AutoAttackInterval, 1, false), 1, 10)
+	configurations.AutoSkillInterval = math.clamp(ReadNumber("AutoSkillInterval", configurations.AutoSkillInterval, 1, false), 1, 30)
 	local followUserId = tonumber(config.FollowTargetUserId)
 	local isLegacyFollowConfig = config.FollowTargetUserId == nil
 	if not followUserId then followUserId = tonumber(config.FollowPlayerUserId) end
 	if followUserId and followUserId > 0 and followUserId % 1 == 0 then
-		configuration.SelectedFollowUserId = tostring(followUserId)
+		configurations.SelectedFollowUserId = tostring(followUserId)
 	end
 	if type(config.FollowEnabled) == "boolean" then
-		configuration.FollowEnabled = config.FollowEnabled and configuration.SelectedFollowUserId ~= nil
+		configurations.FollowEnabled = config.FollowEnabled and configurations.SelectedFollowUserId ~= nil
 	elseif isLegacyFollowConfig then
-		configuration.FollowEnabled = configuration.SelectedFollowUserId ~= nil
+		configurations.FollowEnabled = configurations.SelectedFollowUserId ~= nil
 	end
-	if type(config.PartyFollowEnabled) == "boolean" then configuration.PartyFollowEnabled = config.PartyFollowEnabled end
+	if type(config.PartyFollowEnabled) == "boolean" then configurations.PartyFollowEnabled = config.PartyFollowEnabled end
 	local partyLeaderUserId = tonumber(config.PartyLeaderUserId)
 	if partyLeaderUserId and partyLeaderUserId > 0 and partyLeaderUserId % 1 == 0 then
-		configuration.PartyLeaderUserId = partyLeaderUserId
-		configuration.PartyLeaderName = type(config.PartyLeaderName) == "string" and config.PartyLeaderName or nil
+		configurations.PartyLeaderUserId = partyLeaderUserId
+		configurations.PartyLeaderName = type(config.PartyLeaderName) == "string" and config.PartyLeaderName or nil
 	end
-	configuration.PartyResumeFarmOnJoin = config.PartyResumeFarmOnJoin == true
-	configuration.MainWidthScale = math.clamp(ReadNumber("MainWidthScale", configuration.MainWidthScale, 0.2, false), 0.2, 0.75)
-	configuration.MainHeightScale = math.clamp(ReadNumber("MainHeightScale", configuration.MainHeightScale, 0.4, false), 0.4, 0.95)
+	configurations.PartyResumeFarmOnJoin = config.PartyResumeFarmOnJoin == true
+	configurations.MainWidthScale = math.clamp(ReadNumber("MainWidthScale", configurations.MainWidthScale, 0.2, false), 0.2, 0.75)
+	configurations.MainHeightScale = math.clamp(ReadNumber("MainHeightScale", configurations.MainHeightScale, 0.4, false), 0.4, 0.95)
+	configurations.GuiScale = math.clamp(ReadNumber("GuiScale", configurations.GuiScale, 1, false), 0.20, 2.50)
+	configurations.TextScale = math.clamp(ReadNumber("TextScale", configurations.TextScale, 1, false), 0.20, 2.50)
 	local camera = workspace.CurrentCamera
 	local viewport = camera and camera.ViewportSize or Vector2.new(1000, 800)
 	local legacyWidth = tonumber(config.MainWidth)
 	if config.MainWidthScale == nil and legacyWidth then
-		configuration.MainWidthScale = math.clamp(legacyWidth / math.max(1, viewport.X), 0.2, 0.75)
+		configurations.MainWidthScale = math.clamp(legacyWidth / math.max(1, viewport.X), 0.2, 0.75)
 	end
 	local legacyHeight = tonumber(config.MainHeight)
 	if config.MainHeightScale == nil and legacyHeight then
-		configuration.MainHeightScale = math.clamp(legacyHeight / math.max(1, viewport.Y), 0.4, 0.95)
+		configurations.MainHeightScale = math.clamp(legacyHeight / math.max(1, viewport.Y), 0.4, 0.95)
 	end
-	configuration.PlayerPanelWidthScale = math.clamp(ReadNumber("PlayerPanelWidthScale", configuration.PlayerPanelWidthScale, 0.28, false), 0.28, 0.8)
-	configuration.PlayerPanelHeightScale = math.clamp(ReadNumber("PlayerPanelHeightScale", configuration.PlayerPanelHeightScale, 0.35, false), 0.35, 0.9)
-	configuration.WhitelistPanelWidthScale = math.clamp(ReadNumber("WhitelistPanelWidthScale", configuration.WhitelistPanelWidthScale, 0.26, false), 0.26, 0.8)
-	configuration.WhitelistPanelHeightScale = math.clamp(ReadNumber("WhitelistPanelHeightScale", configuration.WhitelistPanelHeightScale, 0.32, false), 0.32, 0.9)
-	if type(config.AlertsEnabled) == "boolean" then configuration.AlertsEnabled = config.AlertsEnabled end
-	if type(config.JoinAlertsEnabled) == "boolean" then configuration.JoinAlertsEnabled = config.JoinAlertsEnabled end
+	configurations.PlayerPanelWidthScale = math.clamp(ReadNumber("PlayerPanelWidthScale", configurations.PlayerPanelWidthScale, 0.28, false), 0.28, 0.8)
+	configurations.PlayerPanelHeightScale = math.clamp(ReadNumber("PlayerPanelHeightScale", configurations.PlayerPanelHeightScale, 0.35, false), 0.35, 0.9)
+	configurations.WhitelistPanelWidthScale = math.clamp(ReadNumber("WhitelistPanelWidthScale", configurations.WhitelistPanelWidthScale, 0.26, false), 0.26, 0.8)
+	configurations.WhitelistPanelHeightScale = math.clamp(ReadNumber("WhitelistPanelHeightScale", configurations.WhitelistPanelHeightScale, 0.32, false), 0.32, 0.9)
+	configurations.JoinLogWidthScale = math.clamp(ReadNumber("JoinLogWidthScale", configurations.JoinLogWidthScale, 0.38, false), 0.28, 0.8)
+	configurations.JoinLogHeightScale = math.clamp(ReadNumber("JoinLogHeightScale", configurations.JoinLogHeightScale, 0.54, false), 0.35, 0.9)
+	if type(config.AlertsEnabled) == "boolean" then configurations.AlertsEnabled = config.AlertsEnabled end
+	if type(config.JoinAlertsEnabled) == "boolean" then configurations.JoinAlertsEnabled = config.JoinAlertsEnabled end
 	if config.AutoResumeAfterAlertVersion == 1 and type(config.AutoResumeAfterAlert) == "boolean" then
-		configuration.AutoResumeAfterAlert = config.AutoResumeAfterAlert
+		configurations.AutoResumeAfterAlert = config.AutoResumeAfterAlert
 	elseif config.AutoResumeAfterAlertVersion ~= 1 then
 		-- Older configs predate the resume setting; migrate them to the new default.
-		configuration.AutoResumeAfterAlert = true
-		configuration.MigratedLegacyConfig = true
+		configurations.AutoResumeAfterAlert = true
+		configurations.MigratedLegacyConfig = true
 	end
-	if type(config.AlertFlashEnabled) == "boolean" then configuration.AlertFlashEnabled = config.AlertFlashEnabled end
-	if type(config.AutoBlockEnabled) == "boolean" then configuration.AutoBlockEnabled = config.AutoBlockEnabled end
-	if type(config.MovementBoostEnabled) == "boolean" then configuration.MovementBoostEnabled = config.MovementBoostEnabled end
-	if type(config.SafeBoosterResetEnabled) == "boolean" then configuration.SafeBoosterResetEnabled = config.SafeBoosterResetEnabled end
-	if type(config.AutoAttackEnabled) == "boolean" then configuration.AutoAttackEnabled = config.AutoAttackEnabled end
-	if type(config.AutoBossTargetEnabled) == "boolean" then configuration.AutoBossTargetEnabled = config.AutoBossTargetEnabled end
-	if type(config.AutoMiniBossTargetEnabled) == "boolean" then configuration.AutoMiniBossTargetEnabled = config.AutoMiniBossTargetEnabled end
-	if type(config.WaypointReturnEnabled) == "boolean" then configuration.WaypointReturnEnabled = config.WaypointReturnEnabled end
-	if type(config.WaypointBillboardEnabled) == "boolean" then configuration.WaypointBillboardEnabled = config.WaypointBillboardEnabled end
-	if type(config.ExpTargetRetaliationEnabled) == "boolean" then configuration.ExpTargetRetaliationEnabled = config.ExpTargetRetaliationEnabled end
-	if type(config.ExpHitFeedbackEnabled) == "boolean" then configuration.ExpHitFeedbackEnabled = config.ExpHitFeedbackEnabled end
-	if type(config.AutoSkillEnabled) == "boolean" then configuration.AutoSkillEnabled = config.AutoSkillEnabled end
-	if type(config.ESPEnabled) == "boolean" then configuration.ESPEnabled = config.ESPEnabled end
-	if type(config.ESPLineEnabled) == "boolean" then configuration.ESPLineEnabled = config.ESPLineEnabled end
-	if type(config.ESPBoxEnabled) == "boolean" then configuration.ESPBoxEnabled = config.ESPBoxEnabled end
-	if type(config.AntiAFKEnabled) == "boolean" then configuration.AntiAFKEnabled = config.AntiAFKEnabled end
-	configuration.SavedMinimized = config.Minimized == true
+	if type(config.AlertFlashEnabled) == "boolean" then configurations.AlertFlashEnabled = config.AlertFlashEnabled end
+	if type(config.AutoBlockEnabled) == "boolean" then configurations.AutoBlockEnabled = config.AutoBlockEnabled end
+	if type(config.MovementBoostEnabled) == "boolean" then configurations.MovementBoostEnabled = config.MovementBoostEnabled end
+	if type(config.SafeBoosterResetEnabled) == "boolean" then configurations.SafeBoosterResetEnabled = config.SafeBoosterResetEnabled end
+	if type(config.AutoAttackEnabled) == "boolean" then configurations.AutoAttackEnabled = config.AutoAttackEnabled end
+	if type(config.AutoBossTargetEnabled) == "boolean" then configurations.AutoBossTargetEnabled = config.AutoBossTargetEnabled end
+	if type(config.AutoMiniBossTargetEnabled) == "boolean" then configurations.AutoMiniBossTargetEnabled = config.AutoMiniBossTargetEnabled end
+	if type(config.WaypointReturnEnabled) == "boolean" then configurations.WaypointReturnEnabled = config.WaypointReturnEnabled end
+	if type(config.WaypointBillboardEnabled) == "boolean" then configurations.WaypointBillboardEnabled = config.WaypointBillboardEnabled end
+	if type(config.ExpTargetRetaliationEnabled) == "boolean" then configurations.ExpTargetRetaliationEnabled = config.ExpTargetRetaliationEnabled end
+	if type(config.ExpHitFeedbackEnabled) == "boolean" then configurations.ExpHitFeedbackEnabled = config.ExpHitFeedbackEnabled end
+	if type(config.AutoSkillEnabled) == "boolean" then configurations.AutoSkillEnabled = config.AutoSkillEnabled end
+	if type(config.ESPEnabled) == "boolean" then configurations.ESPEnabled = config.ESPEnabled end
+	if type(config.ESPLineEnabled) == "boolean" then configurations.ESPLineEnabled = config.ESPLineEnabled end
+	if type(config.ESPBoxEnabled) == "boolean" then configurations.ESPBoxEnabled = config.ESPBoxEnabled end
+	if type(config.AntiAFKEnabled) == "boolean" then configurations.AntiAFKEnabled = config.AntiAFKEnabled end
+	configurations.SavedMinimized = config.Minimized == true
 	if type(config.WhitelistIds) == "table" then
 		for _, userId in ipairs(config.WhitelistIds) do
 			local id = tostring(userId)
 			if id:match("^%d+$") and tonumber(id) and tonumber(id) > 0 then
-				configuration.WhitelistIds[id] = true
+				configurations.WhitelistIds[id] = true
 			end
 		end
 	end
@@ -608,91 +595,96 @@ function configuration.LoadConfig()
 		for _, userId in ipairs(config.PinnedPlayerIds) do
 			local id = tostring(userId)
 			if id:match("^%d+$") and tonumber(id) and tonumber(id) > 0 then
-				configuration.PinnedPlayerIds[id] = true
+				configurations.PinnedPlayerIds[id] = true
 			end
 		end
 	end
 end
 
-function configuration.SaveConfig()
+function configurations.SaveConfig()
+	if configurations.IsStudio then return false end
 	if type(writefile) ~= "function" then
-		if not configuration.ConfigSaveWarningShown then
+		if not configurations.ConfigSaveWarningShown then
 			warn("[Iamrich] Config was not saved: this executor does not provide writefile.")
-			configuration.ConfigSaveWarningShown = true
+			configurations.ConfigSaveWarningShown = true
 		end
 		return false
 	end
-	configuration.PrepareConfigStorage()
+	configurations.PrepareConfigStorage()
 	local ids = {}
-	for userId in pairs(configuration.WhitelistIds) do
+	for userId in pairs(configurations.WhitelistIds) do
 		table.insert(ids, userId)
 	end
 	table.sort(ids, function(a, b) return tonumber(a) < tonumber(b) end)
 	local pinnedIds = {}
-	for userId in pairs(configuration.PinnedPlayerIds) do
+	for userId in pairs(configurations.PinnedPlayerIds) do
 		table.insert(pinnedIds, userId)
 	end
 	table.sort(pinnedIds, function(a, b) return tonumber(a) < tonumber(b) end)
 
 	local config = {
-		Amount = configuration.Amount,
-		MaxDistance = configuration.MaxDistance,
-		ExpApproachDistance = configuration.ExpApproachDistance,
-		ExpAutoApproachEnabled = configuration.ExpAutoApproachEnabled,
-		Interval = configuration.Interval,
-		ExpGoal = configuration.ExpGoal,
-		AutoExecuteEnabled = configuration.AutoExecuteEnabled,
-		AlertsDistance = configuration.AlertsDistance,
-		FollowDistance = configuration.FollowDistance,
-		FollowTargetVisible = configuration.FollowTargetVisible,
-		FollowTargetUserId = configuration.SelectedFollowUserId,
-		FollowEnabled = configuration.FollowEnabled,
-		PartyFollowEnabled = configuration.PartyFollowEnabled,
-		PartyLeaderUserId = configuration.PartyLeaderUserId,
-		PartyLeaderName = configuration.PartyLeaderName,
-		PartyResumeFarmOnJoin = configuration.PartyResumeFarmOnJoin,
-		FPSBoostEnabled = configuration.FPSBoostEnabled,
-		AutoAttackEnabled = configuration.AutoAttackEnabled,
-		AutoBossTargetEnabled = configuration.AutoBossTargetEnabled,
-		AutoMiniBossTargetEnabled = configuration.AutoMiniBossTargetEnabled,
-		ExpTargetRetaliationEnabled = configuration.ExpTargetRetaliationEnabled,
-		ExpHitFeedbackEnabled = configuration.ExpHitFeedbackEnabled,
-		AutoAttackRange = configuration.AutoAttackRange,
-		AutoAttackSearchRange = configuration.AutoAttackSearchRange,
-		WaypointPosition = configuration.WaypointPosition and {
-			X = configuration.WaypointPosition.X,
-			Y = configuration.WaypointPosition.Y,
-			Z = configuration.WaypointPosition.Z,
+		Amount = configurations.Amount,
+		MaxDistance = configurations.MaxDistance,
+		ExpApproachDistance = configurations.ExpApproachDistance,
+		ExpAutoApproachEnabled = configurations.ExpAutoApproachEnabled,
+		Interval = configurations.Interval,
+		ExpGoal = configurations.ExpGoal,
+		AutoExecuteEnabled = configurations.AutoExecuteEnabled,
+		AlertsDistance = configurations.AlertsDistance,
+		FollowDistance = configurations.FollowDistance,
+		FollowTargetVisible = configurations.FollowTargetVisible,
+		FollowTargetUserId = configurations.SelectedFollowUserId,
+		FollowEnabled = configurations.FollowEnabled,
+		PartyFollowEnabled = configurations.PartyFollowEnabled,
+		PartyLeaderUserId = configurations.PartyLeaderUserId,
+		PartyLeaderName = configurations.PartyLeaderName,
+		PartyResumeFarmOnJoin = configurations.PartyResumeFarmOnJoin,
+		FPSBoostEnabled = configurations.FPSBoostEnabled,
+		AutoAttackEnabled = configurations.AutoAttackEnabled,
+		AutoBossTargetEnabled = configurations.AutoBossTargetEnabled,
+		AutoMiniBossTargetEnabled = configurations.AutoMiniBossTargetEnabled,
+		ExpTargetRetaliationEnabled = configurations.ExpTargetRetaliationEnabled,
+		ExpHitFeedbackEnabled = configurations.ExpHitFeedbackEnabled,
+		AutoAttackRange = configurations.AutoAttackRange,
+		AutoAttackSearchRange = configurations.AutoAttackSearchRange,
+		WaypointPosition = configurations.WaypointPosition and {
+			X = configurations.WaypointPosition.X,
+			Y = configurations.WaypointPosition.Y,
+			Z = configurations.WaypointPosition.Z,
 		} or nil,
-		WaypointReturnEnabled = configuration.WaypointReturnEnabled,
-		WaypointBillboardEnabled = configuration.WaypointBillboardEnabled,
-		AutoAttackInterval = configuration.AutoAttackInterval,
-		AutoSkillEnabled = configuration.AutoSkillEnabled,
-		AutoSkillInterval = configuration.AutoSkillInterval,
-		MainWidthScale = configuration.MainWidthScale,
-		MainHeightScale = configuration.MainHeightScale,
-		PlayerPanelWidthScale = configuration.PlayerPanelWidthScale,
-		PlayerPanelHeightScale = configuration.PlayerPanelHeightScale,
-		WhitelistPanelWidthScale = configuration.WhitelistPanelWidthScale,
-		WhitelistPanelHeightScale = configuration.WhitelistPanelHeightScale,
-		AlertsEnabled = configuration.AlertsEnabled,
-		JoinAlertsEnabled = configuration.JoinAlertsEnabled,
-		AutoResumeAfterAlert = configuration.AutoResumeAfterAlert,
+		WaypointReturnEnabled = configurations.WaypointReturnEnabled,
+		WaypointBillboardEnabled = configurations.WaypointBillboardEnabled,
+		AutoAttackInterval = configurations.AutoAttackInterval,
+		AutoSkillEnabled = configurations.AutoSkillEnabled,
+		AutoSkillInterval = configurations.AutoSkillInterval,
+		MainWidthScale = configurations.MainWidthScale,
+		MainHeightScale = configurations.MainHeightScale,
+		GuiScale = configurations.GuiScale,
+		TextScale = configurations.TextScale,
+		PlayerPanelWidthScale = configurations.PlayerPanelWidthScale,
+		PlayerPanelHeightScale = configurations.PlayerPanelHeightScale,
+		WhitelistPanelWidthScale = configurations.WhitelistPanelWidthScale,
+		WhitelistPanelHeightScale = configurations.WhitelistPanelHeightScale,
+		JoinLogWidthScale = configurations.JoinLogWidthScale,
+		JoinLogHeightScale = configurations.JoinLogHeightScale,
+		AlertsEnabled = configurations.AlertsEnabled,
+		JoinAlertsEnabled = configurations.JoinAlertsEnabled,
+		AutoResumeAfterAlert = configurations.AutoResumeAfterAlert,
 		AutoResumeAfterAlertVersion = 1,
-		AlertFlashEnabled = configuration.AlertFlashEnabled,
-		AutoBlockEnabled = configuration.AutoBlockEnabled,
-		MovementBoostEnabled = configuration.MovementBoostEnabled,
-		SafeBoosterResetEnabled = configuration.SafeBoosterResetEnabled,
-		ESPEnabled = configuration.ESPEnabled,
-		ESPLineEnabled = configuration.ESPLineEnabled,
-		ESPBoxEnabled = configuration.ESPBoxEnabled,
-		AntiAFKEnabled = configuration.AntiAFKEnabled,
+		AlertFlashEnabled = configurations.AlertFlashEnabled,
+		AutoBlockEnabled = configurations.AutoBlockEnabled,
+		MovementBoostEnabled = configurations.MovementBoostEnabled,
+		SafeBoosterResetEnabled = configurations.SafeBoosterResetEnabled,
+		ESPEnabled = configurations.ESPEnabled,
+		ESPLineEnabled = configurations.ESPLineEnabled,
+		ESPBoxEnabled = configurations.ESPBoxEnabled,
+		AntiAFKEnabled = configurations.AntiAFKEnabled,
 		WhitelistIds = ids,
 		PinnedPlayerIds = pinnedIds,
-		Minimized = configuration.IsMinimized == true,
+		Minimized = configurations.IsMinimized == true,
 	}
 	local ok, err = pcall(function()
-		writefile(configuration.ConfigFileName, HttpService:JSONEncode(config))
+		writefile(configurations.ConfigFileName, HttpService:JSONEncode(config))
 	end)
 	if not ok then
 		warn("[Iamrich] Config save failed:", err)
@@ -700,19 +692,19 @@ function configuration.SaveConfig()
 	return ok
 end
 
-function configuration.SetFPSBoost(enabled)
+function configurations.SetFPSBoost(enabled)
 	enabled = enabled == true
-	if configuration.FPSBoostEnabled == enabled then return enabled end
-	configuration.FPSBoostEnabled = enabled
-	configuration.FPSBoostSystem.SetEnabled(enabled)
-	configuration.SaveConfig()
+	if configurations.FPSBoostEnabled == enabled then return enabled end
+	configurations.FPSBoostEnabled = enabled
+	configurations.FPSBoostSystem.SetEnabled(enabled)
+	configurations.SaveConfig()
 	return enabled
 end
 
-configuration.LoadConfig()
-if configuration.PartySystem then
-	configuration.PartySystemInitOk, configuration.PartySystemInitResult = pcall(function()
-		return configuration.PartySystem.Initialize(configuration, {
+configurations.LoadConfig()
+if configurations.PartySystem then
+	configurations.PartySystemInitOk, configurations.PartySystemInitResult = pcall(function()
+		return configurations.PartySystem.Initialize(configurations, {
 			Players = Players,
 			Player = Player,
 			ReplicatedStorage = ReplicatedStorage,
@@ -720,93 +712,93 @@ if configuration.PartySystem then
 			HttpService = HttpService,
 		})
 	end)
-	if configuration.PartySystemInitOk then
-		configuration.PartySystem = configuration.PartySystemInitResult
+	if configurations.PartySystemInitOk then
+		configurations.PartySystem = configurations.PartySystemInitResult
 	else
-		warn("[Iamrich] PartySystem failed to initialize:", configuration.PartySystemInitResult)
-		configuration.PartySystem = nil
+		warn("[Iamrich] PartySystem failed to initialize:", configurations.PartySystemInitResult)
+		configurations.PartySystem = nil
 	end
 end
-if not configuration.SafeBoosterResetAvailable then configuration.SafeBoosterResetEnabled = false end
-if configuration.FPSBoostEnabled then configuration.FPSBoostSystem.SetEnabled(true) end
-configuration.FollowSystem.SetTargetLineVisible(configuration.FollowTargetVisible)
-if configuration.MigratedLegacyConfig then
-	configuration.SaveConfig()
+if not configurations.SafeBoosterResetAvailable then configurations.SafeBoosterResetEnabled = false end
+if configurations.FPSBoostEnabled then configurations.FPSBoostSystem.SetEnabled(true) end
+configurations.FollowSystem.SetTargetLineVisible(configurations.FollowTargetVisible)
+if configurations.MigratedLegacyConfig then
+	configurations.SaveConfig()
 end
-function configuration.IsWhitelisted(otherPlayer)
-	return configuration.WhitelistIds[tostring(otherPlayer.UserId)] == true
+function configurations.IsWhitelisted(otherPlayer)
+	return configurations.WhitelistIds[tostring(otherPlayer.UserId)] == true
 end
 
-configuration.JoinAlertSeen = {}
-configuration.PlayerJoinLog = {}
-configuration.JoinLogOnline = {}
-function configuration.RecordPlayerLog(player, eventType)
+configurations.JoinAlertSeen = {}
+configurations.PlayerJoinLog = {}
+configurations.JoinLogOnline = {}
+function configurations.RecordPlayerLog(player, eventType)
 	if not player or player == Player then return false end
-	table.insert(configuration.PlayerJoinLog, {
+	table.insert(configurations.PlayerJoinLog, {
 		Time = os.date("%H:%M:%S"),
 		Event = eventType,
 		Username = player.Name,
 		UserId = tostring(player.UserId),
-		Whitelisted = configuration.IsWhitelisted(player),
-		SpecialThreat = configuration.SpecialGroupThreatUsers[tostring(player.UserId)] == true
-			and not configuration.IsWhitelisted(player),
+		Whitelisted = configurations.IsWhitelisted(player),
+		SpecialThreat = configurations.SpecialGroupThreatUsers[tostring(player.UserId)] == true
+			and not configurations.IsWhitelisted(player),
 	})
-	while #configuration.PlayerJoinLog > 100 do
-		table.remove(configuration.PlayerJoinLog, 1)
+	while #configurations.PlayerJoinLog > 100 do
+		table.remove(configurations.PlayerJoinLog, 1)
 	end
-	if configuration.JoinLogPanel and configuration.JoinLogPanel.Visible then
-		configuration.RefreshJoinLog()
+	if configurations.JoinLogPanel and configurations.JoinLogPanel.Visible then
+		configurations.RefreshJoinLog()
 	end
 	return true
 end
 
-function configuration.StartSpecialGroupServerHop(player)
-	if configuration.SpecialGroupHopStarted or not player or player.Parent ~= Players
-		or configuration.IsWhitelisted(player) then
+function configurations.StartSpecialGroupServerHop(player)
+	if configurations.SpecialGroupHopStarted or not player or player.Parent ~= Players
+		or configurations.IsWhitelisted(player) then
 		return false
 	end
-	configuration.SpecialGroupHopStarted = true
-	configuration.SpecialGroupHopAttempts += 1
-	configuration.Farming = false
-	configuration.PendingServerHop = false
-	configuration.ServerHopKillTarget = nil
+	configurations.SpecialGroupHopStarted = true
+	configurations.SpecialGroupHopAttempts += 1
+	configurations.Farming = false
+	configurations.PendingServerHop = false
+	configurations.ServerHopKillTarget = nil
 	task.spawn(function()
-		if player.Parent ~= Players or configuration.IsWhitelisted(player) then
-			configuration.SpecialGroupHopStarted = false
+		if player.Parent ~= Players or configurations.IsWhitelisted(player) then
+			configurations.SpecialGroupHopStarted = false
 			return
 		end
 		local ok, err = pcall(function()
 			TeleportService:Teleport(game.PlaceId, Player)
 		end)
 		if not ok then
-			configuration.SpecialGroupHopStarted = false
+			configurations.SpecialGroupHopStarted = false
 			warn("Special group server hop failed:", err)
-			if configuration.SpecialGroupHopAttempts < 3 then
-				configuration.NotifyUser("Server hop failed", "Retrying the server hop.", 6)
+			if configurations.SpecialGroupHopAttempts < 3 then
+				configurations.NotifyUser("Server hop failed", "Retrying the server hop.", 6)
 				task.delay(3, function()
-					configuration.StartSpecialGroupServerHop(player)
+					configurations.StartSpecialGroupServerHop(player)
 				end)
 			else
-				configuration.NotifyUser("Server hop failed", "Teleport failed after 3 attempts.", 7)
+				configurations.NotifyUser("Server hop failed", "Teleport failed after 3 attempts.", 7)
 			end
 		end
 	end)
 	return true
 end
 
-function configuration.MarkSpecialGroupThreat(player)
+function configurations.MarkSpecialGroupThreat(player)
 	if not player or player == Player or player.Parent ~= Players then return false end
 	local userId = tostring(player.UserId)
-	configuration.SpecialGroupThreatUsers[userId] = true
-	if configuration.IsWhitelisted(player) then
-		if configuration.JoinLogPanel and configuration.JoinLogPanel.Visible and configuration.RefreshJoinLog then
-			configuration.RefreshJoinLog()
+	configurations.SpecialGroupThreatUsers[userId] = true
+	if configurations.IsWhitelisted(player) then
+		if configurations.JoinLogPanel and configurations.JoinLogPanel.Visible and configurations.RefreshJoinLog then
+			configurations.RefreshJoinLog()
 		end
 		return false
 	end
 	local markedEntry = nil
-	for index = #configuration.PlayerJoinLog, 1, -1 do
-		local entry = configuration.PlayerJoinLog[index]
+	for index = #configurations.PlayerJoinLog, 1, -1 do
+		local entry = configurations.PlayerJoinLog[index]
 		if entry.UserId == userId then
 			entry.SpecialThreat = true
 			markedEntry = entry
@@ -814,140 +806,140 @@ function configuration.MarkSpecialGroupThreat(player)
 		end
 	end
 	if not markedEntry then
-		configuration.RecordPlayerLog(player, "present")
-		markedEntry = configuration.PlayerJoinLog[#configuration.PlayerJoinLog]
+		configurations.RecordPlayerLog(player, "present")
+		markedEntry = configurations.PlayerJoinLog[#configurations.PlayerJoinLog]
 		if markedEntry and markedEntry.UserId == userId then markedEntry.SpecialThreat = true end
 	end
-	if configuration.JoinLogPanel and configuration.JoinLogPanel.Visible and configuration.RefreshJoinLog then
-		configuration.RefreshJoinLog()
+	if configurations.JoinLogPanel and configurations.JoinLogPanel.Visible and configurations.RefreshJoinLog then
+		configurations.RefreshJoinLog()
 	end
-	configuration.NotifyUser("Special danger", "@" .. player.Name .. " is in group 5928691. Leaving this server.", 7)
-	configuration.StartSpecialGroupServerHop(player)
+	configurations.NotifyUser("Special danger", "@" .. player.Name .. " is in group 5928691. Leaving this server.", 7)
+	configurations.StartSpecialGroupServerHop(player)
 	return true
 end
 
-function configuration.CheckSpecialGroupPlayer(player)
+function configurations.CheckSpecialGroupPlayer(player)
 	if not player or player == Player then return false end
 	local userId = tostring(player.UserId)
-	if configuration.IsWhitelisted(player) then return false end
-	if configuration.SpecialGroupThreatUsers[userId] then
-		configuration.StartSpecialGroupServerHop(player)
+	if configurations.IsWhitelisted(player) then return false end
+	if configurations.SpecialGroupThreatUsers[userId] then
+		configurations.StartSpecialGroupServerHop(player)
 		return true
 	end
-	if configuration.SpecialGroupCheckedUsers[userId] or configuration.SpecialGroupCheckInFlight[userId] then return false end
-	configuration.SpecialGroupCheckInFlight[userId] = true
+	if configurations.SpecialGroupCheckedUsers[userId] or configurations.SpecialGroupCheckInFlight[userId] then return false end
+	configurations.SpecialGroupCheckInFlight[userId] = true
 	task.spawn(function()
 		local ok, isMember = pcall(function()
 			return player:IsInGroupAsync(5928691)
 		end)
-		configuration.SpecialGroupCheckInFlight[userId] = nil
+		configurations.SpecialGroupCheckInFlight[userId] = nil
 		if not ok then
 			warn("Special group membership check failed for @" .. player.Name .. ":", isMember)
-			configuration.SpecialGroupCheckFailures[userId] = (configuration.SpecialGroupCheckFailures[userId] or 0) + 1
-			if configuration.SpecialGroupCheckFailures[userId] < 3 then
+			configurations.SpecialGroupCheckFailures[userId] = (configurations.SpecialGroupCheckFailures[userId] or 0) + 1
+			if configurations.SpecialGroupCheckFailures[userId] < 3 then
 				task.delay(5, function()
-					if player.Parent == Players then configuration.CheckSpecialGroupPlayer(player) end
+					if player.Parent == Players then configurations.CheckSpecialGroupPlayer(player) end
 				end)
 			else
-				configuration.NotifyUser("Group check failed", "Could not check @" .. player.Name .. " after 3 tries.", 7)
+				configurations.NotifyUser("Group check failed", "Could not check @" .. player.Name .. " after 3 tries.", 7)
 			end
 			return
 		end
-		configuration.SpecialGroupCheckFailures[userId] = nil
-		configuration.SpecialGroupCheckedUsers[userId] = true
+		configurations.SpecialGroupCheckFailures[userId] = nil
+		configurations.SpecialGroupCheckedUsers[userId] = true
 		if isMember and player.Parent == Players then
-			configuration.MarkSpecialGroupThreat(player)
+			configurations.MarkSpecialGroupThreat(player)
 		end
 	end)
 	return true
 end
 
-function configuration.OnWhitelistChanged(userId)
-	if configuration.JoinLogPanel and configuration.JoinLogPanel.Visible and configuration.RefreshJoinLog then
-		configuration.RefreshJoinLog()
+function configurations.OnWhitelistChanged(userId)
+	if configurations.JoinLogPanel and configurations.JoinLogPanel.Visible and configurations.RefreshJoinLog then
+		configurations.RefreshJoinLog()
 	end
 	if userId == nil then return end
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
-		if tostring(otherPlayer.UserId) == tostring(userId) and not configuration.IsWhitelisted(otherPlayer) then
-			if configuration.SpecialGroupThreatUsers[tostring(userId)] then
-				configuration.MarkSpecialGroupThreat(otherPlayer)
+		if tostring(otherPlayer.UserId) == tostring(userId) and not configurations.IsWhitelisted(otherPlayer) then
+			if configurations.SpecialGroupThreatUsers[tostring(userId)] then
+				configurations.MarkSpecialGroupThreat(otherPlayer)
 			else
-				configuration.CheckSpecialGroupPlayer(otherPlayer)
+				configurations.CheckSpecialGroupPlayer(otherPlayer)
 			end
 			return
 		end
 	end
 end
 
-function configuration.NotifyUnwhitelistedPlayer(player, wasAlreadyHere)
-	if not player or player == Player or configuration.JoinAlertsEnabled ~= true
-		or configuration.IsWhitelisted(player) then
+function configurations.NotifyUnwhitelistedPlayer(player, wasAlreadyHere)
+	if not player or player == Player or configurations.JoinAlertsEnabled ~= true
+		or configurations.IsWhitelisted(player) then
 		return false
 	end
 	local userId = tostring(player.UserId)
-	if configuration.JoinAlertSeen[userId] then return false end
-	configuration.JoinAlertSeen[userId] = true
+	if configurations.JoinAlertSeen[userId] then return false end
+	configurations.JoinAlertSeen[userId] = true
 	local title = wasAlreadyHere and "Player already in server" or "Player joined"
 	local message = "@" .. player.Name .. (wasAlreadyHere and " is already here." or " joined the server.")
-	configuration.NotifyUser(title, message, 6)
+	configurations.NotifyUser(title, message, 6)
 	return true
 end
 
-function configuration.ScanServerJoinAlerts()
+function configurations.ScanServerJoinAlerts()
 	local alerted = 0
 	for _, player in ipairs(Players:GetPlayers()) do
-		if configuration.NotifyUnwhitelistedPlayer(player, true) then alerted += 1 end
+		if configurations.NotifyUnwhitelistedPlayer(player, true) then alerted += 1 end
 	end
 	return alerted
 end
 
-function configuration.SetJoinAlertsEnabled(enabled)
-	configuration.JoinAlertsEnabled = enabled == true
-	if configuration.JoinAlertsEnabled then
-		configuration.ScanServerJoinAlerts()
+function configurations.SetJoinAlertsEnabled(enabled)
+	configurations.JoinAlertsEnabled = enabled == true
+	if configurations.JoinAlertsEnabled then
+		configurations.ScanServerJoinAlerts()
 	end
-	configuration.SaveConfig()
-	return configuration.JoinAlertsEnabled
+	configurations.SaveConfig()
+	return configurations.JoinAlertsEnabled
 end
 
 Players.PlayerAdded:Connect(function(player)
 	if player ~= Player then
 		local userId = tostring(player.UserId)
-		if not configuration.JoinLogOnline[userId] then
-			configuration.JoinLogOnline[userId] = true
-			configuration.RecordPlayerLog(player, "joined")
+		if not configurations.JoinLogOnline[userId] then
+			configurations.JoinLogOnline[userId] = true
+			configurations.RecordPlayerLog(player, "joined")
 		end
 	end
-	task.defer(configuration.NotifyUnwhitelistedPlayer, player, false)
-	configuration.CheckSpecialGroupPlayer(player)
+	task.defer(configurations.NotifyUnwhitelistedPlayer, player, false)
+	configurations.CheckSpecialGroupPlayer(player)
 end)
 Players.PlayerRemoving:Connect(function(player)
 	if player ~= Player then
 		local userId = tostring(player.UserId)
-		if configuration.JoinLogOnline[userId] then
-			configuration.RecordPlayerLog(player, "left")
+		if configurations.JoinLogOnline[userId] then
+			configurations.RecordPlayerLog(player, "left")
 		end
-		configuration.JoinLogOnline[userId] = nil
+		configurations.JoinLogOnline[userId] = nil
 	end
-	configuration.JoinAlertSeen[tostring(player.UserId)] = nil
-	configuration.SpecialGroupCheckedUsers[tostring(player.UserId)] = nil
-	configuration.SpecialGroupCheckFailures[tostring(player.UserId)] = nil
+	configurations.JoinAlertSeen[tostring(player.UserId)] = nil
+	configurations.SpecialGroupCheckedUsers[tostring(player.UserId)] = nil
+	configurations.SpecialGroupCheckFailures[tostring(player.UserId)] = nil
 end)
 for _, existingPlayer in ipairs(Players:GetPlayers()) do
 	if existingPlayer ~= Player then
 		local userId = tostring(existingPlayer.UserId)
-		if not configuration.JoinLogOnline[userId] then
-			configuration.JoinLogOnline[userId] = true
-			configuration.RecordPlayerLog(existingPlayer, "present")
+		if not configurations.JoinLogOnline[userId] then
+			configurations.JoinLogOnline[userId] = true
+			configurations.RecordPlayerLog(existingPlayer, "present")
 		end
-		configuration.CheckSpecialGroupPlayer(existingPlayer)
+		configurations.CheckSpecialGroupPlayer(existingPlayer)
 	end
 end
-if configuration.JoinAlertsEnabled then
-	task.defer(configuration.ScanServerJoinAlerts)
+if configurations.JoinAlertsEnabled then
+	task.defer(configurations.ScanServerJoinAlerts)
 end
 
-function configuration.GetBlockedUserSet()
+function configurations.GetBlockedUserSet()
 	local ok, blockedUserIds = pcall(function()
 		return StarterGui:GetCore("GetBlockedUserIds")
 	end)
@@ -959,21 +951,21 @@ function configuration.GetBlockedUserSet()
 	return blocked
 end
 
-function configuration.IsPlayerESPEnabled(otherPlayer)
+function configurations.IsPlayerESPEnabled(otherPlayer)
 	local userId = tostring(otherPlayer.UserId)
-	local explicitSetting = configuration.PlayerESPEnabled[userId]
+	local explicitSetting = configurations.PlayerESPEnabled[userId]
 	if explicitSetting ~= nil then return explicitSetting == true end
-	return not configuration.IsWhitelisted(otherPlayer)
+	return not configurations.IsWhitelisted(otherPlayer)
 end
 
-function configuration.GetPlayerHealth(otherPlayer)
+function configurations.GetPlayerHealth(otherPlayer)
 	local character = otherPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then return nil, nil end
 	return math.max(0, math.floor(humanoid.Health + 0.5)), math.max(0, math.floor(humanoid.MaxHealth + 0.5))
 end
 
-function configuration.GetPlayerStats(otherPlayer)
+function configurations.GetPlayerStats(otherPlayer)
 	local stats = otherPlayer:FindFirstChild("PlayerStats")
 	local level = stats and stats:FindFirstChild("Level")
 	local defense = stats and stats:FindFirstChild("Defense")
@@ -982,50 +974,52 @@ function configuration.GetPlayerStats(otherPlayer)
 	return levelValue, defenseValue
 end
 
-function configuration.FormatPlayerStats(otherPlayer)
-	local level, defense = configuration.GetPlayerStats(otherPlayer)
+function configurations.FormatPlayerStats(otherPlayer)
+	local level, defense = configurations.GetPlayerStats(otherPlayer)
 	return string.format("Level %s  •  Defense %s", level ~= nil and tostring(level) or "—", defense ~= nil and tostring(defense) or "—")
 end
 
-function configuration.GetPlayerListStatValues(otherPlayer)
-	local statsFolder = otherPlayer:FindFirstChild("PlayerStats")
-	local valueObjects = {}
-	if statsFolder then
-		for _, child in ipairs(statsFolder:GetChildren()) do
-			valueObjects[string.lower(child.Name)] = child
-		end
-	end
-	local function readValue(fullName, shortName)
-		local valueObject = valueObjects[string.lower(fullName)] or valueObjects[string.lower(shortName)]
-		if not valueObject or not valueObject:IsA("ValueBase") then return "—" end
-		local value = valueObject.Value
-		if type(value) == "number" then return string.format("%.0f", value) end
-		return tostring(value)
-	end
-	return {
-		Level = readValue("Level", "LVL"),
-		Defense = readValue("Defense", "DEF"),
-		Strength = readValue("Strength", "STR"),
-		Agility = readValue("Agility", "AGI"),
-		Luck = readValue("Luck", "LUK"),
-		Vitality = readValue("Vitality", "VIT"),
-	}
+local function ReadPlayerListValue(statsFolder, fullName, shortName)
+	if not statsFolder then return "—" end
+	local valueObject = statsFolder:FindFirstChild(fullName) or statsFolder:FindFirstChild(shortName)
+	if not valueObject or not valueObject:IsA("ValueBase") then return "—" end
+	local value = valueObject.Value
+	if type(value) == "number" then return string.format("%.0f", value) end
+	return tostring(value)
 end
 
-function configuration.FormatPlayerListStats(otherPlayer)
-	local stats = configuration.GetPlayerListStatValues(otherPlayer)
+function configurations.GetPlayerListStatValues(otherPlayer)
+	local statsFolder = otherPlayer and otherPlayer:FindFirstChild("PlayerStats")
+	return ReadPlayerListValue(statsFolder, "Level", "LVL"),
+		ReadPlayerListValue(statsFolder, "Defense", "DEF"),
+		ReadPlayerListValue(statsFolder, "Strength", "STR"),
+		ReadPlayerListValue(statsFolder, "Agility", "AGI"),
+		ReadPlayerListValue(statsFolder, "Luck", "LUK"),
+		ReadPlayerListValue(statsFolder, "Vitality", "VIT")
+end
+
+function configurations.FormatPlayerListStats(otherPlayer)
+	local level, defense, strength, agility, luck, vitality = configurations.GetPlayerListStatValues(otherPlayer)
 	return string.format(
 		"LVL %s\nDEF %s  STR %s  AGI %s  LUK %s  VIT %s",
-		stats.Level,
-		stats.Defense,
-		stats.Strength,
-		stats.Agility,
-		stats.Luck,
-		stats.Vitality
+		level, defense, strength, agility, luck, vitality
 	)
 end
 
-function configuration.GetPlayerPassiveMode(otherPlayer)
+function configurations.GetPlayerExpProgress(otherPlayer)
+	local statsFolder = otherPlayer and otherPlayer:FindFirstChild("PlayerStats")
+	if not statsFolder then return nil, nil, nil, 0 end
+	local levelObject = statsFolder:FindFirstChild("Level") or statsFolder:FindFirstChild("LVL")
+	local expObject = statsFolder:FindFirstChild("EXP") or statsFolder:FindFirstChild("Exp")
+	local level = levelObject and tonumber(levelObject.Value)
+	local exp = expObject and tonumber(expObject.Value)
+	if not level or not exp then return level, exp, nil, 0 end
+	local maxExp = configurations.NeededExp(level)
+	local ratio = maxExp > 0 and math.clamp(exp / maxExp, 0, 1) or 0
+	return level, exp, maxExp, ratio
+end
+
+function configurations.GetPlayerPassiveMode(otherPlayer)
 	local statsFolder = otherPlayer and otherPlayer:FindFirstChild("PlayerStats")
 	local passiveMode = statsFolder and statsFolder:FindFirstChild("PassiveMode")
 	if not passiveMode or not passiveMode:IsA("ValueBase") then return nil end
@@ -1037,13 +1031,15 @@ function configuration.GetPlayerPassiveMode(otherPlayer)
 	return nil
 end
 
-function configuration.FormatPlayerDisplayName(otherPlayer)
-	local passiveMode = configuration.GetPlayerPassiveMode(otherPlayer)
+function configurations.FormatPlayerDisplayName(otherPlayer)
+	local passiveMode = configurations.GetPlayerPassiveMode(otherPlayer)
 	local passiveText = passiveMode == true and "ON" or (passiveMode == false and "OFF" or "—")
 	return otherPlayer.DisplayName .. "  ·  PASSIVE " .. passiveText
 end
 
 -- Local player level + EXP progress from PlayerStats and/or the game's HUD ("EXP: 58354/59211").
+local HUD_EXP_NAMES = { "EXP", "Exp", "Experience", "EXPLabel", "ExpLabel", "LevelEXP", "LevelExp" }
+
 local LevelProgressCache = {
 	ExpLabel = nil,
 	LastScanAt = 0,
@@ -1131,7 +1127,7 @@ local function FindHudExpLabel(force)
 	-- Fast path: GameGui common layout.
 	local gameGui = playerGui:FindFirstChild("GameGui")
 	if gameGui then
-		for _, name in ipairs({ "EXP", "Exp", "Experience", "EXPLabel", "ExpLabel", "LevelEXP", "LevelExp" }) do
+		for _, name in ipairs(HUD_EXP_NAMES) do
 			local node = gameGui:FindFirstChild(name, true)
 			if node and consider(node) then
 				return LevelProgressCache.ExpLabel
@@ -1162,7 +1158,7 @@ local function FindHudExpLabel(force)
 end
 
 -- Game formula: total EXP required for the given level bar.
-function configuration.NeededExp(lvl)
+function configurations.NeededExp(lvl)
 	lvl = tonumber(lvl)
 	if not lvl or lvl < 1 then return 9 end
 	lvl = math.floor(lvl) - 1
@@ -1173,7 +1169,7 @@ function configuration.NeededExp(lvl)
 	return total
 end
 
-function configuration.GetLocalLevelProgress()
+function configurations.GetLocalLevelProgress()
 	local level, exp, maxExp = nil, nil, nil
 
 	local ok, err = pcall(function()
@@ -1206,7 +1202,7 @@ function configuration.GetLocalLevelProgress()
 		end
 
 		if level then
-			maxExp = configuration.NeededExp(level)
+			maxExp = configurations.NeededExp(level)
 		end
 	end)
 
@@ -1225,7 +1221,7 @@ function configuration.GetLocalLevelProgress()
 	end
 
 	if level and not maxExp then
-		maxExp = configuration.NeededExp(level)
+		maxExp = configurations.NeededExp(level)
 	end
 
 	local ratio = nil
@@ -1239,36 +1235,38 @@ end
 --==================================================
 -- COLORS (Slayers2-inspired dark blue UI)
 --==================================================
-local BG         = Color3.fromRGB(16, 18, 26)      -- main window
-local SIDEBAR_BG = Color3.fromRGB(12, 14, 22)      -- left sidebar
-local CARD       = Color3.fromRGB(24, 28, 40)      -- content cards / rows
-local INPUT      = Color3.fromRGB(32, 36, 50)      -- inputs
-local BORDER     = Color3.fromRGB(42, 48, 64)
-local TEXT       = Color3.fromRGB(236, 240, 248)
-local MUTED      = Color3.fromRGB(130, 138, 158)
-local ACCENT     = Color3.fromRGB(90, 160, 255)    -- switch / accent blue
-local ACCENT_SEL = Color3.fromRGB(120, 180, 255)
-local GREEN      = Color3.fromRGB(76, 218, 164)
-local RED        = Color3.fromRGB(255, 92, 112)
-local YELLOW     = Color3.fromRGB(255, 196, 92)
-local ACCENT_DIM = Color3.fromRGB(32, 56, 96)
-local GREEN_DIM  = Color3.fromRGB(24, 53, 45)
-local RED_DIM    = Color3.fromRGB(56, 30, 37)
-local SEL_BG     = Color3.fromRGB(48, 78, 130)     -- selected nav (soft blue fill)
-local SEL_TEXT   = Color3.fromRGB(220, 235, 255)   -- light text on selected
+local UIColors = {
+	BG = Color3.fromRGB(16, 18, 26),
+	SIDEBAR_BG = Color3.fromRGB(12, 14, 22),
+	CARD = Color3.fromRGB(24, 28, 40),
+	INPUT = Color3.fromRGB(32, 36, 50),
+	BORDER = Color3.fromRGB(42, 48, 64),
+	TEXT = Color3.fromRGB(236, 240, 248),
+	MUTED = Color3.fromRGB(130, 138, 158),
+	ACCENT = Color3.fromRGB(90, 160, 255),
+	ACCENT_SEL = Color3.fromRGB(120, 180, 255),
+	GREEN = Color3.fromRGB(76, 218, 164),
+	RED = Color3.fromRGB(255, 92, 112),
+	YELLOW = Color3.fromRGB(255, 196, 92),
+	ACCENT_DIM = Color3.fromRGB(32, 56, 96),
+	GREEN_DIM = Color3.fromRGB(24, 53, 45),
+	RED_DIM = Color3.fromRGB(56, 30, 37),
+	SEL_BG = Color3.fromRGB(48, 78, 130),     -- selected nav (soft blue fill),
+	SEL_TEXT = Color3.fromRGB(220, 235, 255),
+}
 
-function configuration.GetHealthColor(current, maximum)
-	if not current or not maximum or maximum <= 0 then return MUTED end
+function configurations.GetHealthColor(current, maximum)
+	if not current or not maximum or maximum <= 0 then return UIColors.MUTED end
 	local ratio = current / maximum
-	if ratio <= 0.25 then return RED end
-	if ratio <= 0.6 then return YELLOW end
-	return GREEN
+	if ratio <= 0.25 then return UIColors.RED end
+	if ratio <= 0.6 then return UIColors.YELLOW end
+	return UIColors.GREEN
 end
 
 --==================================================
 -- HELPERS
 --==================================================
-function configuration.FormatNumber(n)
+function configurations.FormatNumber(n)
 	n = tonumber(n)
 	if not n then return "0" end
 	local s = tostring(math.floor(n + 0))
@@ -1279,7 +1277,7 @@ function configuration.FormatNumber(n)
 	return result
 end
 
-function configuration.FormatTime(sec)
+function configurations.FormatTime(sec)
 	local h = math.floor(sec / 3600)
 	local m = math.floor((sec % 3600) / 60)
 	local s = math.floor(sec % 60)
@@ -1289,19 +1287,19 @@ end
 --==================================================
 -- BILLBOARD
 --==================================================
-function configuration.ClearBillboard()
-	if configuration.CurrentBillboard then
-		pcall(function() configuration.CurrentBillboard:Destroy() end)
-		configuration.CurrentBillboard = nil
+function configurations.ClearBillboard()
+	if configurations.CurrentBillboard then
+		pcall(function() configurations.CurrentBillboard:Destroy() end)
+		configurations.CurrentBillboard = nil
 	end
-	configuration.BillboardAdornee = nil
+	configurations.BillboardAdornee = nil
 end
 
-function configuration.BuildBillboardText(expValue, isMax)
+function configurations.BuildBillboardText(expValue, isMax)
 	local cur = tonumber(expValue) or 0
-	local goal = tonumber(configuration.ExpGoal) or 0
-	local curText = configuration.FormatNumber(cur)
-	local goalText = configuration.FormatNumber(goal)
+	local goal = tonumber(configurations.ExpGoal) or 0
+	local curText = configurations.FormatNumber(cur)
+	local goalText = configurations.FormatNumber(goal)
 	if isMax or (goal > 0 and cur >= goal) then
 		return "MAX\n" .. curText .. " / " .. goalText, true
 	end
@@ -1313,8 +1311,8 @@ end
 local BILLBOARD_WIDTH = 150
 local BILLBOARD_HEIGHT = 52
 
-function configuration.AttachBillboard(mob, expValue)
-	configuration.ClearBillboard()
+function configurations.AttachBillboard(mob, expValue)
+	configurations.ClearBillboard()
 	if not mob then return end
 	local root = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
 	if not root or not root:IsA("BasePart") then return end
@@ -1346,7 +1344,7 @@ function configuration.AttachBillboard(mob, expValue)
 
 	local stroke = Instance.new("UIStroke", frame)
 	stroke.Name = "Stroke"
-	stroke.Color = ACCENT
+	stroke.Color = UIColors.ACCENT
 	stroke.Thickness = 1.5
 
 	local label = Instance.new("TextLabel")
@@ -1354,7 +1352,7 @@ function configuration.AttachBillboard(mob, expValue)
 	label.Size = UDim2.new(1, -8, 1, -4)
 	label.Position = UDim2.fromOffset(4, 2)
 	label.BackgroundTransparency = 1
-	label.TextColor3 = ACCENT
+	label.TextColor3 = UIColors.ACCENT
 	label.TextSize = 12
 	label.Font = Enum.Font.GothamBold
 	label.TextYAlignment = Enum.TextYAlignment.Center
@@ -1362,29 +1360,29 @@ function configuration.AttachBillboard(mob, expValue)
 	label.TextWrapped = true
 	label.Parent = frame
 
-	local text, isMax = configuration.BuildBillboardText(expValue, false)
+	local text, isMax = configurations.BuildBillboardText(expValue, false)
 	label.Text = text
-	label.TextColor3 = isMax and GREEN or ACCENT
-	if isMax then stroke.Color = GREEN end
+	label.TextColor3 = isMax and UIColors.GREEN or UIColors.ACCENT
+	if isMax then stroke.Color = UIColors.GREEN end
 
-	configuration.CurrentBillboard = bb
-	configuration.BillboardAdornee = root
+	configurations.CurrentBillboard = bb
+	configurations.BillboardAdornee = root
 end
 
-function configuration.UpdateBillboardText(expValue, isMax)
-	local bb = configuration.CurrentBillboard
+function configurations.UpdateBillboardText(expValue, isMax)
+	local bb = configurations.CurrentBillboard
 	if not bb or not bb.Parent then
-		configuration.CurrentBillboard = nil
-		configuration.BillboardAdornee = nil
+		configurations.CurrentBillboard = nil
+		configurations.BillboardAdornee = nil
 		return
 	end
 	-- Keep adornee on the live root if the mob's PrimaryPart changed.
-	local target = configuration.CurrentTarget
+	local target = configurations.CurrentTarget
 	if target and target.Parent then
 		local root = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
 		if root and root:IsA("BasePart") and bb.Adornee ~= root then
 			bb.Adornee = root
-			configuration.BillboardAdornee = root
+			configurations.BillboardAdornee = root
 		end
 	end
 	-- Re-assert fixed pixel size (prevents any accidental scale mutation).
@@ -1394,14 +1392,14 @@ function configuration.UpdateBillboardText(expValue, isMax)
 	end
 	local label = bb:FindFirstChild("Text", true)
 	if not label then return end
-	local text, maxed = configuration.BuildBillboardText(expValue, isMax)
+	local text, maxed = configurations.BuildBillboardText(expValue, isMax)
 	if label.Text ~= text then
 		label.Text = text
 	end
-	label.TextColor3 = maxed and GREEN or ACCENT
+	label.TextColor3 = maxed and UIColors.GREEN or UIColors.ACCENT
 	local stroke = bb:FindFirstChild("Stroke", true)
 	if stroke then
-		stroke.Color = maxed and GREEN or ACCENT
+		stroke.Color = maxed and UIColors.GREEN or UIColors.ACCENT
 	end
 end
 
@@ -1417,34 +1415,98 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = Player:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromScale(configuration.MainWidthScale, configuration.MainHeightScale)
-Main.Position = UDim2.fromScale(0.5 - configuration.MainWidthScale / 2, 0.5 - configuration.MainHeightScale / 2)
+Main.Size = UDim2.fromScale(configurations.MainWidthScale, configurations.MainHeightScale)
+Main.Position = UDim2.fromScale(0.5 - configurations.MainWidthScale / 2, 0.5 - configurations.MainHeightScale / 2)
 Main.ZIndex = 90
-Main.BackgroundColor3 = BG
+Main.BackgroundColor3 = UIColors.BG
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
 local MainStroke = Instance.new("UIStroke", Main)
-MainStroke.Color = BORDER
+MainStroke.Color = UIColors.BORDER
 MainStroke.Thickness = 1
 MainStroke.Transparency = 0.4
 
-function configuration.ApplyResponsiveMainSize()
-	if configuration.IsMinimized then return end
+local MainUIScale = Instance.new("UIScale")
+MainUIScale.Name = "GuiScale"
+MainUIScale.Scale = configurations.GuiScale
+MainUIScale.Parent = Main
+
+-- UI-wide text scaling. Base sizes are stored once so changing the setting
+-- repeatedly never compounds the scale or changes the original design values.
+function configurations.ApplyTextScale(root)
+	root = root or Main
+	local scale = math.clamp(tonumber(configurations.TextScale) or 1, 0.20, 2.50)
+	for _, obj in ipairs(root:GetDescendants()) do
+		if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+			if not obj.TextScaled then
+				local base = obj:GetAttribute("IamrichBaseTextSize")
+				if type(base) ~= "number" then
+					base = obj.TextSize
+					obj:SetAttribute("IamrichBaseTextSize", base)
+				end
+				obj.TextSize = math.max(1, math.floor(base * scale + 0.5))
+			end
+		end
+	end
+end
+
+function configurations.ApplyGuiScale()
+	if not MainUIScale or not MainUIScale.Parent then return end
+	local scale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+	local camera = workspace.CurrentCamera
+	if not camera then
+		MainUIScale.Scale = scale
+		return
+	end
+
+	-- Keep the window's current center in the same place when the scale changes.
+	local viewport = camera.ViewportSize
+	local center = Main.AbsolutePosition + Main.AbsoluteSize * 0.5
+	MainUIScale.Scale = scale
+
+	local newSize = Main.AbsoluteSize
+	if viewport.X > 0 and viewport.Y > 0 then
+		Main.Position = UDim2.fromScale(
+			math.clamp((center.X - newSize.X * 0.5) / viewport.X, 0, math.max(0, 1 - newSize.X / viewport.X)),
+			math.clamp((center.Y - newSize.Y * 0.5) / viewport.Y, 0, math.max(0, 1 - newSize.Y / viewport.Y))
+		)
+	end
+end
+
+configurations.SetGuiScale = function(value, save)
+	configurations.GuiScale = math.clamp(tonumber(value) or 1, 0.20, 2.50)
+	configurations.ApplyGuiScale()
+	if save ~= false and configurations.SaveConfig then
+		configurations.SaveConfig()
+	end
+end
+
+configurations.SetTextScale = function(value, save)
+	configurations.TextScale = math.clamp(tonumber(value) or 1, 0.20, 2.50)
+	configurations.ApplyTextScale(Main)
+	if save ~= false and configurations.SaveConfig then
+		configurations.SaveConfig()
+	end
+end
+
+function configurations.ApplyResponsiveMainSize()
+	if configurations.IsMinimized then return end
 	local camera = workspace.CurrentCamera
 	if not camera then return end
 	local viewport = camera.ViewportSize
 	if viewport.X < 1 or viewport.Y < 1 then return end
-	local maxWidth = math.max(0.2, math.min(1600 / viewport.X, 1 - 16 / viewport.X))
-	local minWidth = math.min(820 / viewport.X, maxWidth)
-	local maxHeight = math.max(0.4, math.min(1050 / viewport.Y, 1 - 16 / viewport.Y))
-	local minHeight = math.min(560 / viewport.Y, maxHeight)
-	local width = math.clamp(configuration.MainWidthScale, minWidth, maxWidth)
-	local height = math.clamp(configuration.MainHeightScale, minHeight, maxHeight)
+	local uiScale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+	local maxWidth = math.max(0.2, math.min(1600 / (viewport.X * uiScale), (1 - 16 / viewport.X) / uiScale))
+	local minWidth = math.min(820 / (viewport.X * uiScale), maxWidth)
+	local maxHeight = math.max(0.4, math.min(1050 / (viewport.Y * uiScale), (1 - 16 / viewport.Y) / uiScale))
+	local minHeight = math.min(560 / (viewport.Y * uiScale), maxHeight)
+	local width = math.clamp(configurations.MainWidthScale, minWidth, maxWidth)
+	local height = math.clamp(configurations.MainHeightScale, minHeight, maxHeight)
 	Main.Size = UDim2.fromScale(width, height)
-	if not configuration.MainWindowInitialized then
+	if not configurations.MainWindowInitialized then
 		Main.Position = UDim2.fromScale((1 - width) * 0.5, (1 - height) * 0.5)
-		configuration.MainWindowInitialized = true
+		configurations.MainWindowInitialized = true
 	else
 		Main.Position = UDim2.fromScale(
 			math.clamp(Main.Position.X.Scale, 0, 1 - width),
@@ -1453,18 +1515,18 @@ function configuration.ApplyResponsiveMainSize()
 	end
 end
 
-configuration.ApplyResponsiveMainSize()
-configuration.BindResponsiveViewport = function()
+configurations.ApplyResponsiveMainSize()
+configurations.BindResponsiveViewport = function()
 	local camera = workspace.CurrentCamera
 	if camera then
 		camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-			configuration.ApplyResponsiveMainSize()
-			if configuration.ApplyResponsiveOverlaySizes then configuration.ApplyResponsiveOverlaySizes() end
+			configurations.ApplyResponsiveMainSize()
+			if configurations.ApplyResponsiveOverlaySizes then configurations.ApplyResponsiveOverlaySizes() end
 		end)
 	end
 end
-configuration.BindResponsiveViewport()
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(configuration.BindResponsiveViewport)
+configurations.BindResponsiveViewport()
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(configurations.BindResponsiveViewport)
 
 --==================================================
 -- HEADER (compact)
@@ -1492,13 +1554,13 @@ HeaderFix.Parent = Header
 local HeaderRule = Instance.new("Frame")
 HeaderRule.Size = UDim2.new(1, -20, 0, 1)
 HeaderRule.Position = UDim2.new(0, 10, 1, -1)
-HeaderRule.BackgroundColor3 = BORDER
+HeaderRule.BackgroundColor3 = UIColors.BORDER
 HeaderRule.BackgroundTransparency = 0.4
 HeaderRule.BorderSizePixel = 0
 HeaderRule.Parent = Header
 
 local WindowDots = {}
-function configuration.MakeWindowDot(x, color)
+function configurations.MakeWindowDot(x, color)
 	local dot = Instance.new("Frame")
 	dot.Size = UDim2.fromScale(0.018, 0.28)
 	dot.Position = UDim2.fromScale(x, 0.36)
@@ -1509,16 +1571,16 @@ function configuration.MakeWindowDot(x, color)
 	table.insert(WindowDots, dot)
 	return dot
 end
-configuration.MakeWindowDot(0.035, Color3.fromRGB(255, 95, 86))
-configuration.MakeWindowDot(0.075, Color3.fromRGB(255, 190, 46))
-configuration.MakeWindowDot(0.115, Color3.fromRGB(40, 201, 64))
+configurations.MakeWindowDot(0.035, Color3.fromRGB(255, 95, 86))
+configurations.MakeWindowDot(0.075, Color3.fromRGB(255, 190, 46))
+configurations.MakeWindowDot(0.115, Color3.fromRGB(40, 201, 64))
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.fromScale(0.50, 0.42)
 Title.Position = UDim2.fromScale(0.155, 0.28)
 Title.BackgroundTransparency = 1
 Title.Text = "EXP+"
-Title.TextColor3 = TEXT
+Title.TextColor3 = UIColors.TEXT
 Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -1529,7 +1591,7 @@ Subtitle.Size = UDim2.fromScale(0.30, 0.30)
 Subtitle.Position = UDim2.fromScale(0.42, 0.35)
 Subtitle.BackgroundTransparency = 1
 Subtitle.Text = "Primary"
-Subtitle.TextColor3 = MUTED
+Subtitle.TextColor3 = UIColors.MUTED
 Subtitle.TextSize = 12
 Subtitle.Font = Enum.Font.Gotham
 Subtitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -1539,11 +1601,11 @@ Subtitle.Parent = Header
 local Status = Instance.new("TextButton")
 Status.Size = UDim2.fromOffset(48, 20)
 Status.Position = UDim2.new(1, -84, 0, 10)
-Status.BackgroundColor3 = RED_DIM
+Status.BackgroundColor3 = UIColors.RED_DIM
 Status.BorderSizePixel = 0
 Status.AutoButtonColor = false
 Status.Text = "OFF"
-Status.TextColor3 = RED
+Status.TextColor3 = UIColors.RED
 Status.TextSize = 11
 Status.Font = Enum.Font.GothamBold
 Status.Parent = Header
@@ -1552,17 +1614,17 @@ Instance.new("UICorner", Status).CornerRadius = UDim.new(1, 0)
 local MinimizeBtn = Instance.new("TextButton")
 MinimizeBtn.Size = UDim2.fromOffset(24, 24)
 MinimizeBtn.Position = UDim2.new(1, -32, 0, 8)
-MinimizeBtn.BackgroundColor3 = INPUT
+MinimizeBtn.BackgroundColor3 = UIColors.INPUT
 MinimizeBtn.BorderSizePixel = 0
 MinimizeBtn.Text = "−"
-MinimizeBtn.TextColor3 = TEXT
+MinimizeBtn.TextColor3 = UIColors.TEXT
 MinimizeBtn.TextSize = 16
 MinimizeBtn.Font = Enum.Font.GothamBold
 MinimizeBtn.Parent = Header
 Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 6)
 
 --==================================================
--- MINI CARD (compact EXP box when minimized)
+-- MINI UIColors.CARD (compact EXP box when minimized)
 --==================================================
 local MINI_WIDTH = 300
 local MINI_HEIGHT = 136
@@ -1586,7 +1648,7 @@ local MiniTitle = Instance.new("TextLabel")
 MiniTitle.Size = UDim2.new(0.4, 0, 1, 0)
 MiniTitle.BackgroundTransparency = 1
 MiniTitle.Text = "EXP+"
-MiniTitle.TextColor3 = TEXT
+MiniTitle.TextColor3 = UIColors.TEXT
 MiniTitle.TextSize = 13
 MiniTitle.Font = Enum.Font.GothamBold
 MiniTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -1598,7 +1660,7 @@ MiniLevel.Size = UDim2.new(0.55, 0, 0, 14)
 MiniLevel.Position = UDim2.fromOffset(10, 30)
 MiniLevel.BackgroundTransparency = 1
 MiniLevel.Text = "Lv —"
-MiniLevel.TextColor3 = ACCENT
+MiniLevel.TextColor3 = UIColors.ACCENT
 MiniLevel.TextSize = 11
 MiniLevel.Font = Enum.Font.GothamBold
 MiniLevel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1611,7 +1673,7 @@ MiniExp.Size = UDim2.new(0.58, 0, 0, 28)
 MiniExp.Position = UDim2.fromOffset(10, 44)
 MiniExp.BackgroundTransparency = 1
 MiniExp.Text = "0"
-MiniExp.TextColor3 = GREEN
+MiniExp.TextColor3 = UIColors.GREEN
 MiniExp.TextSize = 24
 MiniExp.Font = Enum.Font.GothamBlack
 MiniExp.TextXAlignment = Enum.TextXAlignment.Left
@@ -1621,8 +1683,8 @@ local MiniMax = Instance.new("TextLabel")
 MiniMax.Size = UDim2.new(0.55, 0, 0, 14)
 MiniMax.Position = UDim2.fromOffset(10, 72)
 MiniMax.BackgroundTransparency = 1
-MiniMax.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
-MiniMax.TextColor3 = MUTED
+MiniMax.Text = "/ " .. configurations.FormatNumber(configurations.ExpGoal)
+MiniMax.TextColor3 = UIColors.MUTED
 MiniMax.TextSize = 11
 MiniMax.Font = Enum.Font.Gotham
 MiniMax.TextXAlignment = Enum.TextXAlignment.Left
@@ -1636,7 +1698,7 @@ MiniTime.Position = UDim2.new(1, -12, 0, 42)
 MiniTime.AnchorPoint = Vector2.new(1, 0)
 MiniTime.BackgroundTransparency = 1
 MiniTime.Text = "00:00:00"
-MiniTime.TextColor3 = YELLOW
+MiniTime.TextColor3 = UIColors.YELLOW
 MiniTime.TextSize = 14
 MiniTime.Font = Enum.Font.GothamBold
 MiniTime.TextXAlignment = Enum.TextXAlignment.Right
@@ -1649,7 +1711,7 @@ MiniState.Position = UDim2.fromOffset(10, 105)
 MiniState.AnchorPoint = Vector2.new(0, 0)
 MiniState.BackgroundTransparency = 1
 MiniState.Text = "Idle"
-MiniState.TextColor3 = MUTED
+MiniState.TextColor3 = UIColors.MUTED
 MiniState.TextSize = 11
 MiniState.Font = Enum.Font.Gotham
 MiniState.TextXAlignment = Enum.TextXAlignment.Left
@@ -1662,7 +1724,7 @@ MiniLevelExpLabel.Size = UDim2.new(0.55, 0, 0, 14)
 MiniLevelExpLabel.Position = UDim2.fromOffset(70, 30)
 MiniLevelExpLabel.BackgroundTransparency = 1
 MiniLevelExpLabel.Text = "Exp —/—"
-MiniLevelExpLabel.TextColor3 = MUTED
+MiniLevelExpLabel.TextColor3 = UIColors.MUTED
 MiniLevelExpLabel.TextSize = 11
 MiniLevelExpLabel.Font = Enum.Font.Gotham
 MiniLevelExpLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1672,7 +1734,7 @@ MiniLevelExpLabel.Parent = MiniBar
 local MiniBarBg = Instance.new("Frame")
 MiniBarBg.Size = UDim2.new(1, -20, 0, 5)
 MiniBarBg.Position = UDim2.fromOffset(10, 96)
-MiniBarBg.BackgroundColor3 = INPUT
+MiniBarBg.BackgroundColor3 = UIColors.INPUT
 MiniBarBg.BorderSizePixel = 0
 MiniBarBg.Parent = MiniBar
 Instance.new("UICorner", MiniBarBg).CornerRadius = UDim.new(1, 0)
@@ -1680,13 +1742,13 @@ Instance.new("UICorner", MiniBarBg).CornerRadius = UDim.new(1, 0)
 local MiniBarFill = Instance.new("Frame")
 MiniBarFill.Name = "MiniBarFill"
 MiniBarFill.Size = UDim2.fromScale(0, 1)
-MiniBarFill.BackgroundColor3 = GREEN
+MiniBarFill.BackgroundColor3 = UIColors.GREEN
 MiniBarFill.BorderSizePixel = 0
 MiniBarFill.Parent = MiniBarBg
 Instance.new("UICorner", MiniBarFill).CornerRadius = UDim.new(1, 0)
 
-function configuration.ApplyMinimized(state)
-	configuration.IsMinimized = state
+function configurations.ApplyMinimized(state)
+	configurations.IsMinimized = state
 	if Content then Content.Visible = not state end
 	if ContentPanel then ContentPanel.Visible = not state end
 	if Sidebar then Sidebar.Visible = not state end
@@ -1705,7 +1767,7 @@ function configuration.ApplyMinimized(state)
 		-- Compact floating card
 		Main.Size = UDim2.fromOffset(MINI_WIDTH, MINI_HEIGHT)
 		Header.Size = UDim2.fromScale(1, 1)
-		Header.BackgroundColor3 = BG
+		Header.BackgroundColor3 = UIColors.BG
 		-- Keep near previous top-left, clamp into viewport
 		local camera = workspace.CurrentCamera
 		local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
@@ -1720,8 +1782,8 @@ function configuration.ApplyMinimized(state)
 	else
 		Header.BackgroundColor3 = Color3.fromRGB(18, 20, 30)
 		Header.Size = UDim2.fromScale(1, 0.09)
-		configuration.MainWindowInitialized = true
-		configuration.ApplyResponsiveMainSize()
+		configurations.MainWindowInitialized = true
+		configurations.ApplyResponsiveMainSize()
 		if SavedMainPosition then
 			Main.Position = SavedMainPosition
 		else
@@ -1741,44 +1803,69 @@ function configuration.ApplyMinimized(state)
 	if resizeHandle then resizeHandle.Visible = not state end
 end
 
-configuration.IsMinimized = configuration.SavedMinimized
+configurations.IsMinimized = configurations.SavedMinimized
 MinimizeBtn.MouseButton1Click:Connect(function()
-	configuration.ApplyMinimized(not configuration.IsMinimized)
-	configuration.SaveConfig()
+	configurations.ApplyMinimized(not configurations.IsMinimized)
+	configurations.SaveConfig()
 end)
 
 -- Drag
-local Dragging, DragStart, StartPos = false, nil, nil
+local Dragging = false
+local DragStart = nil
+local StartPos = nil
+
 Header.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		Dragging = true
-		DragStart = input.Position
-		StartPos = Main.Position
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				Dragging = false
-			end
-		end)
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1
+		and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
 	end
-end)
-UserInputService.InputChanged:Connect(function(input)
-	if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-		local d = input.Position - DragStart
-		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
-		if not viewport then return end
-		if configuration.IsMinimized then
-			local startX = StartPos.X.Scale * viewport.X + StartPos.X.Offset
-			local startY = StartPos.Y.Scale * viewport.Y + StartPos.Y.Offset
-			local px = math.clamp(startX + d.X, 4, math.max(4, viewport.X - MINI_WIDTH - 4))
-			local py = math.clamp(startY + d.Y, 4, math.max(4, viewport.Y - MINI_HEIGHT - 4))
-			Main.Position = UDim2.fromOffset(px, py)
-		else
-			Main.Position = UDim2.fromScale(
-				math.clamp(StartPos.X.Scale + d.X / viewport.X, 0, 1 - configuration.MainWidthScale),
-				math.clamp(StartPos.Y.Scale + d.Y / viewport.Y, 0, 1 - configuration.MainHeightScale)
-			)
+
+	Dragging = true
+	DragStart = input.Position
+	StartPos = Main.AbsolutePosition
+
+	input.Changed:Connect(function()
+		if input.UserInputState == Enum.UserInputState.End then
+			Dragging = false
 		end
+	end)
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if not Dragging then
+		return
 	end
+
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement
+		and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+
+	local parent = Main.Parent
+	if not parent then
+		return
+	end
+
+	local parentSize = parent.AbsoluteSize
+	local mainSize = Main.AbsoluteSize
+	local delta = input.Position - DragStart
+
+	local x = StartPos.X + delta.X
+	local y = StartPos.Y + delta.Y
+
+	x = math.clamp(
+		x,
+		0,
+		math.max(0, parentSize.X - mainSize.X)
+	)
+
+	y = math.clamp(
+		y,
+		0,
+		math.max(0, parentSize.Y - mainSize.Y)
+	)
+
+	Main.Position = UDim2.fromOffset(x, y)
 end)
 
 --==================================================
@@ -1809,18 +1896,18 @@ ContentPad.PaddingRight = UDim.new(0, 12)
 ContentPad.PaddingBottom = UDim.new(0, 8)
 ContentPad.Parent = Content
 
-configuration.ApplyMinimized(configuration.IsMinimized)
+configurations.ApplyMinimized(configurations.IsMinimized)
 
 local Pages = {}
 local PageLayouts = {}
-function configuration.CreatePage(name, visible)
+function configurations.CreatePage(name, visible)
 	local page = Instance.new("ScrollingFrame")
 	page.Name = name .. "Page"
 	page.Size = UDim2.fromScale(1, 1)
 	page.BackgroundTransparency = 1
 	page.BorderSizePixel = 0
 	page.ScrollBarThickness = 3
-	page.ScrollBarImageColor3 = MUTED
+	page.ScrollBarImageColor3 = UIColors.MUTED
 	page.CanvasSize = UDim2.new()
 	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	page.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -1835,16 +1922,16 @@ function configuration.CreatePage(name, visible)
 	return page
 end
 
-local ExpPage = configuration.CreatePage("EXP", true)
-local ESPPage = configuration.CreatePage("ESP", false)
-local PlayerPage = configuration.CreatePage("Player", false)
-local AlertsPage = configuration.CreatePage("Alerts", false)
-local FarmPage = configuration.CreatePage("Farm", false)
-local CombatPage = configuration.CreatePage("Combat", false)
-local WaypointPage = configuration.CreatePage("Waypoint", false)
-local PerformancePage = configuration.CreatePage("Performance", false)
+local ExpPage = configurations.CreatePage("EXP", true)
+local ESPPage = configurations.CreatePage("ESP", false)
+local PlayerPage = configurations.CreatePage("Player", false)
+local AlertsPage = configurations.CreatePage("Alerts", false)
+local FarmPage = configurations.CreatePage("Farm", false)
+local CombatPage = configurations.CreatePage("Combat", false)
+local WaypointPage = configurations.CreatePage("Waypoint", false)
+local PerformancePage = configurations.CreatePage("Performance", false)
 
-function configuration.AddPageHeading(page, title, description)
+function configurations.AddPageHeading(page, title, description)
 	local heading = Instance.new("Frame")
 	heading.Size = UDim2.new(1, 0, 0, 52)
 	heading.LayoutOrder = 1
@@ -1855,7 +1942,7 @@ function configuration.AddPageHeading(page, title, description)
 	titleLabel.Position = UDim2.fromOffset(6, 2)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = title
-	titleLabel.TextColor3 = TEXT
+	titleLabel.TextColor3 = UIColors.TEXT
 	titleLabel.TextSize = 18
 	titleLabel.Font = Enum.Font.GothamBold
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1865,7 +1952,7 @@ function configuration.AddPageHeading(page, title, description)
 	descriptionLabel.Position = UDim2.fromOffset(6, 28)
 	descriptionLabel.BackgroundTransparency = 1
 	descriptionLabel.Text = description
-	descriptionLabel.TextColor3 = MUTED
+	descriptionLabel.TextColor3 = UIColors.MUTED
 	descriptionLabel.TextSize = 12
 	descriptionLabel.Font = Enum.Font.Gotham
 	descriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1873,22 +1960,22 @@ function configuration.AddPageHeading(page, title, description)
 	return heading
 end
 
-configuration.AddPageHeading(ExpPage, "Experience", "Track your level, EXP and active farm session")
-configuration.AddPageHeading(ESPPage, "ESP", "Show other players on screen")
-configuration.AddPageHeading(PlayerPage, "Players", "Choose a follow target and manage whitelist and player list")
-configuration.AddPageHeading(AlertsPage, "Alerts & protection", "Nearby alerts, join log and automatic block prompt")
-configuration.AddPageHeading(FarmPage, "EXP farm settings", "EXP cycle, range, timing and target behavior")
-configuration.AddPageHeading(CombatPage, "Combat & targets", "Auto attack, skills and mob targeting")
-configuration.AddPageHeading(WaypointPage, "Waypoint movement", "Pin a position and return when displaced")
-configuration.AddPageHeading(PerformancePage, "Performance", "Reduce graphics load while playing")
+configurations.AddPageHeading(ExpPage, "Experience", "Track your level, EXP and active farm session")
+configurations.AddPageHeading(ESPPage, "ESP", "Show other players on screen")
+configurations.AddPageHeading(PlayerPage, "Players", "Choose a follow target and manage whitelist and player list")
+configurations.AddPageHeading(AlertsPage, "Alerts & protection", "Nearby alerts, join log and automatic block prompt")
+configurations.AddPageHeading(FarmPage, "EXP farm settings", "EXP cycle, range, timing and target behavior")
+configurations.AddPageHeading(CombatPage, "Combat & targets", "Auto attack, skills and mob targeting")
+configurations.AddPageHeading(WaypointPage, "Waypoint movement", "Pin a position and return when displaced")
+configurations.AddPageHeading(PerformancePage, "Performance", "Reduce graphics load while playing")
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
 Sidebar.Size = UDim2.fromScale(0.26, 0.88)
 Sidebar.Position = UDim2.fromScale(0.015, 0.10)
-Sidebar.BackgroundColor3 = SIDEBAR_BG
+Sidebar.BackgroundColor3 = UIColors.SIDEBAR_BG
 Sidebar.BorderSizePixel = 0
-Sidebar.Visible = not configuration.IsMinimized
+Sidebar.Visible = not configurations.IsMinimized
 Sidebar.Parent = Main
 Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
 
@@ -1899,7 +1986,7 @@ SidebarScroll.Size = UDim2.fromScale(1, 1)
 SidebarScroll.BackgroundTransparency = 1
 SidebarScroll.BorderSizePixel = 0
 SidebarScroll.ScrollBarThickness = 3
-SidebarScroll.ScrollBarImageColor3 = MUTED
+SidebarScroll.ScrollBarImageColor3 = UIColors.MUTED
 SidebarScroll.CanvasSize = UDim2.new()
 SidebarScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 SidebarScroll.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -1917,7 +2004,7 @@ SidebarPad.PaddingRight = UDim.new(0, 8)
 SidebarPad.PaddingBottom = UDim.new(0, 12)
 SidebarPad.Parent = SidebarScroll
 
-function configuration.MakeNavSection(text, order)
+function configurations.MakeNavSection(text, order)
 	-- Section header (not clickable) — visually distinct from nav buttons
 	local wrap = Instance.new("Frame")
 	wrap.Name = "Section_" .. text
@@ -1942,19 +2029,19 @@ function configuration.MakeNavSection(text, order)
 	local line = Instance.new("Frame")
 	line.Size = UDim2.new(1, -24, 0, 1)
 	line.Position = UDim2.fromOffset(12, 26)
-	line.BackgroundColor3 = BORDER
+	line.BackgroundColor3 = UIColors.BORDER
 	line.BackgroundTransparency = 0.55
 	line.BorderSizePixel = 0
 	line.Parent = wrap
 	return wrap
 end
 
-function configuration.MakeNavButton(text, icon, order)
+function configurations.MakeNavButton(text, icon, order)
 	local button = Instance.new("TextButton")
 	button.Name = "Nav_" .. text
 	button.Size = UDim2.new(1, 0, 0, 36)
 	button.LayoutOrder = order
-	button.BackgroundColor3 = SEL_BG
+	button.BackgroundColor3 = UIColors.SEL_BG
 	button.BackgroundTransparency = 1
 	button.BorderSizePixel = 0
 	button.Text = ""
@@ -1968,7 +2055,7 @@ function configuration.MakeNavButton(text, icon, order)
 	textLabel.Position = UDim2.fromOffset(14, 0)
 	textLabel.BackgroundTransparency = 1
 	textLabel.Text = text
-	textLabel.TextColor3 = MUTED
+	textLabel.TextColor3 = UIColors.MUTED
 	textLabel.TextSize = 13
 	textLabel.Font = Enum.Font.Gotham
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1977,25 +2064,25 @@ function configuration.MakeNavButton(text, icon, order)
 	return button
 end
 
-configuration.MakeNavSection("Farm", 1)
+configurations.MakeNavSection("Farm", 1)
 local NavButtons = {
-	EXP    = configuration.MakeNavButton("Overview", nil, 2),
-	Farm   = configuration.MakeNavButton("EXP settings", nil, 3),
-	Combat = configuration.MakeNavButton("Combat", nil, 4),
+	EXP    = configurations.MakeNavButton("Overview", nil, 2),
+	Farm   = configurations.MakeNavButton("EXP settings", nil, 3),
+	Combat = configurations.MakeNavButton("Combat", nil, 4),
 }
-configuration.MakeNavSection("Players", 5)
-NavButtons.Player = configuration.MakeNavButton("Players", nil, 6)
-NavButtons.Alerts = configuration.MakeNavButton("Alerts", nil, 7)
-configuration.MakeNavSection("Navigation", 8)
-NavButtons.Waypoint = configuration.MakeNavButton("Waypoint", nil, 9)
-if configuration.PartySystem then
-	NavButtons.Party = configuration.MakeNavButton("Party", nil, 10)
+configurations.MakeNavSection("Players", 5)
+NavButtons.Player = configurations.MakeNavButton("Players", nil, 6)
+NavButtons.Alerts = configurations.MakeNavButton("Alerts", nil, 7)
+configurations.MakeNavSection("Navigation", 8)
+NavButtons.Waypoint = configurations.MakeNavButton("Waypoint", nil, 9)
+if configurations.PartySystem then
+	NavButtons.Party = configurations.MakeNavButton("Party", nil, 10)
 end
-configuration.MakeNavSection("Display", 11)
-NavButtons.ESP = configuration.MakeNavButton("ESP", nil, 12)
-NavButtons.Performance = configuration.MakeNavButton("Performance", nil, 13)
+configurations.MakeNavSection("Display", 11)
+NavButtons.ESP = configurations.MakeNavButton("ESP", nil, 12)
+NavButtons.Performance = configurations.MakeNavButton("Performance", nil, 13)
 
-function configuration.SetMainTab(tab)
+function configurations.SetMainTab(tab)
 	for name, page in pairs(Pages) do
 		page.Visible = name == tab
 		if page.Visible then page.CanvasPosition = Vector2.zero end
@@ -2003,22 +2090,22 @@ function configuration.SetMainTab(tab)
 	for name, button in pairs(NavButtons) do
 		local selected = name == tab
 		button.BackgroundTransparency = selected and 0 or 1
-		button.BackgroundColor3 = SEL_BG
+		button.BackgroundColor3 = UIColors.SEL_BG
 		local label = button:FindFirstChild("Label")
 		if label then
-			label.TextColor3 = selected and SEL_TEXT or MUTED
+			label.TextColor3 = selected and UIColors.SEL_TEXT or UIColors.MUTED
 			label.Font = selected and Enum.Font.GothamBold or Enum.Font.Gotham
 		end
 	end
-	if tab == "Combat" and configuration.RefreshCombatMobs then
-		configuration.RefreshCombatMobs()
+	if tab == "Combat" and configurations.RefreshCombatMobs then
+		configurations.RefreshCombatMobs()
 	end
 end
 
 for name, button in pairs(NavButtons) do
-	button.MouseButton1Click:Connect(function() configuration.SetMainTab(name) end)
+	button.MouseButton1Click:Connect(function() configurations.SetMainTab(name) end)
 end
-configuration.SetMainTab("EXP")
+configurations.SetMainTab("EXP")
 
 --==================================================
 -- SERVER STATUS WIDGET
@@ -2027,12 +2114,12 @@ local ServerCard = Instance.new("Frame")
 ServerCard.Name = "ServerCard"
 ServerCard.Size = UDim2.new(1, 0, 0, 90)
 ServerCard.LayoutOrder = 2
-ServerCard.BackgroundColor3 = CARD
+ServerCard.BackgroundColor3 = UIColors.CARD
 ServerCard.BorderSizePixel = 0
 ServerCard.Parent = ExpPage
 Instance.new("UICorner", ServerCard).CornerRadius = UDim.new(0, 12)
 local ServerStroke = Instance.new("UIStroke", ServerCard)
-ServerStroke.Color = BORDER
+ServerStroke.Color = UIColors.BORDER
 ServerStroke.Thickness = 1
 ServerStroke.Transparency = 0.55
 
@@ -2041,7 +2128,7 @@ ServerTitle.Size = UDim2.new(0.5, -12, 0, 14)
 ServerTitle.Position = UDim2.fromOffset(14, 10)
 ServerTitle.BackgroundTransparency = 1
 ServerTitle.Text = "SERVER"
-ServerTitle.TextColor3 = ACCENT
+ServerTitle.TextColor3 = UIColors.ACCENT
 ServerTitle.TextSize = 12
 ServerTitle.Font = Enum.Font.GothamBold
 ServerTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -2051,10 +2138,10 @@ local ServerPlayersLabel = Instance.new("TextLabel")
 ServerPlayersLabel.Name = "ServerPlayers"
 ServerPlayersLabel.Size = UDim2.fromOffset(134, 26)
 ServerPlayersLabel.Position = UDim2.new(1, -148, 0, 5)
-ServerPlayersLabel.BackgroundColor3 = ACCENT_DIM
+ServerPlayersLabel.BackgroundColor3 = UIColors.ACCENT_DIM
 ServerPlayersLabel.BorderSizePixel = 0
 ServerPlayersLabel.Text = "0 PLAYERS"
-ServerPlayersLabel.TextColor3 = ACCENT
+ServerPlayersLabel.TextColor3 = UIColors.ACCENT
 ServerPlayersLabel.TextSize = 14
 ServerPlayersLabel.Font = Enum.Font.GothamBold
 ServerPlayersLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -2067,7 +2154,7 @@ ServerPlaceLabel.Size = UDim2.new(1, -28, 0, 18)
 ServerPlaceLabel.Position = UDim2.fromOffset(14, 29)
 ServerPlaceLabel.BackgroundTransparency = 1
 ServerPlaceLabel.Text = "—"
-ServerPlaceLabel.TextColor3 = TEXT
+ServerPlaceLabel.TextColor3 = UIColors.TEXT
 ServerPlaceLabel.TextSize = 13
 ServerPlaceLabel.Font = Enum.Font.GothamMedium
 ServerPlaceLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2080,42 +2167,42 @@ ServerJobLabel.Size = UDim2.new(1, -28, 0, 12)
 ServerJobLabel.Position = UDim2.fromOffset(14, 49)
 ServerJobLabel.BackgroundTransparency = 1
 ServerJobLabel.Text = "Job —"
-ServerJobLabel.TextColor3 = MUTED
+ServerJobLabel.TextColor3 = UIColors.MUTED
 ServerJobLabel.TextSize = 11
 ServerJobLabel.Font = Enum.Font.Gotham
 ServerJobLabel.TextXAlignment = Enum.TextXAlignment.Left
 ServerJobLabel.TextTruncate = Enum.TextTruncate.AtEnd
 ServerJobLabel.Parent = ServerCard
 
-configuration.ServerFPSLabel = Instance.new("TextLabel")
-configuration.ServerFPSLabel.Name = "ServerFPS"
-configuration.ServerFPSLabel.Size = UDim2.fromOffset(92, 18)
-configuration.ServerFPSLabel.Position = UDim2.fromOffset(14, 67)
-configuration.ServerFPSLabel.BackgroundColor3 = INPUT
-configuration.ServerFPSLabel.BorderSizePixel = 0
-configuration.ServerFPSLabel.Text = "FPS --"
-configuration.ServerFPSLabel.TextColor3 = GREEN
-configuration.ServerFPSLabel.TextSize = 12
-configuration.ServerFPSLabel.Font = Enum.Font.GothamBold
-configuration.ServerFPSLabel.TextXAlignment = Enum.TextXAlignment.Center
-configuration.ServerFPSLabel.Parent = ServerCard
-Instance.new("UICorner", configuration.ServerFPSLabel).CornerRadius = UDim.new(0, 6)
+configurations.ServerFPSLabel = Instance.new("TextLabel")
+configurations.ServerFPSLabel.Name = "ServerFPS"
+configurations.ServerFPSLabel.Size = UDim2.fromOffset(92, 18)
+configurations.ServerFPSLabel.Position = UDim2.fromOffset(14, 67)
+configurations.ServerFPSLabel.BackgroundColor3 = UIColors.INPUT
+configurations.ServerFPSLabel.BorderSizePixel = 0
+configurations.ServerFPSLabel.Text = "FPS --"
+configurations.ServerFPSLabel.TextColor3 = UIColors.GREEN
+configurations.ServerFPSLabel.TextSize = 12
+configurations.ServerFPSLabel.Font = Enum.Font.GothamBold
+configurations.ServerFPSLabel.TextXAlignment = Enum.TextXAlignment.Center
+configurations.ServerFPSLabel.Parent = ServerCard
+Instance.new("UICorner", configurations.ServerFPSLabel).CornerRadius = UDim.new(0, 6)
 
-configuration.ServerPingLabel = Instance.new("TextLabel")
-configuration.ServerPingLabel.Name = "ServerPing"
-configuration.ServerPingLabel.Size = UDim2.fromOffset(104, 18)
-configuration.ServerPingLabel.Position = UDim2.fromOffset(112, 67)
-configuration.ServerPingLabel.BackgroundColor3 = INPUT
-configuration.ServerPingLabel.BorderSizePixel = 0
-configuration.ServerPingLabel.Text = "Ping -- ms"
-configuration.ServerPingLabel.TextColor3 = ACCENT
-configuration.ServerPingLabel.TextSize = 12
-configuration.ServerPingLabel.Font = Enum.Font.GothamBold
-configuration.ServerPingLabel.TextXAlignment = Enum.TextXAlignment.Center
-configuration.ServerPingLabel.Parent = ServerCard
-Instance.new("UICorner", configuration.ServerPingLabel).CornerRadius = UDim.new(0, 6)
+configurations.ServerPingLabel = Instance.new("TextLabel")
+configurations.ServerPingLabel.Name = "ServerPing"
+configurations.ServerPingLabel.Size = UDim2.fromOffset(104, 18)
+configurations.ServerPingLabel.Position = UDim2.fromOffset(112, 67)
+configurations.ServerPingLabel.BackgroundColor3 = UIColors.INPUT
+configurations.ServerPingLabel.BorderSizePixel = 0
+configurations.ServerPingLabel.Text = "Ping -- ms"
+configurations.ServerPingLabel.TextColor3 = UIColors.ACCENT
+configurations.ServerPingLabel.TextSize = 12
+configurations.ServerPingLabel.Font = Enum.Font.GothamBold
+configurations.ServerPingLabel.TextXAlignment = Enum.TextXAlignment.Center
+configurations.ServerPingLabel.Parent = ServerCard
+Instance.new("UICorner", configurations.ServerPingLabel).CornerRadius = UDim.new(0, 6)
 
-function configuration.RefreshServerWidget()
+function configurations.RefreshServerWidget()
 	local count = #Players:GetPlayers()
 	ServerPlayersLabel.Text = string.format("%d PLAYERS", count)
 	local placeName = "Place " .. tostring(game.PlaceId)
@@ -2128,48 +2215,48 @@ function configuration.RefreshServerWidget()
 	if #job > 18 then job = job:sub(1, 8) .. "…" .. job:sub(-6) end
 	ServerJobLabel.Text = "Job " .. (job ~= "" and job or "—") .. "  ·  PlaceId " .. tostring(game.PlaceId)
 end
-configuration.RefreshServerWidget()
-Players.PlayerAdded:Connect(function() configuration.RefreshServerWidget() end)
-Players.PlayerRemoving:Connect(function() task.defer(configuration.RefreshServerWidget) end)
+configurations.RefreshServerWidget()
+Players.PlayerAdded:Connect(function() configurations.RefreshServerWidget() end)
+Players.PlayerRemoving:Connect(function() task.defer(configurations.RefreshServerWidget) end)
 
-configuration.ServerFPSFrames = 0
-configuration.ServerFPSSampleAt = os.clock()
+configurations.ServerFPSFrames = 0
+configurations.ServerFPSSampleAt = os.clock()
 RunService.RenderStepped:Connect(function()
-	configuration.ServerFPSFrames += 1
+	configurations.ServerFPSFrames += 1
 	local sampleAt = os.clock()
-	local elapsed = sampleAt - configuration.ServerFPSSampleAt
+	local elapsed = sampleAt - configurations.ServerFPSSampleAt
 	if elapsed < 1 then return end
-	local fps = math.floor(configuration.ServerFPSFrames / elapsed + 0.5)
-	configuration.ServerFPSFrames = 0
-	configuration.ServerFPSSampleAt = sampleAt
-	configuration.ServerFPSLabel.Text = string.format("FPS %d", fps)
-	configuration.ServerFPSLabel.TextColor3 = fps >= 50 and GREEN or (fps >= 30 and YELLOW or RED)
+	local fps = math.floor(configurations.ServerFPSFrames / elapsed + 0.5)
+	configurations.ServerFPSFrames = 0
+	configurations.ServerFPSSampleAt = sampleAt
+	configurations.ServerFPSLabel.Text = string.format("FPS %d", fps)
+	configurations.ServerFPSLabel.TextColor3 = fps >= 50 and UIColors.GREEN or (fps >= 30 and UIColors.YELLOW or UIColors.RED)
 
 	local pingOk, pingSeconds = pcall(function()
 		return Player:GetNetworkPing()
 	end)
 	if pingOk and type(pingSeconds) == "number" then
 		local pingMs = math.floor(pingSeconds * 1000 + 0.5)
-		configuration.ServerPingLabel.Text = string.format("Ping %d ms", pingMs)
-		configuration.ServerPingLabel.TextColor3 = pingMs < 100 and GREEN or (pingMs < 200 and YELLOW or RED)
+		configurations.ServerPingLabel.Text = string.format("Ping %d ms", pingMs)
+		configurations.ServerPingLabel.TextColor3 = pingMs < 100 and UIColors.GREEN or (pingMs < 200 and UIColors.YELLOW or UIColors.RED)
 	else
-		configuration.ServerPingLabel.Text = "Ping -- ms"
-		configuration.ServerPingLabel.TextColor3 = MUTED
+		configurations.ServerPingLabel.Text = "Ping -- ms"
+		configurations.ServerPingLabel.TextColor3 = UIColors.MUTED
 	end
 end)
 
 --==================================================
--- HERO EXP CARD (big numbers)
+-- HERO EXP UIColors.CARD (big numbers)
 --==================================================
 InfoCard = Instance.new("Frame")
 InfoCard.Size = UDim2.new(1, 0, 0, 242)
 InfoCard.LayoutOrder = 3
-InfoCard.BackgroundColor3 = CARD
+InfoCard.BackgroundColor3 = UIColors.CARD
 InfoCard.BorderSizePixel = 0
 InfoCard.Parent = ExpPage
 Instance.new("UICorner", InfoCard).CornerRadius = UDim.new(0, 12)
 local InfoStroke = Instance.new("UIStroke", InfoCard)
-InfoStroke.Color = BORDER
+InfoStroke.Color = UIColors.BORDER
 InfoStroke.Thickness = 1
 InfoStroke.Transparency = 0.35
 
@@ -2179,7 +2266,7 @@ LevelCaption.Size = UDim2.new(0.5, -12, 0, 12)
 LevelCaption.Position = UDim2.fromOffset(12, 6)
 LevelCaption.BackgroundTransparency = 1
 LevelCaption.Text = "YOUR LEVEL"
-LevelCaption.TextColor3 = ACCENT
+LevelCaption.TextColor3 = UIColors.ACCENT
 LevelCaption.TextSize = 11
 LevelCaption.Font = Enum.Font.GothamBold
 LevelCaption.TextXAlignment = Enum.TextXAlignment.Left
@@ -2191,7 +2278,7 @@ LevelLabel.Size = UDim2.new(0.45, -8, 0, 22)
 LevelLabel.Position = UDim2.fromOffset(12, 18)
 LevelLabel.BackgroundTransparency = 1
 LevelLabel.Text = "Lv —"
-LevelLabel.TextColor3 = TEXT
+LevelLabel.TextColor3 = UIColors.TEXT
 LevelLabel.TextSize = 18
 LevelLabel.Font = Enum.Font.GothamBlack
 LevelLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2203,7 +2290,7 @@ LevelExpText.Size = UDim2.new(0.55, -12, 0, 22)
 LevelExpText.Position = UDim2.new(0.45, 0, 0, 18)
 LevelExpText.BackgroundTransparency = 1
 LevelExpText.Text = "Exp —/—"
-LevelExpText.TextColor3 = MUTED
+LevelExpText.TextColor3 = UIColors.MUTED
 LevelExpText.TextSize = 13
 LevelExpText.Font = Enum.Font.GothamBold
 LevelExpText.TextXAlignment = Enum.TextXAlignment.Right
@@ -2215,7 +2302,7 @@ ExpCaption.Size = UDim2.new(1, -20, 0, 12)
 ExpCaption.Position = UDim2.fromOffset(10, 44)
 ExpCaption.BackgroundTransparency = 1
 ExpCaption.Text = "TARGET EXP  (FARM)"
-ExpCaption.TextColor3 = ACCENT
+ExpCaption.TextColor3 = UIColors.ACCENT
 ExpCaption.TextSize = 11
 ExpCaption.Font = Enum.Font.GothamBold
 ExpCaption.TextXAlignment = Enum.TextXAlignment.Center
@@ -2226,7 +2313,7 @@ ExpLabel.Size = UDim2.new(1, -20, 0, 40)
 ExpLabel.Position = UDim2.fromOffset(10, 56)
 ExpLabel.BackgroundTransparency = 1
 ExpLabel.Text = "0"
-ExpLabel.TextColor3 = GREEN
+ExpLabel.TextColor3 = UIColors.GREEN
 ExpLabel.TextSize = 32
 ExpLabel.Font = Enum.Font.GothamBlack
 ExpLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -2236,8 +2323,8 @@ local MaxLabel = Instance.new("TextLabel")
 MaxLabel.Size = UDim2.new(1, -20, 0, 14)
 MaxLabel.Position = UDim2.fromOffset(10, 96)
 MaxLabel.BackgroundTransparency = 1
-MaxLabel.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
-MaxLabel.TextColor3 = MUTED
+MaxLabel.Text = "/ " .. configurations.FormatNumber(configurations.ExpGoal)
+MaxLabel.TextColor3 = UIColors.MUTED
 MaxLabel.TextSize = 12
 MaxLabel.Font = Enum.Font.Gotham
 MaxLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -2247,14 +2334,14 @@ MaxLabel.Parent = InfoCard
 local BarBg = Instance.new("Frame")
 BarBg.Size = UDim2.new(1, -28, 0, 8)
 BarBg.Position = UDim2.fromOffset(14, 114)
-BarBg.BackgroundColor3 = INPUT
+BarBg.BackgroundColor3 = UIColors.INPUT
 BarBg.BorderSizePixel = 0
 BarBg.Parent = InfoCard
 Instance.new("UICorner", BarBg).CornerRadius = UDim.new(1, 0)
 
 local Bar = Instance.new("Frame")
 Bar.Size = UDim2.fromScale(0, 1)
-Bar.BackgroundColor3 = GREEN
+Bar.BackgroundColor3 = UIColors.GREEN
 Bar.BorderSizePixel = 0
 Bar.Parent = BarBg
 Instance.new("UICorner", Bar).CornerRadius = UDim.new(1, 0)
@@ -2264,7 +2351,7 @@ PercentLabel.Size = UDim2.new(1, 0, 0, 14)
 PercentLabel.Position = UDim2.fromOffset(0, 126)
 PercentLabel.BackgroundTransparency = 1
 PercentLabel.Text = "0%"
-PercentLabel.TextColor3 = MUTED
+PercentLabel.TextColor3 = UIColors.MUTED
 PercentLabel.TextSize = 11
 PercentLabel.Font = Enum.Font.GothamBold
 PercentLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -2276,7 +2363,7 @@ TargetLabel.Size = UDim2.new(0.58, -8, 0, 16)
 TargetLabel.Position = UDim2.fromOffset(12, 146)
 TargetLabel.BackgroundTransparency = 1
 TargetLabel.Text = "No target"
-TargetLabel.TextColor3 = TEXT
+TargetLabel.TextColor3 = UIColors.TEXT
 TargetLabel.TextSize = 12
 TargetLabel.Font = Enum.Font.GothamBold
 TargetLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2288,7 +2375,7 @@ DistLabel.Size = UDim2.new(0.42, -12, 0, 16)
 DistLabel.Position = UDim2.new(0.58, 0, 0, 146)
 DistLabel.BackgroundTransparency = 1
 DistLabel.Text = "Dist  -"
-DistLabel.TextColor3 = MUTED
+DistLabel.TextColor3 = UIColors.MUTED
 DistLabel.TextSize = 11
 DistLabel.Font = Enum.Font.Gotham
 DistLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -2300,7 +2387,7 @@ TimeLabel.Size = UDim2.new(0.38, -4, 0, 15)
 TimeLabel.Position = UDim2.fromOffset(12, 166)
 TimeLabel.BackgroundTransparency = 1
 TimeLabel.Text = "00:00:00"
-TimeLabel.TextColor3 = YELLOW
+TimeLabel.TextColor3 = UIColors.YELLOW
 TimeLabel.TextSize = 11
 TimeLabel.Font = Enum.Font.GothamBold
 TimeLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2311,7 +2398,7 @@ RateLabel.Size = UDim2.new(0.32, -4, 0, 15)
 RateLabel.Position = UDim2.new(0.36, 0, 0, 166)
 RateLabel.BackgroundTransparency = 1
 RateLabel.Text = "Rate -"
-RateLabel.TextColor3 = MUTED
+RateLabel.TextColor3 = UIColors.MUTED
 RateLabel.TextSize = 11
 RateLabel.Font = Enum.Font.Gotham
 RateLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -2322,7 +2409,7 @@ StateLabel.Size = UDim2.new(1, -24, 0, 14)
 StateLabel.Position = UDim2.fromOffset(12, 184)
 StateLabel.BackgroundTransparency = 1
 StateLabel.Text = "Idle"
-StateLabel.TextColor3 = MUTED
+StateLabel.TextColor3 = UIColors.MUTED
 StateLabel.TextSize = 11
 StateLabel.Font = Enum.Font.Gotham
 StateLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2334,7 +2421,7 @@ SessionLabel.Size = UDim2.new(1, -24, 0, 14)
 SessionLabel.Position = UDim2.fromOffset(12, 204)
 SessionLabel.BackgroundTransparency = 1
 SessionLabel.Text = "Session: +0 EXP / 00:00:00 / 0 EXP/h"
-SessionLabel.TextColor3 = MUTED
+SessionLabel.TextColor3 = UIColors.MUTED
 SessionLabel.TextSize = 11
 SessionLabel.Font = Enum.Font.Gotham
 SessionLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2344,8 +2431,8 @@ local RecentCycleLabel = Instance.new("TextLabel")
 RecentCycleLabel.Size = UDim2.new(1, -24, 0, 14)
 RecentCycleLabel.Position = UDim2.fromOffset(12, 222)
 RecentCycleLabel.BackgroundTransparency = 1
-RecentCycleLabel.Text = configuration.RecentCycle
-RecentCycleLabel.TextColor3 = MUTED
+RecentCycleLabel.Text = configurations.RecentCycle
+RecentCycleLabel.TextColor3 = UIColors.MUTED
 RecentCycleLabel.TextSize = 11
 RecentCycleLabel.Font = Enum.Font.Gotham
 RecentCycleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2357,7 +2444,7 @@ RecentCycleLabel.Parent = InfoCard
 StartBtn = Instance.new("TextButton")
 StartBtn.Size = UDim2.new(1, 0, 0, 42)
 StartBtn.LayoutOrder = 3
-StartBtn.BackgroundColor3 = ACCENT
+StartBtn.BackgroundColor3 = UIColors.ACCENT
 StartBtn.BorderSizePixel = 0
 StartBtn.Text = "Start"
 StartBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -2369,10 +2456,10 @@ Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 10)
 local EmergencyStopButton = Instance.new("TextButton")
 EmergencyStopButton.Size = UDim2.new(1, 0, 0, 34)
 EmergencyStopButton.LayoutOrder = 4
-EmergencyStopButton.BackgroundColor3 = CARD
+EmergencyStopButton.BackgroundColor3 = UIColors.CARD
 EmergencyStopButton.BorderSizePixel = 0
 EmergencyStopButton.Text = "Emergency stop: OFF"
-EmergencyStopButton.TextColor3 = MUTED
+EmergencyStopButton.TextColor3 = UIColors.MUTED
 EmergencyStopButton.TextSize = 12
 EmergencyStopButton.Font = Enum.Font.GothamBold
 EmergencyStopButton.Parent = ExpPage
@@ -2391,7 +2478,7 @@ local ToggleGridLayout = Instance.new("UIListLayout", ToggleGrid)
 ToggleGridLayout.Padding = UDim.new(0, 6)
 ToggleGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-function configuration.MakeToggleGrid(parent, order)
+function configurations.MakeToggleGrid(parent, order)
 	local grid = Instance.new("Frame")
 	grid.Size = UDim2.new(1, 0, 0, 0)
 	grid.AutomaticSize = Enum.AutomaticSize.Y
@@ -2404,15 +2491,15 @@ function configuration.MakeToggleGrid(parent, order)
 	return grid
 end
 
-local AlertsGrid = configuration.MakeToggleGrid(AlertsPage, 2)
-local PlayersGrid = configuration.MakeToggleGrid(PlayerPage, 2)
-local CombatGrid = configuration.MakeToggleGrid(CombatPage, 2)
-local PerformanceGrid = configuration.MakeToggleGrid(PerformancePage, 2)
+local AlertsGrid = configurations.MakeToggleGrid(AlertsPage, 2)
+local PlayersGrid = configurations.MakeToggleGrid(PlayerPage, 2)
+local CombatGrid = configurations.MakeToggleGrid(CombatPage, 2)
+local PerformanceGrid = configurations.MakeToggleGrid(PerformancePage, 2)
 
 local AlertsDistanceCard = Instance.new("Frame")
 AlertsDistanceCard.Size = UDim2.new(1, 0, 0, 48)
 AlertsDistanceCard.LayoutOrder = 3
-AlertsDistanceCard.BackgroundColor3 = CARD
+AlertsDistanceCard.BackgroundColor3 = UIColors.CARD
 AlertsDistanceCard.BorderSizePixel = 0
 AlertsDistanceCard.Parent = AlertsPage
 Instance.new("UICorner", AlertsDistanceCard).CornerRadius = UDim.new(0, 8)
@@ -2422,7 +2509,7 @@ AlertsDistanceLabel.Size = UDim2.new(0.58, -16, 1, 0)
 AlertsDistanceLabel.Position = UDim2.new(0, 10, 0, 0)
 AlertsDistanceLabel.BackgroundTransparency = 1
 AlertsDistanceLabel.Text = "Player alert range (studs)"
-AlertsDistanceLabel.TextColor3 = TEXT
+AlertsDistanceLabel.TextColor3 = UIColors.TEXT
 AlertsDistanceLabel.TextSize = 11
 AlertsDistanceLabel.Font = Enum.Font.Gotham
 AlertsDistanceLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2431,10 +2518,10 @@ AlertsDistanceLabel.Parent = AlertsDistanceCard
 local AlertsDistanceInput = Instance.new("TextBox")
 AlertsDistanceInput.Size = UDim2.new(0.36, -8, 0, 30)
 AlertsDistanceInput.Position = UDim2.new(0.62, 0, 0.5, -15)
-AlertsDistanceInput.BackgroundColor3 = INPUT
+AlertsDistanceInput.BackgroundColor3 = UIColors.INPUT
 AlertsDistanceInput.BorderSizePixel = 0
-AlertsDistanceInput.Text = tostring(configuration.AlertsDistance)
-AlertsDistanceInput.TextColor3 = TEXT
+AlertsDistanceInput.Text = tostring(configurations.AlertsDistance)
+AlertsDistanceInput.TextColor3 = UIColors.TEXT
 AlertsDistanceInput.TextSize = 12
 AlertsDistanceInput.Font = Enum.Font.GothamBold
 AlertsDistanceInput.ClearTextOnFocus = false
@@ -2443,13 +2530,13 @@ Instance.new("UICorner", AlertsDistanceInput).CornerRadius = UDim.new(0, 6)
 AlertsDistanceInput.FocusLost:Connect(function()
 	local value = tonumber(AlertsDistanceInput.Text)
 	if value and value >= 0 then
-		configuration.AlertsDistance = math.clamp(math.floor(value), 0, 100000)
+		configurations.AlertsDistance = math.clamp(math.floor(value), 0, 100000)
 	end
-	AlertsDistanceInput.Text = tostring(configuration.AlertsDistance)
-	configuration.SaveConfig()
+	AlertsDistanceInput.Text = tostring(configurations.AlertsDistance)
+	configurations.SaveConfig()
 end)
 
-function configuration.SetToggleVisual(btn, title, isOn, onColor, onBg)
+function configurations.SetToggleVisual(btn, title, isOn, onColor, onBg)
 	if not btn then return end
 	local titleLabel = btn:FindFirstChild("Title")
 	local switch = btn:FindFirstChild("Switch")
@@ -2458,35 +2545,35 @@ function configuration.SetToggleVisual(btn, title, isOn, onColor, onBg)
 	clean = tostring(clean):gsub("%s*:?%s*ON%s*$", ""):gsub("%s*:?%s*OFF%s*$", "")
 	if titleLabel then
 		titleLabel.Text = clean
-		titleLabel.TextColor3 = TEXT
+		titleLabel.TextColor3 = UIColors.TEXT
 	end
 	btn:SetAttribute("BaseTitle", clean)
 	btn:SetAttribute("IsOn", isOn and true or false)
-	btn.BackgroundColor3 = CARD
+	btn.BackgroundColor3 = UIColors.CARD
 	btn.Text = ""
 	if switch then
 		-- Always use accent blue for ON (Slayers2-style), gray for OFF
-		switch.BackgroundColor3 = isOn and ACCENT or Color3.fromRGB(55, 60, 78)
+		switch.BackgroundColor3 = isOn and UIColors.ACCENT or Color3.fromRGB(55, 60, 78)
 		if knob then
 			knob.Position = isOn and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
 		end
 	end
 end
 
-function configuration.MakeToggle(text, isOn, onColor, onBg, order, parent, description)
+function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, description)
 	local clean = tostring(text or ""):gsub("%s*:?%s*ON%s*$", ""):gsub("%s*:?%s*OFF%s*$", "")
 	local hasDesc = type(description) == "string" and description ~= ""
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(1, 0, 0, hasDesc and 58 or 48)
 	btn.LayoutOrder = order
-	btn.BackgroundColor3 = CARD
+	btn.BackgroundColor3 = UIColors.CARD
 	btn.BorderSizePixel = 0
 	btn.Text = ""
 	btn.AutoButtonColor = false
 	btn.Parent = parent or ToggleGrid
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
 	local stroke = Instance.new("UIStroke", btn)
-	stroke.Color = BORDER
+	stroke.Color = UIColors.BORDER
 	stroke.Transparency = 0.65
 	stroke.Thickness = 1
 
@@ -2496,7 +2583,7 @@ function configuration.MakeToggle(text, isOn, onColor, onBg, order, parent, desc
 	titleLabel.Position = UDim2.fromOffset(16, hasDesc and 10 or 0)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = clean
-	titleLabel.TextColor3 = TEXT
+	titleLabel.TextColor3 = UIColors.TEXT
 	titleLabel.TextSize = 14
 	titleLabel.Font = Enum.Font.GothamMedium
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2511,7 +2598,7 @@ function configuration.MakeToggle(text, isOn, onColor, onBg, order, parent, desc
 		descLabel.Position = UDim2.fromOffset(16, 30)
 		descLabel.BackgroundTransparency = 1
 		descLabel.Text = description
-		descLabel.TextColor3 = MUTED
+		descLabel.TextColor3 = UIColors.MUTED
 		descLabel.TextSize = 11
 		descLabel.Font = Enum.Font.Gotham
 		descLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2524,7 +2611,7 @@ function configuration.MakeToggle(text, isOn, onColor, onBg, order, parent, desc
 	switch.Name = "Switch"
 	switch.Size = UDim2.fromOffset(44, 24)
 	switch.Position = UDim2.new(1, -58, 0.5, -12)
-	switch.BackgroundColor3 = isOn and ACCENT or Color3.fromRGB(55, 60, 78)
+	switch.BackgroundColor3 = isOn and UIColors.ACCENT or Color3.fromRGB(55, 60, 78)
 	switch.BorderSizePixel = 0
 	switch.Parent = btn
 	Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
@@ -2543,47 +2630,47 @@ function configuration.MakeToggle(text, isOn, onColor, onBg, order, parent, desc
 	return btn
 end
 
-if configuration.PartySystem then
-	configuration.PartySystem.BuildUI({
-		CARD = CARD,
-		INPUT = INPUT,
-		BORDER = BORDER,
-		TEXT = TEXT,
-		MUTED = MUTED,
-		ACCENT = ACCENT,
-		ACCENT_DIM = ACCENT_DIM,
-		RED = RED,
+if configurations.PartySystem then
+	configurations.PartySystem.BuildUI({
+		CARD = UIColors.CARD,
+		INPUT = UIColors.INPUT,
+		BORDER = UIColors.BORDER,
+		TEXT = UIColors.TEXT,
+		MUTED = UIColors.MUTED,
+		ACCENT = UIColors.ACCENT,
+		ACCENT_DIM = UIColors.ACCENT_DIM,
+		RED = UIColors.RED,
 	})
 end
 
 -- Action row: title + description + chevron (opens a panel / runs an action — not a switch)
-function configuration.SetActionVisual(btn, title, accented)
+function configurations.SetActionVisual(btn, title, accented)
 	if not btn then return end
 	local titleLabel = btn:FindFirstChild("Title")
 	local clean = tostring(title or btn:GetAttribute("BaseTitle") or "")
 	if titleLabel then
 		titleLabel.Text = clean
-		titleLabel.TextColor3 = accented and ACCENT or TEXT
+		titleLabel.TextColor3 = accented and UIColors.ACCENT or UIColors.TEXT
 	end
 	btn:SetAttribute("BaseTitle", clean)
-	btn.BackgroundColor3 = accented and ACCENT_DIM or CARD
+	btn.BackgroundColor3 = accented and UIColors.ACCENT_DIM or UIColors.CARD
 	btn.Text = ""
 end
 
-function configuration.MakeActionRow(text, order, parent, description)
+function configurations.MakeActionRow(text, order, parent, description)
 	local clean = tostring(text or "")
 	local hasDesc = type(description) == "string" and description ~= ""
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(1, 0, 0, hasDesc and 58 or 48)
 	btn.LayoutOrder = order
-	btn.BackgroundColor3 = CARD
+	btn.BackgroundColor3 = UIColors.CARD
 	btn.BorderSizePixel = 0
 	btn.Text = ""
 	btn.AutoButtonColor = false
 	btn.Parent = parent
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
 	local stroke = Instance.new("UIStroke", btn)
-	stroke.Color = BORDER
+	stroke.Color = UIColors.BORDER
 	stroke.Transparency = 0.65
 	stroke.Thickness = 1
 
@@ -2593,7 +2680,7 @@ function configuration.MakeActionRow(text, order, parent, description)
 	titleLabel.Position = UDim2.fromOffset(16, hasDesc and 10 or 0)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = clean
-	titleLabel.TextColor3 = TEXT
+	titleLabel.TextColor3 = UIColors.TEXT
 	titleLabel.TextSize = 14
 	titleLabel.Font = Enum.Font.GothamMedium
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2608,7 +2695,7 @@ function configuration.MakeActionRow(text, order, parent, description)
 		descLabel.Position = UDim2.fromOffset(16, 30)
 		descLabel.BackgroundTransparency = 1
 		descLabel.Text = description
-		descLabel.TextColor3 = MUTED
+		descLabel.TextColor3 = UIColors.MUTED
 		descLabel.TextSize = 11
 		descLabel.Font = Enum.Font.Gotham
 		descLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2623,7 +2710,7 @@ function configuration.MakeActionRow(text, order, parent, description)
 	chevron.Position = UDim2.new(1, -34, 0.5, -12)
 	chevron.BackgroundTransparency = 1
 	chevron.Text = ">"
-	chevron.TextColor3 = MUTED
+	chevron.TextColor3 = UIColors.MUTED
 	chevron.TextSize = 16
 	chevron.Font = Enum.Font.GothamBold
 	chevron.Parent = btn
@@ -2633,16 +2720,16 @@ function configuration.MakeActionRow(text, order, parent, description)
 	return btn
 end
 
-function configuration.MakeNumberCard(parent, title, initialValue, order, minValue, maxValue, onChanged)
+function configurations.MakeNumberCard(parent, title, initialValue, order, minValue, maxValue, onChanged)
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, 0, 0, 52)
 	card.LayoutOrder = order
-	card.BackgroundColor3 = CARD
+	card.BackgroundColor3 = UIColors.CARD
 	card.BorderSizePixel = 0
 	card.Parent = parent
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
 	local cardStroke = Instance.new("UIStroke", card)
-	cardStroke.Color = BORDER
+	cardStroke.Color = UIColors.BORDER
 	cardStroke.Transparency = 0.65
 	cardStroke.Thickness = 1
 
@@ -2651,7 +2738,7 @@ function configuration.MakeNumberCard(parent, title, initialValue, order, minVal
 	label.Position = UDim2.new(0, 16, 0, 0)
 	label.BackgroundTransparency = 1
 	label.Text = title
-	label.TextColor3 = TEXT
+	label.TextColor3 = UIColors.TEXT
 	label.TextSize = 13
 	label.Font = Enum.Font.GothamMedium
 	label.TextXAlignment = Enum.TextXAlignment.Left
@@ -2660,10 +2747,10 @@ function configuration.MakeNumberCard(parent, title, initialValue, order, minVal
 	local input = Instance.new("TextBox")
 	input.Size = UDim2.new(0.34, -8, 0, 30)
 	input.Position = UDim2.new(0.64, 0, 0.5, -15)
-	input.BackgroundColor3 = INPUT
+	input.BackgroundColor3 = UIColors.INPUT
 	input.BorderSizePixel = 0
 	input.Text = tostring(initialValue())
-	input.TextColor3 = TEXT
+	input.TextColor3 = UIColors.TEXT
 	input.TextSize = 12
 	input.Font = Enum.Font.GothamBold
 	input.ClearTextOnFocus = false
@@ -2673,7 +2760,7 @@ function configuration.MakeNumberCard(parent, title, initialValue, order, minVal
 		local value = tonumber(input.Text)
 		if value and value >= minValue then onChanged(math.clamp(math.floor(value), minValue, maxValue)) end
 		input.Text = tostring(initialValue())
-		configuration.SaveConfig()
+		configurations.SaveConfig()
 	end)
 	return card, input
 end
@@ -2682,7 +2769,7 @@ local WaypointInfo = Instance.new("TextLabel")
 WaypointInfo.Size = UDim2.new(1, -12, 0, 34)
 WaypointInfo.LayoutOrder = 2
 WaypointInfo.BackgroundTransparency = 1
-WaypointInfo.TextColor3 = MUTED
+WaypointInfo.TextColor3 = UIColors.MUTED
 WaypointInfo.TextSize = 12
 WaypointInfo.Font = Enum.Font.Gotham
 WaypointInfo.TextWrapped = true
@@ -2698,7 +2785,7 @@ WaypointMarker.CanQuery = false
 WaypointMarker.Size = Vector3.new(0.8, 0.8, 0.8)
 WaypointMarker.Shape = Enum.PartType.Ball
 WaypointMarker.Material = Enum.Material.Neon
-WaypointMarker.Color = ACCENT
+WaypointMarker.Color = UIColors.ACCENT
 WaypointMarker.Transparency = 0.15
 WaypointMarker.CastShadow = false
 WaypointMarker.Parent = workspace
@@ -2728,7 +2815,7 @@ WaypointBillboardCorner.CornerRadius = UDim.new(0, 8)
 WaypointBillboardCorner.Parent = WaypointBillboardFrame
 
 local WaypointBillboardStroke = Instance.new("UIStroke")
-WaypointBillboardStroke.Color = ACCENT
+WaypointBillboardStroke.Color = UIColors.ACCENT
 WaypointBillboardStroke.Name = "Stroke"
 WaypointBillboardStroke.Thickness = 1.5
 WaypointBillboardStroke.Parent = WaypointBillboardFrame
@@ -2738,7 +2825,7 @@ WaypointBillboardDot.Name = "Dot"
 WaypointBillboardDot.AnchorPoint = Vector2.new(0.5, 0.5)
 WaypointBillboardDot.Position = UDim2.fromScale(0.5, 0.5)
 WaypointBillboardDot.Size = UDim2.fromOffset(12, 12)
-WaypointBillboardDot.BackgroundColor3 = ACCENT
+WaypointBillboardDot.BackgroundColor3 = UIColors.ACCENT
 WaypointBillboardDot.BorderSizePixel = 0
 WaypointBillboardDot.Parent = WaypointBillboardFrame
 local WaypointBillboardDotCorner = Instance.new("UICorner")
@@ -2746,56 +2833,56 @@ WaypointBillboardDotCorner.CornerRadius = UDim.new(1, 0)
 WaypointBillboardDotCorner.Parent = WaypointBillboardDot
 
 local function UpdateWaypointMarker()
-	local point = configuration.WaypointPosition
-	local visible = point ~= nil and configuration.WaypointBillboardEnabled
+	local point = configurations.WaypointPosition
+	local visible = point ~= nil and configurations.WaypointBillboardEnabled
 	WaypointMarker.Position = point or Vector3.zero
 	WaypointMarker.Transparency = visible and 0.15 or 1
 	WaypointBillboard.Enabled = visible
 end
 
-local WaypointBillboardButton = configuration.MakeToggle(
+local WaypointBillboardButton = configurations.MakeToggle(
 	"Show waypoint marker",
-	configuration.WaypointBillboardEnabled,
-	ACCENT,
-	ACCENT_DIM,
+	configurations.WaypointBillboardEnabled,
+	UIColors.ACCENT,
+	UIColors.ACCENT_DIM,
 	3,
 	WaypointPage,
 	"Show or hide the pinned point in the world."
 )
 
-local ReturnToWaypointButton = configuration.MakeToggle(
+local ReturnToWaypointButton = configurations.MakeToggle(
 	"Return to waypoint",
-	configuration.WaypointReturnEnabled,
-	ACCENT,
-	ACCENT_DIM,
+	configurations.WaypointReturnEnabled,
+	UIColors.ACCENT,
+	UIColors.ACCENT_DIM,
 	4,
 	WaypointPage,
 	"Walk back to the pinned position when displaced."
 )
 
 local function UpdateWaypointInfo()
-	local point = configuration.WaypointPosition
+	local point = configurations.WaypointPosition
 	UpdateWaypointMarker()
 	WaypointInfo.Text = not point and "No waypoint set"
-		or (configuration.WaypointReturnEnabled and configuration.PartyWaypointSuspended
+		or (configurations.WaypointReturnEnabled and configurations.PartyWaypointSuspended
 			and "Return paused while searching for Party Leader" or "Waypoint set")
-	configuration.SetToggleVisual(
+	configurations.SetToggleVisual(
 		ReturnToWaypointButton,
 		"Return to waypoint",
-		configuration.WaypointReturnEnabled,
-		ACCENT,
-		ACCENT_DIM
+		configurations.WaypointReturnEnabled,
+		UIColors.ACCENT,
+		UIColors.ACCENT_DIM
 	)
-	configuration.SetToggleVisual(
+	configurations.SetToggleVisual(
 		WaypointBillboardButton,
 		"Show waypoint marker",
-		configuration.WaypointBillboardEnabled,
-		ACCENT,
-		ACCENT_DIM
+		configurations.WaypointBillboardEnabled,
+		UIColors.ACCENT,
+		UIColors.ACCENT_DIM
 	)
 end
 
-local SetWaypointButton = configuration.MakeActionRow(
+local SetWaypointButton = configurations.MakeActionRow(
 	"Pin current position",
 	5,
 	WaypointPage,
@@ -2805,81 +2892,81 @@ SetWaypointButton.MouseButton1Click:Connect(function()
 	local character = Player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if not root then return end
-	configuration.WaypointPosition = root.Position
-	configuration.WaypointReturnEnabled = true
+	configurations.WaypointPosition = root.Position
+	configurations.WaypointReturnEnabled = true
 	UpdateWaypointInfo()
-	configuration.SaveConfig()
+	configurations.SaveConfig()
 end)
 
-local ClearWaypointButton = configuration.MakeActionRow("Clear waypoint", 6, WaypointPage)
+local ClearWaypointButton = configurations.MakeActionRow("Clear waypoint", 6, WaypointPage)
 ClearWaypointButton.MouseButton1Click:Connect(function()
-	configuration.WaypointPosition = nil
-	configuration.WaypointReturnEnabled = false
-	configuration.WaypointNavigator.Reset()
+	configurations.WaypointPosition = nil
+	configurations.WaypointReturnEnabled = false
+	configurations.WaypointNavigator.Reset()
 	UpdateWaypointInfo()
-	configuration.SaveConfig()
+	configurations.SaveConfig()
 end)
 
 WaypointBillboardButton.MouseButton1Click:Connect(function()
-	configuration.WaypointBillboardEnabled = not configuration.WaypointBillboardEnabled
+	configurations.WaypointBillboardEnabled = not configurations.WaypointBillboardEnabled
 	UpdateWaypointInfo()
-	configuration.SaveConfig()
+	configurations.SaveConfig()
 end)
 ReturnToWaypointButton.MouseButton1Click:Connect(function()
-	if not configuration.WaypointPosition then
-		configuration.WaypointReturnEnabled = false
+	if not configurations.WaypointPosition then
+		configurations.WaypointReturnEnabled = false
 		UpdateWaypointInfo()
 		return
 	end
-	configuration.WaypointReturnEnabled = not configuration.WaypointReturnEnabled
+	configurations.WaypointReturnEnabled = not configurations.WaypointReturnEnabled
 	UpdateWaypointInfo()
-	configuration.SaveConfig()
+	configurations.SaveConfig()
 end)
 UpdateWaypointInfo()
 
-local FollowDistanceCard, FollowDistanceInput = configuration.MakeNumberCard(
-	PlayerPage, "Follow spacing (studs)", function() return configuration.FollowDistance end, 3, 2, 100,
-	function(value) configuration.FollowDistance = value end
+local FollowDistanceCard, FollowDistanceInput = configurations.MakeNumberCard(
+	PlayerPage, "Follow spacing (studs)", function() return configurations.FollowDistance end, 3, 2, 100,
+	function(value) configurations.FollowDistance = value end
 )
-local FollowTargetButton = configuration.MakeToggle(
+local FollowTargetButton = configurations.MakeToggle(
 	"Show follow target",
-	configuration.FollowTargetVisible,
-	ACCENT,
-	ACCENT_DIM,
+	configurations.FollowTargetVisible,
+	UIColors.ACCENT,
+	UIColors.ACCENT_DIM,
 	6,
 	PlayersGrid,
 	"Draw a line to the current follow position."
 )
 FollowTargetButton.MouseButton1Click:Connect(function()
-	configuration.FollowTargetVisible = not configuration.FollowTargetVisible
-	configuration.SetToggleVisual(FollowTargetButton, "Show follow target", configuration.FollowTargetVisible, ACCENT, ACCENT_DIM)
-	configuration.FollowSystem.SetTargetLineVisible(configuration.FollowTargetVisible)
-	configuration.SaveConfig()
+	configurations.FollowTargetVisible = not configurations.FollowTargetVisible
+	configurations.SetToggleVisual(FollowTargetButton, "Show follow target", configurations.FollowTargetVisible, UIColors.ACCENT, UIColors.ACCENT_DIM)
+	configurations.FollowSystem.SetTargetLineVisible(configurations.FollowTargetVisible)
+	configurations.SaveConfig()
 end)
 
-local AutoAttackButton = configuration.MakeToggle("Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM, 1, CombatGrid, "Move to and attack selected or marked mobs.")
-local AutoSkillButton = configuration.MakeToggle("Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM, 2, CombatGrid, "Use skills while attacking the current target.")
-local AutoBossTargetButton = configuration.MakeToggle("IsBoss target", configuration.AutoBossTargetEnabled, RED, RED_DIM, 4, CombatGrid, "Find mobs with a direct IsBoss child and move in to attack.")
-local AutoMiniBossTargetButton = configuration.MakeToggle("IsMiniBoss target", configuration.AutoMiniBossTargetEnabled, RED, RED_DIM, 5, CombatGrid, "Find mobs with a direct IsMiniBoss child and move in to attack.")
+local AutoAttackButton = configurations.MakeToggle("Auto attack", configurations.AutoAttackEnabled, UIColors.RED, UIColors.RED_DIM, 1, CombatGrid, "Move to and attack selected or marked mobs.")
+local AutoSkillButton = configurations.MakeToggle("Auto skill", configurations.AutoSkillEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 2, CombatGrid, "Use skills while attacking the current target.")
+local AutoBossTargetButton = configurations.MakeToggle("IsBoss target", configurations.AutoBossTargetEnabled, UIColors.RED, UIColors.RED_DIM, 4, CombatGrid, "Find mobs with a direct IsBoss child and move in to attack.")
+local AutoMiniBossTargetButton = configurations.MakeToggle("IsMiniBoss target", configurations.AutoMiniBossTargetEnabled, UIColors.RED, UIColors.RED_DIM, 5, CombatGrid, "Find mobs with a direct IsMiniBoss child and move in to attack.")
 
-local AutoAttackRangeCard, AutoAttackRangeInput = configuration.MakeNumberCard(
-	CombatPage, "Attack target range (studs)", function() return configuration.AutoAttackRange end, 6, 5, 500,
-	function(value) configuration.AutoAttackRange = value end
+local AutoAttackRangeCard, AutoAttackRangeInput = configurations.MakeNumberCard(
+	CombatPage, "Attack target range (studs)", function() return configurations.AutoAttackRange end, 6, 5, 500,
+	function(value) configurations.AutoAttackRange = value end
 )
 
-local AutoAttackSearchRangeCard, AutoAttackSearchRangeInput = configuration.MakeNumberCard(
-	CombatPage, "Mob visibility range (studs)", function() return configuration.AutoAttackSearchRange end, 7, 5, 1000,
-	function(value) configuration.AutoAttackSearchRange = value end
+local AutoAttackSearchRangeCard, AutoAttackSearchRangeInput = configurations.MakeNumberCard(
+	CombatPage, "Mob visibility range (studs)", function() return configurations.AutoAttackSearchRange end, 7, 5, 1000,
+	function(value) configurations.AutoAttackSearchRange = value end
 )
 
-local AutoAttackIntervalCard, AutoAttackIntervalInput = configuration.MakeNumberCard(
-	CombatPage, "Attack interval (seconds)", function() return configuration.AutoAttackInterval end, 8, 1, 10,
-	function(value) configuration.AutoAttackInterval = value end
+local AutoAttackIntervalCard, AutoAttackIntervalInput = configurations.MakeNumberCard(
+	CombatPage, "Attack interval (seconds)", function() return configurations.AutoAttackInterval end, 8, 1, 10,
+	function(value) configurations.AutoAttackInterval = value end
 )
 
-local AutoSkillIntervalCard, AutoSkillIntervalInput = configuration.MakeNumberCard(
-	CombatPage, "Skill interval (seconds)", function() return configuration.AutoSkillInterval end, 9, 1, 30,
-	function(value) configuration.AutoSkillInterval = value end
+local AutoSkillIntervalCard, AutoSkillIntervalInput = configurations.MakeNumberCard(
+	CombatPage, "Skill interval (seconds)", function() return configurations.AutoSkillInterval end, 9, 1, 30,
+	function(value) configurations.AutoSkillInterval = value end
 )
 
 local CombatMobHeading = Instance.new("Frame")
@@ -2892,7 +2979,7 @@ local CombatMobTitle = Instance.new("TextLabel")
 CombatMobTitle.Size = UDim2.new(0.65, 0, 1, 0)
 CombatMobTitle.BackgroundTransparency = 1
 CombatMobTitle.Text = "Available mobs"
-CombatMobTitle.TextColor3 = TEXT
+CombatMobTitle.TextColor3 = UIColors.TEXT
 CombatMobTitle.TextSize = 12
 CombatMobTitle.Font = Enum.Font.GothamBold
 CombatMobTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -2901,10 +2988,10 @@ CombatMobTitle.Parent = CombatMobHeading
 local CombatMobRefresh = Instance.new("TextButton")
 CombatMobRefresh.Size = UDim2.new(0.32, 0, 1, 0)
 CombatMobRefresh.Position = UDim2.new(0.68, 0, 0, 0)
-CombatMobRefresh.BackgroundColor3 = INPUT
+CombatMobRefresh.BackgroundColor3 = UIColors.INPUT
 CombatMobRefresh.BorderSizePixel = 0
 CombatMobRefresh.Text = "Refresh list"
-CombatMobRefresh.TextColor3 = TEXT
+CombatMobRefresh.TextColor3 = UIColors.TEXT
 CombatMobRefresh.TextSize = 11
 CombatMobRefresh.Font = Enum.Font.GothamBold
 CombatMobRefresh.Parent = CombatMobHeading
@@ -2913,10 +3000,10 @@ Instance.new("UICorner", CombatMobRefresh).CornerRadius = UDim.new(0, 7)
 local CombatMobScroll = Instance.new("ScrollingFrame")
 CombatMobScroll.Size = UDim2.new(1, 0, 0, 120)
 CombatMobScroll.LayoutOrder = 9
-CombatMobScroll.BackgroundColor3 = CARD
+CombatMobScroll.BackgroundColor3 = UIColors.CARD
 CombatMobScroll.BorderSizePixel = 0
 CombatMobScroll.ScrollBarThickness = 3
-CombatMobScroll.ScrollBarImageColor3 = MUTED
+CombatMobScroll.ScrollBarImageColor3 = UIColors.MUTED
 CombatMobScroll.CanvasSize = UDim2.new()
 CombatMobScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 CombatMobScroll.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -2928,31 +3015,31 @@ CombatMobListLayout.Padding = UDim.new(0, 4)
 CombatMobListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 CombatMobListLayout.Parent = CombatMobScroll
 
-configuration.CombatMobRows = {}
-configuration.CombatMobUI = { RowByMob = {}, RefreshQueued = false, LastRefreshAt = 0, ListDirty = true }
-function configuration.SyncCombatMobRowSelection()
-	for mob, row in pairs(configuration.CombatMobUI.RowByMob) do
+configurations.CombatMobRows = {}
+configurations.CombatMobUI = { RowByMob = {}, RefreshQueued = false, LastRefreshAt = 0, ListDirty = true }
+function configurations.SyncCombatMobRowSelection()
+	for mob, row in pairs(configurations.CombatMobUI.RowByMob) do
 		if row.Parent then
-			local selected = configuration.SelectedCombatMob == mob
-			row.BackgroundColor3 = selected and ACCENT_DIM or INPUT
-			row.TextColor3 = selected and ACCENT or TEXT
+			local selected = configurations.SelectedCombatMob == mob
+			row.BackgroundColor3 = selected and UIColors.ACCENT_DIM or UIColors.INPUT
+			row.TextColor3 = selected and UIColors.ACCENT or UIColors.TEXT
 			row.Text = selected and row:GetAttribute("SelectedText") or row:GetAttribute("BaseText")
 		end
 	end
 end
 
-function configuration.RefreshCombatMobs()
+function configurations.RefreshCombatMobs()
 	if not CombatPage.Visible then return end
-	if not configuration.CombatMobUI.ListDirty then
-		configuration.SyncCombatMobRowSelection()
+	if not configurations.CombatMobUI.ListDirty then
+		configurations.SyncCombatMobRowSelection()
 		return
 	end
-	configuration.CombatMobUI.ListDirty = false
-	for _, row in ipairs(configuration.CombatMobRows) do
+	configurations.CombatMobUI.ListDirty = false
+	for _, row in ipairs(configurations.CombatMobRows) do
 		row:Destroy()
 	end
-	table.clear(configuration.CombatMobRows)
-	table.clear(configuration.CombatMobUI.RowByMob)
+	table.clear(configurations.CombatMobRows)
+	table.clear(configurations.CombatMobUI.RowByMob)
 
 	local entries = {}
 	local groupCounts = {}
@@ -2980,7 +3067,7 @@ function configuration.RefreshCombatMobs()
 		local root = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
 		local humanoid = mob:FindFirstChildOfClass("Humanoid")
 		local visibleDistance = localRoot and root and (localRoot.Position - root.Position).Magnitude or math.huge
-		if root and root:IsA("BasePart") and visibleDistance <= configuration.AutoAttackSearchRange and (not humanoid or humanoid.Health > 0) then
+		if root and root:IsA("BasePart") and visibleDistance <= configurations.AutoAttackSearchRange and (not humanoid or humanoid.Health > 0) then
 			local cfg = mob:FindFirstChild("Config")
 			local exp = cfg and cfg:FindFirstChild("EXP")
 			local entity = cfg and cfg:FindFirstChild("Entity")
@@ -3015,303 +3102,404 @@ function configuration.RefreshCombatMobs()
 
 	for order, entry in ipairs(entries) do
 		local selectedMob = entry.Mob
-		local isSelectedMob = configuration.SelectedCombatMob == selectedMob
+		local isSelectedMob = configurations.SelectedCombatMob == selectedMob
 		local row = Instance.new("TextButton")
 		row.Size = UDim2.new(1, -8, 0, 30)
 		row.LayoutOrder = order
-		row.BackgroundColor3 = isSelectedMob and ACCENT_DIM or INPUT
+		row.BackgroundColor3 = isSelectedMob and UIColors.ACCENT_DIM or UIColors.INPUT
 		row.BorderSizePixel = 0
 		local baseText = string.format("%s  •  Lv %s  •  EXP %s", entry.Name,
 			entry.Level and tostring(entry.Level) or "—", entry.EXP > -math.huge and tostring(entry.EXP) or "—")
 		row:SetAttribute("BaseText", baseText)
 		row:SetAttribute("SelectedText", "✓  " .. baseText)
 		row.Text = isSelectedMob and ("✓  " .. baseText) or baseText
-		row.TextColor3 = isSelectedMob and ACCENT or TEXT
+		row.TextColor3 = isSelectedMob and UIColors.ACCENT or UIColors.TEXT
 		row.TextSize = 11
 		row.Font = Enum.Font.Gotham
 		row.TextXAlignment = Enum.TextXAlignment.Left
 		row.Parent = CombatMobScroll
-		configuration.CombatMobUI.RowByMob[selectedMob] = row
+		configurations.CombatMobUI.RowByMob[selectedMob] = row
 		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
 		row.MouseButton1Click:Connect(function()
 			if not selectedMob:IsDescendantOf(MobsFolder) then
-				configuration.CombatMobUI.ListDirty = true
-				configuration.RefreshCombatMobs()
+				configurations.CombatMobUI.ListDirty = true
+				configurations.RefreshCombatMobs()
 				return
 			end
-			configuration.SelectedCombatMob = selectedMob
-			configuration.SaveConfig()
-			configuration.RefreshCombatMobs()
+			configurations.SelectedCombatMob = selectedMob
+			configurations.SaveConfig()
+			configurations.RefreshCombatMobs()
 		end)
-		table.insert(configuration.CombatMobRows, row)
+		table.insert(configurations.CombatMobRows, row)
 	end
 	if #entries == 0 then
 		local empty = Instance.new("TextLabel")
 		empty.Size = UDim2.new(1, -8, 0, 30)
 		empty.BackgroundTransparency = 1
 		empty.Text = "No mobs found in this server"
-		empty.TextColor3 = MUTED
+		empty.TextColor3 = UIColors.MUTED
 		empty.TextSize = 11
 		empty.Font = Enum.Font.Gotham
 		empty.Parent = CombatMobScroll
-		table.insert(configuration.CombatMobRows, empty)
+		table.insert(configurations.CombatMobRows, empty)
 	end
 end
 
-function configuration.RequestCombatMobRefresh()
-	configuration.CombatMobUI.ListDirty = true
-	if configuration.CombatMobUI.RefreshQueued or not CombatPage.Visible then return end
-	configuration.CombatMobUI.RefreshQueued = true
-	local delay = math.max(0.12, 0.45 - (os.clock() - configuration.CombatMobUI.LastRefreshAt))
+function configurations.RequestCombatMobRefresh()
+	configurations.CombatMobUI.ListDirty = true
+	if configurations.CombatMobUI.RefreshQueued or not CombatPage.Visible then return end
+	configurations.CombatMobUI.RefreshQueued = true
+	local delay = math.max(0.12, 0.45 - (os.clock() - configurations.CombatMobUI.LastRefreshAt))
 	task.delay(delay, function()
-		configuration.CombatMobUI.RefreshQueued = false
+		configurations.CombatMobUI.RefreshQueued = false
 		if CombatMobScroll.Parent and CombatPage.Visible then
-			configuration.CombatMobUI.LastRefreshAt = os.clock()
-			configuration.RefreshCombatMobs()
+			configurations.CombatMobUI.LastRefreshAt = os.clock()
+			configurations.RefreshCombatMobs()
 		end
 	end)
 end
 
 CombatMobRefresh.MouseButton1Click:Connect(function()
-	configuration.CombatMobUI.ListDirty = true
-	configuration.RefreshCombatMobs()
+	configurations.CombatMobUI.ListDirty = true
+	configurations.RefreshCombatMobs()
 end)
-MobsFolder.ChildAdded:Connect(configuration.RequestCombatMobRefresh)
-MobsFolder.ChildRemoved:Connect(configuration.RequestCombatMobRefresh)
-configuration.RefreshCombatMobs()
+MobsFolder.ChildAdded:Connect(configurations.RequestCombatMobRefresh)
+MobsFolder.ChildRemoved:Connect(configurations.RequestCombatMobRefresh)
+configurations.RefreshCombatMobs()
 
-configuration.CombatStatusCard = Instance.new("Frame")
-configuration.CombatStatusCard.Size = UDim2.new(1, 0, 0, 78)
-configuration.CombatStatusCard.LayoutOrder = 10
-configuration.CombatStatusCard.BackgroundColor3 = CARD
-configuration.CombatStatusCard.BorderSizePixel = 0
-configuration.CombatStatusCard.Parent = CombatPage
-Instance.new("UICorner", configuration.CombatStatusCard).CornerRadius = UDim.new(0, 8)
-configuration.CombatStatusStroke = Instance.new("UIStroke", configuration.CombatStatusCard)
-configuration.CombatStatusStroke.Color = INPUT
-configuration.CombatStatusStroke.Transparency = 0.35
+configurations.CombatStatusCard = Instance.new("Frame")
+configurations.CombatStatusCard.Size = UDim2.new(1, 0, 0, 78)
+configurations.CombatStatusCard.LayoutOrder = 10
+configurations.CombatStatusCard.BackgroundColor3 = UIColors.CARD
+configurations.CombatStatusCard.BorderSizePixel = 0
+configurations.CombatStatusCard.Parent = CombatPage
+Instance.new("UICorner", configurations.CombatStatusCard).CornerRadius = UDim.new(0, 8)
+configurations.CombatStatusStroke = Instance.new("UIStroke", configurations.CombatStatusCard)
+configurations.CombatStatusStroke.Color = UIColors.INPUT
+configurations.CombatStatusStroke.Transparency = 0.35
 
-configuration.CombatStatusAccent = Instance.new("Frame")
-configuration.CombatStatusAccent.Size = UDim2.new(0, 3, 1, -18)
-configuration.CombatStatusAccent.Position = UDim2.fromOffset(8, 9)
-configuration.CombatStatusAccent.BackgroundColor3 = ACCENT
-configuration.CombatStatusAccent.BorderSizePixel = 0
-configuration.CombatStatusAccent.Parent = configuration.CombatStatusCard
-Instance.new("UICorner", configuration.CombatStatusAccent).CornerRadius = UDim.new(1, 0)
+configurations.CombatStatusAccent = Instance.new("Frame")
+configurations.CombatStatusAccent.Size = UDim2.new(0, 3, 1, -18)
+configurations.CombatStatusAccent.Position = UDim2.fromOffset(8, 9)
+configurations.CombatStatusAccent.BackgroundColor3 = UIColors.ACCENT
+configurations.CombatStatusAccent.BorderSizePixel = 0
+configurations.CombatStatusAccent.Parent = configurations.CombatStatusCard
+Instance.new("UICorner", configurations.CombatStatusAccent).CornerRadius = UDim.new(1, 0)
 
-configuration.CombatStatusTitle = Instance.new("TextLabel")
-configuration.CombatStatusTitle.Size = UDim2.new(1, -28, 0, 16)
-configuration.CombatStatusTitle.Position = UDim2.fromOffset(19, 7)
-configuration.CombatStatusTitle.BackgroundTransparency = 1
-configuration.CombatStatusTitle.Text = "COMBAT STATUS"
-configuration.CombatStatusTitle.TextColor3 = ACCENT
-configuration.CombatStatusTitle.TextSize = 11
-configuration.CombatStatusTitle.Font = Enum.Font.GothamBold
-configuration.CombatStatusTitle.TextXAlignment = Enum.TextXAlignment.Left
-configuration.CombatStatusTitle.Parent = configuration.CombatStatusCard
+configurations.CombatStatusTitle = Instance.new("TextLabel")
+configurations.CombatStatusTitle.Size = UDim2.new(1, -28, 0, 16)
+configurations.CombatStatusTitle.Position = UDim2.fromOffset(19, 7)
+configurations.CombatStatusTitle.BackgroundTransparency = 1
+configurations.CombatStatusTitle.Text = "COMBAT STATUS"
+configurations.CombatStatusTitle.TextColor3 = UIColors.ACCENT
+configurations.CombatStatusTitle.TextSize = 11
+configurations.CombatStatusTitle.Font = Enum.Font.GothamBold
+configurations.CombatStatusTitle.TextXAlignment = Enum.TextXAlignment.Left
+configurations.CombatStatusTitle.Parent = configurations.CombatStatusCard
 
-configuration.CombatInfo = Instance.new("TextLabel")
-configuration.CombatInfo.Size = UDim2.new(1, -28, 0, 49)
-configuration.CombatInfo.Position = UDim2.fromOffset(19, 23)
-configuration.CombatInfo.BackgroundTransparency = 1
-configuration.CombatInfo.Text = "Targets selected mobs or enabled IsBoss markers; moves with MoveTo and attacks while closing in."
-configuration.CombatInfo.TextColor3 = TEXT
-configuration.CombatInfo.TextSize = 11
-configuration.CombatInfo.Font = Enum.Font.Gotham
-configuration.CombatInfo.TextWrapped = true
-configuration.CombatInfo.TextXAlignment = Enum.TextXAlignment.Left
-configuration.CombatInfo.TextYAlignment = Enum.TextYAlignment.Top
-configuration.CombatInfo.Parent = configuration.CombatStatusCard
+configurations.CombatInfo = Instance.new("TextLabel")
+configurations.CombatInfo.Size = UDim2.new(1, -28, 0, 49)
+configurations.CombatInfo.Position = UDim2.fromOffset(19, 23)
+configurations.CombatInfo.BackgroundTransparency = 1
+configurations.CombatInfo.Text = "Targets selected mobs or enabled IsBoss markers; moves with MoveTo and attacks while closing in."
+configurations.CombatInfo.TextColor3 = UIColors.TEXT
+configurations.CombatInfo.TextSize = 11
+configurations.CombatInfo.Font = Enum.Font.Gotham
+configurations.CombatInfo.TextWrapped = true
+configurations.CombatInfo.TextXAlignment = Enum.TextXAlignment.Left
+configurations.CombatInfo.TextYAlignment = Enum.TextYAlignment.Top
+configurations.CombatInfo.Parent = configurations.CombatStatusCard
 
-configuration.LastCombatStatusUpdate = 0
+configurations.LastCombatStatusUpdate = 0
 
-function configuration.UpdateCombatStatus(target, targetRoot, distance, navigationState, moveState)
+function configurations.UpdateCombatStatus(target, targetRoot, distance, navigationState, moveState)
 	local now = os.clock()
-	if now - configuration.LastCombatStatusUpdate < 0.18 then return end
-	configuration.LastCombatStatusUpdate = now
+	if now - configurations.LastCombatStatusUpdate < 0.18 then return end
+	configurations.LastCombatStatusUpdate = now
 	if not target or not targetRoot then
-		configuration.CombatInfo.Text = configuration.Farming and "Combat paused during EXP firing."
-			or ((configuration.AutoBossTargetEnabled or configuration.AutoMiniBossTargetEnabled)
+		configurations.CombatInfo.Text = configurations.Farming and "Combat paused during EXP firing."
+			or ((configurations.AutoBossTargetEnabled or configurations.AutoMiniBossTargetEnabled)
 				and "Searching for IsBoss / IsMiniBoss targets..."
-				or (configuration.AutoAttackEnabled and "Select a mob from the list to start moving and attacking."
+				or (configurations.AutoAttackEnabled and "Select a mob from the list to start moving and attacking."
 					or "Auto attack is off."))
 		return
 	end
 	local action = navigationState == "detouring" and "going around obstacle"
 		or (moveState and moveState.Active and "moving to mob" or "tracking selected mob")
-	local ready, needsEquip = configuration.Combat.GetWeaponEquipState(Player.Character)
+	local ready, needsEquip = configurations.Combat.GetWeaponEquipState(Player.Character)
 	local weapon = ready and "weapon ready" or (needsEquip and "equipping weapon" or "weapon unavailable")
-	configuration.CombatInfo.Text = string.format("Mob: %s\n%.0f studs · %s · %s", target.Name, distance or 0, action, weapon)
+	configurations.CombatInfo.Text = string.format("Mob: %s\n%.0f studs · %s · %s", target.Name, distance or 0, action, weapon)
 end
 
 AutoAttackButton.MouseButton1Click:Connect(function()
-	configuration.AutoAttackEnabled = not configuration.AutoAttackEnabled
-	configuration.SetToggleVisual(AutoAttackButton, "Auto attack", configuration.AutoAttackEnabled, RED, RED_DIM)
-	configuration.SaveConfig()
+	configurations.AutoAttackEnabled = not configurations.AutoAttackEnabled
+	configurations.SetToggleVisual(AutoAttackButton, "Auto attack", configurations.AutoAttackEnabled, UIColors.RED, UIColors.RED_DIM)
+	configurations.SaveConfig()
 end)
 
 AutoSkillButton.MouseButton1Click:Connect(function()
-	configuration.AutoSkillEnabled = not configuration.AutoSkillEnabled
-	configuration.SetToggleVisual(AutoSkillButton, "Auto skill", configuration.AutoSkillEnabled, ACCENT, ACCENT_DIM)
-	configuration.SaveConfig()
+	configurations.AutoSkillEnabled = not configurations.AutoSkillEnabled
+	configurations.SetToggleVisual(AutoSkillButton, "Auto skill", configurations.AutoSkillEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM)
+	configurations.SaveConfig()
 end)
 
 AutoBossTargetButton.MouseButton1Click:Connect(function()
-	configuration.AutoBossTargetEnabled = not configuration.AutoBossTargetEnabled
-	configuration.SetToggleVisual(AutoBossTargetButton, "IsBoss target", configuration.AutoBossTargetEnabled, RED, RED_DIM)
-	configuration.SaveConfig()
+	configurations.AutoBossTargetEnabled = not configurations.AutoBossTargetEnabled
+	configurations.SetToggleVisual(AutoBossTargetButton, "IsBoss target", configurations.AutoBossTargetEnabled, UIColors.RED, UIColors.RED_DIM)
+	configurations.SaveConfig()
 end)
 
 AutoMiniBossTargetButton.MouseButton1Click:Connect(function()
-	configuration.AutoMiniBossTargetEnabled = not configuration.AutoMiniBossTargetEnabled
-	configuration.SetToggleVisual(AutoMiniBossTargetButton, "IsMiniBoss target", configuration.AutoMiniBossTargetEnabled, RED, RED_DIM)
-	configuration.SaveConfig()
+	configurations.AutoMiniBossTargetEnabled = not configurations.AutoMiniBossTargetEnabled
+	configurations.SetToggleVisual(AutoMiniBossTargetButton, "IsMiniBoss target", configurations.AutoMiniBossTargetEnabled, UIColors.RED, UIColors.RED_DIM)
+	configurations.SaveConfig()
 end)
 
-local AlertToggleButton = configuration.MakeToggle("Player alert", configuration.AlertsEnabled, GREEN, GREEN_DIM, 1, AlertsGrid, "Alert when a non-whitelisted player gets close.")
-local AlertFlashButton = configuration.MakeToggle("Screen flash", configuration.AlertFlashEnabled, RED, RED_DIM, 2, AlertsGrid, "Flash the screen when an alert triggers.")
-local AutoResumeButton = configuration.MakeToggle("Auto resume", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
-configuration.JoinAlertButton = configuration.MakeToggle("Join alerts", configuration.JoinAlertsEnabled, GREEN, GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
-configuration.JoinLogButton = configuration.MakeActionRow("Join log", 5, AlertsGrid, "Open the player join and leave log.")
-local ESPToggleButton = configuration.MakeToggle("Player ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM, 2, nil, "Show markers for other players.")
-local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw lines to players.")
-local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw boxes around players.")
-local FPSBoostButton = configuration.MakeToggle("Boost FPS", configuration.FPSBoostEnabled, ACCENT, ACCENT_DIM, 1, PerformanceGrid, "Reduce visual effects while keeping scene lights and color correction.")
-local AutoBlockButton = configuration.MakeToggle("Auto block", configuration.AutoBlockEnabled, RED, RED_DIM, 6, AlertsGrid, "Show the block prompt after the EXP target is defeated.")
-local PlayerListButton = configuration.MakeActionRow("Player list", 1, PlayersGrid, "View players in this server.")
-local WhitelistButton = configuration.MakeActionRow("Whitelist", 2, PlayersGrid, "Whitelisted players do not trigger alerts or auto-block.")
-FollowSelectButton = configuration.MakeActionRow("Choose follow target", 3, PlayersGrid, "Select who to follow.")
-FollowToggleButton = configuration.MakeToggle("Follow", configuration.FollowEnabled, ACCENT, ACCENT_DIM, 4, PlayersGrid, "Follow the selected player; turn off to pause.")
+local AlertToggleButton = configurations.MakeToggle("Player alert", configurations.AlertsEnabled, UIColors.GREEN, UIColors.GREEN_DIM, 1, AlertsGrid, "Alert when a non-whitelisted player gets close.")
+local AlertFlashButton = configurations.MakeToggle("Screen flash", configurations.AlertFlashEnabled, UIColors.RED, UIColors.RED_DIM, 2, AlertsGrid, "Flash the screen when an alert triggers.")
+local AutoResumeButton = configurations.MakeToggle("Auto resume", configurations.AutoResumeAfterAlert, UIColors.ACCENT, UIColors.ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
+configurations.JoinAlertButton = configurations.MakeToggle("Join alerts", configurations.JoinAlertsEnabled, UIColors.GREEN, UIColors.GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
+configurations.JoinLogButton = configurations.MakeActionRow("Join log", 5, AlertsGrid, "Open the player join and leave log.")
 
-function configuration.UpdateFollowButtons()
-	local selectedId = configuration.SelectedFollowUserId
+-- Compact display controls used by the Performance page.
+function configurations.MakeScaleControl(parent, title, getter, setter, minValue, maxValue, step, order)
+	local card = Instance.new("Frame")
+	card.Name = title:gsub("%s+", "")
+	card.Size = UDim2.new(1, 0, 0, 48)
+	card.LayoutOrder = order
+	card.BackgroundColor3 = UIColors.CARD
+	card.BorderSizePixel = 0
+	card.Parent = parent
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
+	local stroke = Instance.new("UIStroke", card)
+	stroke.Color = UIColors.BORDER
+	stroke.Transparency = 0.65
+	stroke.Thickness = 1
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Title"
+	label.Size = UDim2.new(1, -190, 1, 0)
+	label.Position = UDim2.fromOffset(16, 0)
+	label.BackgroundTransparency = 1
+	label.Text = title
+	label.TextColor3 = UIColors.TEXT
+	label.TextSize = 14
+	label.Font = Enum.Font.GothamMedium
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = card
+
+	local minus = Instance.new("TextButton")
+	minus.Name = "Decrease"
+	minus.Size = UDim2.fromOffset(30, 30)
+	minus.Position = UDim2.new(1, -142, 0.5, -15)
+	minus.BackgroundColor3 = UIColors.INPUT
+	minus.BorderSizePixel = 0
+	minus.Text = "−"
+	minus.TextColor3 = UIColors.TEXT
+	minus.TextSize = 16
+	minus.Font = Enum.Font.GothamBold
+	minus.Parent = card
+	Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 7)
+
+	local value = Instance.new("TextLabel")
+	value.Name = "Value"
+	value.Size = UDim2.fromOffset(74, 30)
+	value.Position = UDim2.new(1, -108, 0.5, -15)
+	value.BackgroundColor3 = UIColors.INPUT
+	value.BorderSizePixel = 0
+	value.TextColor3 = UIColors.ACCENT_SEL
+	value.TextSize = 12
+	value.Font = Enum.Font.GothamBold
+	value.Parent = card
+	Instance.new("UICorner", value).CornerRadius = UDim.new(0, 7)
+
+	local plus = Instance.new("TextButton")
+	plus.Name = "Increase"
+	plus.Size = UDim2.fromOffset(30, 30)
+	plus.Position = UDim2.new(1, -42, 0.5, -15)
+	plus.BackgroundColor3 = UIColors.INPUT
+	plus.BorderSizePixel = 0
+	plus.Text = "+"
+	plus.TextColor3 = UIColors.TEXT
+	plus.TextSize = 16
+	plus.Font = Enum.Font.GothamBold
+	plus.Parent = card
+	Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 7)
+
+	local function refresh()
+		value.Text = string.format("%d%%", math.floor((getter() or 1) * 100 + 0.5))
+	end
+
+	local function change(delta)
+		local current = getter() or 1
+		local nextValue = math.clamp(current + delta, minValue, maxValue)
+		nextValue = math.floor(nextValue / step + 0.5) * step
+		nextValue = math.clamp(nextValue, minValue, maxValue)
+		setter(nextValue, true)
+		refresh()
+	end
+
+	minus.MouseButton1Click:Connect(function() change(-step) end)
+	plus.MouseButton1Click:Connect(function() change(step) end)
+	refresh()
+	return card
+end
+
+local GuiScaleControl = configurations.MakeScaleControl(
+	PerformanceGrid,
+	"GUI size",
+	function() return configurations.GuiScale end,
+	configurations.SetGuiScale,
+	0.20, 2.50, 0.05, 2
+)
+
+local TextScaleControl = configurations.MakeScaleControl(
+	PerformanceGrid,
+	"Text size",
+	function() return configurations.TextScale end,
+	configurations.SetTextScale,
+	0.20, 2.50, 0.05, 3
+)
+
+local ESPToggleButton = configurations.MakeToggle("Player ESP", configurations.ESPEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 2, nil, "Show markers for other players.")
+local ESPLineButton = configurations.MakeToggle("ESP lines", configurations.ESPLineEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 3, nil, "Draw lines to players.")
+local ESPBoxButton = configurations.MakeToggle("ESP boxes", configurations.ESPBoxEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 4, nil, "Draw boxes around players.")
+local FPSBoostButton = configurations.MakeToggle("Boost FPS", configurations.FPSBoostEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 1, PerformanceGrid, "Reduce visual effects while keeping scene lights and color correction.")
+local AutoBlockButton = configurations.MakeToggle("Auto block", configurations.AutoBlockEnabled, UIColors.RED, UIColors.RED_DIM, 6, AlertsGrid, "Show the block prompt after the EXP target is defeated.")
+local PlayerListButton = configurations.MakeActionRow("Player list", 1, PlayersGrid, "View players in this server.")
+local WhitelistButton = configurations.MakeActionRow("Whitelist", 2, PlayersGrid, "Whitelisted players do not trigger alerts or auto-block.")
+FollowSelectButton = configurations.MakeActionRow("Choose follow target", 3, PlayersGrid, "Select who to follow.")
+FollowToggleButton = configurations.MakeToggle("Follow", configurations.FollowEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 4, PlayersGrid, "Follow the selected player; turn off to pause.")
+
+function configurations.UpdateFollowButtons()
+	local selectedId = configurations.SelectedFollowUserId
 	local selectedPlayer = selectedId and Players:GetPlayerByUserId(tonumber(selectedId))
 	local targetLabel = selectedPlayer and ("Target: @" .. selectedPlayer.Name)
 		or (selectedId and "Target: offline" or "Choose follow target")
-	configuration.SetActionVisual(FollowSelectButton, targetLabel, selectedId ~= nil)
-	configuration.SetToggleVisual(FollowToggleButton, "Follow", configuration.FollowEnabled, ACCENT, ACCENT_DIM)
+	configurations.SetActionVisual(FollowSelectButton, targetLabel, selectedId ~= nil)
+	configurations.SetToggleVisual(FollowToggleButton, "Follow", configurations.FollowEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM)
 end
 
-function configuration.RefreshPartyWaypointState()
-	local leaderUserId = tonumber(configuration.PartyLeaderUserId)
+function configurations.RefreshPartyWaypointState()
+	local leaderUserId = tonumber(configurations.PartyLeaderUserId)
 	local leaderPresent = leaderUserId and Players:GetPlayerByUserId(leaderUserId) ~= nil
-	local shouldSuspend = configuration.PartyFollowEnabled == true
+	local shouldSuspend = configurations.PartyFollowEnabled == true
 		and leaderUserId ~= nil and not leaderPresent or false
-	if configuration.PartyWaypointSuspended == shouldSuspend then return end
-	configuration.PartyWaypointSuspended = shouldSuspend
+	if configurations.PartyWaypointSuspended == shouldSuspend then return end
+	configurations.PartyWaypointSuspended = shouldSuspend
 	UpdateWaypointInfo()
 end
 
-function configuration.SetFollowEnabled(enabled)
-	configuration.FollowEnabled = enabled == true and configuration.SelectedFollowUserId ~= nil
-	if not configuration.FollowEnabled then
+function configurations.SetFollowEnabled(enabled)
+	configurations.FollowEnabled = enabled == true and configurations.SelectedFollowUserId ~= nil
+	if not configurations.FollowEnabled then
 		local character = Player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if humanoid and root then
-			configuration.FollowSystem.Reset(humanoid, root)
+			configurations.FollowSystem.Reset(humanoid, root)
 		end
 	end
-	configuration.UpdateFollowButtons()
-	configuration.SaveConfig()
-	return configuration.FollowEnabled
+	configurations.UpdateFollowButtons()
+	configurations.SaveConfig()
+	return configurations.FollowEnabled
 end
-configuration.UpdateFollowButtons()
+configurations.UpdateFollowButtons()
 
 
 AlertToggleButton.MouseButton1Click:Connect(function()
-	configuration.AlertsEnabled = not configuration.AlertsEnabled
-	configuration.SetToggleVisual(AlertToggleButton, "Player alert", configuration.AlertsEnabled, GREEN, GREEN_DIM)
-	configuration.SaveConfig()
-	if not configuration.AlertsEnabled then
+	configurations.AlertsEnabled = not configurations.AlertsEnabled
+	configurations.SetToggleVisual(AlertToggleButton, "Player alert", configurations.AlertsEnabled, UIColors.GREEN, UIColors.GREEN_DIM)
+	configurations.SaveConfig()
+	if not configurations.AlertsEnabled then
 		AlarmOverlay.Visible = false
 	end
 end)
 
 AlertFlashButton.MouseButton1Click:Connect(function()
-	configuration.AlertFlashEnabled = not configuration.AlertFlashEnabled
-	configuration.SetToggleVisual(AlertFlashButton, "Screen flash", configuration.AlertFlashEnabled, RED, RED_DIM)
-	if not configuration.AlertFlashEnabled then AlarmOverlay.Visible = false end
-	configuration.SaveConfig()
+	configurations.AlertFlashEnabled = not configurations.AlertFlashEnabled
+	configurations.SetToggleVisual(AlertFlashButton, "Screen flash", configurations.AlertFlashEnabled, UIColors.RED, UIColors.RED_DIM)
+	if not configurations.AlertFlashEnabled then AlarmOverlay.Visible = false end
+	configurations.SaveConfig()
 end)
 
 AutoResumeButton.MouseButton1Click:Connect(function()
-	configuration.AutoResumeAfterAlert = not configuration.AutoResumeAfterAlert
-	configuration.SetToggleVisual(AutoResumeButton, "Auto resume", configuration.AutoResumeAfterAlert, ACCENT, ACCENT_DIM)
-	configuration.SaveConfig()
+	configurations.AutoResumeAfterAlert = not configurations.AutoResumeAfterAlert
+	configurations.SetToggleVisual(AutoResumeButton, "Auto resume", configurations.AutoResumeAfterAlert, UIColors.ACCENT, UIColors.ACCENT_DIM)
+	configurations.SaveConfig()
 end)
 
-configuration.JoinAlertButton.MouseButton1Click:Connect(function()
-	configuration.SetJoinAlertsEnabled(not configuration.JoinAlertsEnabled)
-	configuration.SetToggleVisual(configuration.JoinAlertButton, "Join alerts", configuration.JoinAlertsEnabled, GREEN, GREEN_DIM)
+configurations.JoinAlertButton.MouseButton1Click:Connect(function()
+	configurations.SetJoinAlertsEnabled(not configurations.JoinAlertsEnabled)
+	configurations.SetToggleVisual(configurations.JoinAlertButton, "Join alerts", configurations.JoinAlertsEnabled, UIColors.GREEN, UIColors.GREEN_DIM)
 end)
 
 ESPToggleButton.MouseButton1Click:Connect(function()
-	configuration.ESPEnabled = not configuration.ESPEnabled
-	configuration.SetToggleVisual(ESPToggleButton, "Player ESP", configuration.ESPEnabled, ACCENT, ACCENT_DIM)
-	configuration.SaveConfig()
+	configurations.ESPEnabled = not configurations.ESPEnabled
+	configurations.SetToggleVisual(ESPToggleButton, "Player ESP", configurations.ESPEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM)
+	configurations.SaveConfig()
 end)
 
 ESPLineButton.MouseButton1Click:Connect(function()
-	configuration.ESPLineEnabled = not configuration.ESPLineEnabled
-	configuration.SetToggleVisual(ESPLineButton, "ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM)
-	configuration.SaveConfig()
+	configurations.ESPLineEnabled = not configurations.ESPLineEnabled
+	configurations.SetToggleVisual(ESPLineButton, "ESP lines", configurations.ESPLineEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM)
+	configurations.SaveConfig()
 end)
 
 ESPBoxButton.MouseButton1Click:Connect(function()
-	configuration.ESPBoxEnabled = not configuration.ESPBoxEnabled
-	configuration.SetToggleVisual(ESPBoxButton, "ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM)
-	configuration.SaveConfig()
+	configurations.ESPBoxEnabled = not configurations.ESPBoxEnabled
+	configurations.SetToggleVisual(ESPBoxButton, "ESP boxes", configurations.ESPBoxEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM)
+	configurations.SaveConfig()
 end)
 
 FPSBoostButton.MouseButton1Click:Connect(function()
-	configuration.SetFPSBoost(not configuration.FPSBoostEnabled)
-	configuration.SetToggleVisual(FPSBoostButton, "Boost FPS", configuration.FPSBoostEnabled, ACCENT, ACCENT_DIM)
+	configurations.SetFPSBoost(not configurations.FPSBoostEnabled)
+	configurations.SetToggleVisual(FPSBoostButton, "Boost FPS", configurations.FPSBoostEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM)
 end)
 
 AutoBlockButton.MouseButton1Click:Connect(function()
-	configuration.AutoBlockEnabled = not configuration.AutoBlockEnabled
-	configuration.SetToggleVisual(AutoBlockButton, "Auto block", configuration.AutoBlockEnabled, RED, RED_DIM)
-	if not configuration.AutoBlockEnabled and not configuration.AlertCombatPending then
-		configuration.AlertCombatBlockReady = false
-		configuration.AlertBlockPromptShown = false
-		configuration.AlertBlockTarget = nil
+	configurations.AutoBlockEnabled = not configurations.AutoBlockEnabled
+	configurations.SetToggleVisual(AutoBlockButton, "Auto block", configurations.AutoBlockEnabled, UIColors.RED, UIColors.RED_DIM)
+	if not configurations.AutoBlockEnabled and not configurations.AlertCombatPending then
+		configurations.AlertCombatBlockReady = false
+		configurations.AlertBlockPromptShown = false
+		configurations.AlertBlockTarget = nil
 	end
-	configuration.SaveConfig()
+	configurations.SaveConfig()
 end)
 
-function configuration.UpdateEmergencyStopButton()
-	EmergencyStopButton.Text = configuration.EmergencyStopActive and "Emergency stop: ON  •  click to resume" or "Emergency stop: OFF"
-	EmergencyStopButton.TextColor3 = configuration.EmergencyStopActive and RED or MUTED
-	EmergencyStopButton.BackgroundColor3 = configuration.EmergencyStopActive and RED_DIM or CARD
+function configurations.UpdateEmergencyStopButton()
+	EmergencyStopButton.Text = configurations.EmergencyStopActive and "Emergency stop: ON  •  click to resume" or "Emergency stop: OFF"
+	EmergencyStopButton.TextColor3 = configurations.EmergencyStopActive and UIColors.RED or UIColors.MUTED
+	EmergencyStopButton.BackgroundColor3 = configurations.EmergencyStopActive and UIColors.RED_DIM or UIColors.CARD
 end
 
 EmergencyStopButton.MouseButton1Click:Connect(function()
-	configuration.EmergencyStopActive = not configuration.EmergencyStopActive
-	if configuration.EmergencyStopActive then
-		configuration.Farming = false
-		configuration.ExpFinishTarget = nil
-		if configuration.StopExpMovement then configuration.StopExpMovement() end
-		configuration.PauseTimer()
-		configuration.ExpMaxCombatTarget = nil
-		configuration.ExpLastShotTarget = nil
-		configuration.AlertCombatPending = false
-		configuration.AlertCombatTarget = nil
-		configuration.AlertCombatHold = false
-		configuration.AlertCombatBlockReady = false
-		configuration.AlertResumeRequired = false
-		configuration.AlertWasFarming = false
-		configuration.AlertBlockPromptShown = false
-		configuration.AlertBlockTarget = nil
-		configuration.LastAlertCombatUserId = nil
-		configuration.ExpRetaliationTarget = nil
-		configuration.PendingServerHop = false
-		configuration.ServerHopKillTarget = nil
+	configurations.EmergencyStopActive = not configurations.EmergencyStopActive
+	if configurations.EmergencyStopActive then
+		configurations.Farming = false
+		configurations.ExpFinishTarget = nil
+		if configurations.StopExpMovement then configurations.StopExpMovement() end
+		configurations.PauseTimer()
+		configurations.ExpMaxCombatTarget = nil
+		configurations.ExpLastShotTarget = nil
+		configurations.AlertCombatPending = false
+		configurations.AlertCombatTarget = nil
+		configurations.AlertCombatHold = false
+		configurations.AlertCombatBlockReady = false
+		configurations.AlertResumeRequired = false
+		configurations.AlertWasFarming = false
+		configurations.AlertBlockPromptShown = false
+		configurations.AlertBlockTarget = nil
+		configurations.LastAlertCombatUserId = nil
+		configurations.ExpRetaliationTarget = nil
+		configurations.PendingServerHop = false
+		configurations.ServerHopKillTarget = nil
 		StartBtn.Text = "Start"
-		StartBtn.BackgroundColor3 = ACCENT
+		StartBtn.BackgroundColor3 = UIColors.ACCENT
 		Status.Text = "OFF"
-		Status.TextColor3 = RED
-		Status.BackgroundColor3 = RED_DIM
+		Status.TextColor3 = UIColors.RED
+		Status.BackgroundColor3 = UIColors.RED_DIM
 		StateLabel.Text = "Emergency stop"
 		MiniState.Text = "Emergency stop"
 		local character = Player.Character
@@ -3320,14 +3508,14 @@ EmergencyStopButton.MouseButton1Click:Connect(function()
 		if root and humanoid then humanoid:MoveTo(root.Position) end
 		RestoreMovementBoost()
 	else
-		StateLabel.Text = configuration.Farming and "Searching..." or "Stopped"
+		StateLabel.Text = configurations.Farming and "Searching..." or "Stopped"
 		MiniState.Text = StateLabel.Text
 	end
-	configuration.UpdateEmergencyStopButton()
+	configurations.UpdateEmergencyStopButton()
 end)
 
 Player.Idled:Connect(function()
-	if not configuration.AntiAFKEnabled or configuration.EmergencyStopActive then return end
+	if not configurations.AntiAFKEnabled or configurations.EmergencyStopActive then return end
 	task.spawn(function()
 		pcall(function()
 			local camera = workspace.CurrentCamera
@@ -3343,7 +3531,7 @@ end)
 
 task.spawn(function()
 	while task.wait(1) do
-		if not configuration.MovementBoostEnabled or configuration.EmergencyStopActive then
+		if not configurations.MovementBoostEnabled or configurations.EmergencyStopActive then
 			RestoreMovementBoost()
 			continue
 		end
@@ -3388,14 +3576,14 @@ task.spawn(function()
 end)
 
 Players.PlayerRemoving:Connect(function(leavingPlayer)
-	if configuration.SelectedFollowUserId == tostring(leavingPlayer.UserId) then
-		configuration.SetFollowEnabled(false)
+	if configurations.SelectedFollowUserId == tostring(leavingPlayer.UserId) then
+		configurations.SetFollowEnabled(false)
 	end
 end)
 
 Players.PlayerAdded:Connect(function(joiningPlayer)
-	if configuration.SelectedFollowUserId == tostring(joiningPlayer.UserId) then
-		configuration.UpdateFollowButtons()
+	if configurations.SelectedFollowUserId == tostring(joiningPlayer.UserId) then
+		configurations.UpdateFollowButtons()
 	end
 end)
 
@@ -3405,7 +3593,7 @@ end)
 SettingsCard = Instance.new("Frame")
 SettingsCard.Size = UDim2.new(1, 0, 0, 142)
 SettingsCard.LayoutOrder = 2
-SettingsCard.BackgroundColor3 = CARD
+SettingsCard.BackgroundColor3 = UIColors.CARD
 SettingsCard.BorderSizePixel = 0
 SettingsCard.Parent = FarmPage
 Instance.new("UICorner", SettingsCard).CornerRadius = UDim.new(0, 10)
@@ -3415,20 +3603,20 @@ SettingsTitle.Size = UDim2.new(1, -16, 0, 18)
 SettingsTitle.Position = UDim2.fromOffset(8, 4)
 SettingsTitle.BackgroundTransparency = 1
 SettingsTitle.Text = "Farming settings"
-SettingsTitle.TextColor3 = TEXT
+SettingsTitle.TextColor3 = UIColors.TEXT
 SettingsTitle.TextSize = 13
 SettingsTitle.Font = Enum.Font.GothamBold
 SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
 SettingsTitle.Parent = SettingsCard
 
-function configuration.MakeCompactSetting(parent, name, default, xScale, yOffset)
+function configurations.MakeCompactSetting(parent, name, default, xScale, yOffset)
 	local lbl = Instance.new("TextLabel")
 	lbl.Size = UDim2.new(0.5, -16, 0, 14)
 	lbl.Position = UDim2.new(xScale, 8, 0, yOffset)
 	lbl.BackgroundTransparency = 1
 	lbl.Text = name
-	lbl.TextColor3 = MUTED
-		lbl.TextSize = 11
+	lbl.TextColor3 = UIColors.MUTED
+	lbl.TextSize = 11
 	lbl.Font = Enum.Font.Gotham
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 	lbl.Parent = parent
@@ -3436,10 +3624,10 @@ function configuration.MakeCompactSetting(parent, name, default, xScale, yOffset
 	local box = Instance.new("TextBox")
 	box.Size = UDim2.new(0.5, -16, 0, 24)
 	box.Position = UDim2.new(xScale, 8, 0, yOffset + 14)
-	box.BackgroundColor3 = INPUT
+	box.BackgroundColor3 = UIColors.INPUT
 	box.BorderSizePixel = 0
 	box.Text = tostring(default)
-	box.TextColor3 = TEXT
+	box.TextColor3 = UIColors.TEXT
 	box.TextSize = 12
 	box.Font = Enum.Font.GothamBold
 	box.ClearTextOnFocus = false
@@ -3448,170 +3636,170 @@ function configuration.MakeCompactSetting(parent, name, default, xScale, yOffset
 	return box
 end
 
-local AmountBox = configuration.MakeCompactSetting(SettingsCard, "Amount / cycle", configuration.Amount, 0, 24)
-local DistBox = configuration.MakeCompactSetting(SettingsCard, "EXP target search radius (studs)", configuration.MaxDistance, 0.5, 24)
-local IntervalBox = configuration.MakeCompactSetting(SettingsCard, "Interval (s)", configuration.Interval, 0, 62)
-local MaxBox = configuration.MakeCompactSetting(SettingsCard, "EXP Max", configuration.ExpGoal, 0.5, 62)
-local ExpApproachBox = configuration.MakeCompactSetting(SettingsCard, "EXP firing range / standoff (studs)", configuration.ExpApproachDistance, 0, 100)
+local AmountBox = configurations.MakeCompactSetting(SettingsCard, "Amount / cycle", configurations.Amount, 0, 24)
+local DistBox = configurations.MakeCompactSetting(SettingsCard, "EXP target search radius (studs)", configurations.MaxDistance, 0.5, 24)
+local IntervalBox = configurations.MakeCompactSetting(SettingsCard, "Interval (s)", configurations.Interval, 0, 62)
+local MaxBox = configurations.MakeCompactSetting(SettingsCard, "EXP Max", configurations.ExpGoal, 0.5, 62)
+local ExpApproachBox = configurations.MakeCompactSetting(SettingsCard, "EXP firing range / standoff (studs)", configurations.ExpApproachDistance, 0, 100)
 
-local ExpAutoApproachButton = configuration.MakeToggle(
+local ExpAutoApproachButton = configurations.MakeToggle(
 	"Move to target",
-	configuration.ExpAutoApproachEnabled,
-	ACCENT,
-	ACCENT_DIM,
+	configurations.ExpAutoApproachEnabled,
+	UIColors.ACCENT,
+	UIColors.ACCENT_DIM,
 	3,
 	FarmPage,
 	"Move toward the EXP target while farming."
 )
 ExpAutoApproachButton.MouseButton1Click:Connect(function()
-	configuration.ExpAutoApproachEnabled = not configuration.ExpAutoApproachEnabled
-	configuration.SetToggleVisual(
+	configurations.ExpAutoApproachEnabled = not configurations.ExpAutoApproachEnabled
+	configurations.SetToggleVisual(
 		ExpAutoApproachButton,
 		"Move to target",
-		configuration.ExpAutoApproachEnabled,
-		ACCENT,
-		ACCENT_DIM
+		configurations.ExpAutoApproachEnabled,
+		UIColors.ACCENT,
+		UIColors.ACCENT_DIM
 	)
-	configuration.SaveConfig()
+	configurations.SaveConfig()
 end)
 
-local AutoExecuteButton = configuration.MakeToggle(
+local AutoExecuteButton = configurations.MakeToggle(
 	"Auto Execute",
-	configuration.AutoExecuteEnabled,
-	RED,
-	RED_DIM,
+	configurations.AutoExecuteEnabled,
+	UIColors.RED,
+	UIColors.RED_DIM,
 	4,
 	FarmPage,
 	"Stop EXP firing and finish the locked mob at EXP Max, manual stop, or Alert."
 )
 AutoExecuteButton.MouseButton1Click:Connect(function()
-	configuration.AutoExecuteEnabled = not configuration.AutoExecuteEnabled
-	configuration.SetToggleVisual(AutoExecuteButton, "Auto Execute", configuration.AutoExecuteEnabled, RED, RED_DIM)
-	if not configuration.AutoExecuteEnabled then
-		configuration.ExpFinishTarget = nil
-		configuration.ExpMaxCombatTarget = nil
-		configuration.ExpLastShotTarget = nil
-		if configuration.AlertCombatPending then
-			configuration.AlertCombatPending = false
-			configuration.AlertCombatTarget = nil
-			configuration.AlertCombatHold = true
-			configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
-			if not configuration.AutoBlockEnabled then configuration.AlertBlockTarget = nil end
+	configurations.AutoExecuteEnabled = not configurations.AutoExecuteEnabled
+	configurations.SetToggleVisual(AutoExecuteButton, "Auto Execute", configurations.AutoExecuteEnabled, UIColors.RED, UIColors.RED_DIM)
+	if not configurations.AutoExecuteEnabled then
+		configurations.ExpFinishTarget = nil
+		configurations.ExpMaxCombatTarget = nil
+		configurations.ExpLastShotTarget = nil
+		if configurations.AlertCombatPending then
+			configurations.AlertCombatPending = false
+			configurations.AlertCombatTarget = nil
+			configurations.AlertCombatHold = true
+			configurations.AlertCombatBlockReady = configurations.AutoBlockEnabled
+			if not configurations.AutoBlockEnabled then configurations.AlertBlockTarget = nil end
 		end
 	end
-	configuration.SaveConfig()
+	configurations.SaveConfig()
 end)
 
-local ExpTargetRetaliationButton = configuration.MakeToggle(
+local ExpTargetRetaliationButton = configurations.MakeToggle(
 	"EXP retaliation",
-	configuration.ExpTargetRetaliationEnabled,
-	RED,
-	RED_DIM,
+	configurations.ExpTargetRetaliationEnabled,
+	UIColors.RED,
+	UIColors.RED_DIM,
 	5,
 	FarmPage,
 	"Attack the EXP mob if it is hit."
 )
 ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
-	configuration.ExpTargetRetaliationEnabled = not configuration.ExpTargetRetaliationEnabled
-	configuration.SetToggleVisual(
+	configurations.ExpTargetRetaliationEnabled = not configurations.ExpTargetRetaliationEnabled
+	configurations.SetToggleVisual(
 		ExpTargetRetaliationButton,
 		"EXP retaliation",
-		configuration.ExpTargetRetaliationEnabled,
-		RED,
-		RED_DIM
+		configurations.ExpTargetRetaliationEnabled,
+		UIColors.RED,
+		UIColors.RED_DIM
 	)
-	if not configuration.ExpTargetRetaliationEnabled then
-		configuration.ExpRetaliationTarget = nil
+	if not configurations.ExpTargetRetaliationEnabled then
+		configurations.ExpRetaliationTarget = nil
 	end
-	configuration.SaveConfig()
+	configurations.SaveConfig()
 end)
 
-configuration.SafeBoosterResetButton = configuration.MakeToggle(
+configurations.SafeBoosterResetButton = configurations.MakeToggle(
 	"Safe booster reset",
-	configuration.SafeBoosterResetEnabled,
-	RED,
-	RED_DIM,
+	configurations.SafeBoosterResetEnabled,
+	UIColors.RED,
+	UIColors.RED_DIM,
 	6,
 	FarmPage,
 	"Reset on positive EXP Boost updates unless the mob-damage tag is present."
 )
-configuration.SafeBoosterResetButton.MouseButton1Click:Connect(function()
-	configuration.SafeBoosterResetEnabled = configuration.SafeBoosterResetSystem.SetEnabled(
-		not configuration.SafeBoosterResetEnabled
+configurations.SafeBoosterResetButton.MouseButton1Click:Connect(function()
+	configurations.SafeBoosterResetEnabled = configurations.SafeBoosterResetSystem.SetEnabled(
+		not configurations.SafeBoosterResetEnabled
 	)
-	configuration.SetToggleVisual(
-		configuration.SafeBoosterResetButton,
+	configurations.SetToggleVisual(
+		configurations.SafeBoosterResetButton,
 		"Safe booster reset",
-		configuration.SafeBoosterResetEnabled,
-		RED,
-		RED_DIM
+		configurations.SafeBoosterResetEnabled,
+		UIColors.RED,
+		UIColors.RED_DIM
 	)
-	configuration.SaveConfig()
+	configurations.SaveConfig()
 end)
 
-configuration.ExpHitFeedbackButton = configuration.MakeToggle(
+configurations.ExpHitFeedbackButton = configurations.MakeToggle(
 	"EXP hit alert",
-	configuration.ExpHitFeedbackEnabled,
-	ACCENT,
-	ACCENT_DIM,
+	configurations.ExpHitFeedbackEnabled,
+	UIColors.ACCENT,
+	UIColors.ACCENT_DIM,
 	7,
 	FarmPage,
 	"Keep the hit confirmation visible until that EXP mob dies."
 )
-configuration.ExpHitFeedbackButton.MouseButton1Click:Connect(function()
-	configuration.ExpHitFeedbackEnabled = not configuration.ExpHitFeedbackEnabled
-	configuration.SetToggleVisual(
-		configuration.ExpHitFeedbackButton,
+configurations.ExpHitFeedbackButton.MouseButton1Click:Connect(function()
+	configurations.ExpHitFeedbackEnabled = not configurations.ExpHitFeedbackEnabled
+	configurations.SetToggleVisual(
+		configurations.ExpHitFeedbackButton,
 		"EXP hit alert",
-		configuration.ExpHitFeedbackEnabled,
-		ACCENT,
-		ACCENT_DIM
+		configurations.ExpHitFeedbackEnabled,
+		UIColors.ACCENT,
+		UIColors.ACCENT_DIM
 	)
-	if not configuration.ExpHitFeedbackEnabled then
-		configuration.ExpHitFeedbackTarget = nil
+	if not configurations.ExpHitFeedbackEnabled then
+		configurations.ExpHitFeedbackTarget = nil
 	end
-	configuration.UpdateExpHitFeedback()
-	configuration.SaveConfig()
+	configurations.UpdateExpHitFeedback()
+	configurations.SaveConfig()
 end)
 
 AmountBox.FocusLost:Connect(function()
 	local v = tonumber(AmountBox.Text)
 	if v and v > 0 then
-		configuration.Amount = math.floor(v)
+		configurations.Amount = math.floor(v)
 	end
-	AmountBox.Text = tostring(configuration.Amount)
-	configuration.SaveConfig()
+	AmountBox.Text = tostring(configurations.Amount)
+	configurations.SaveConfig()
 end)
 DistBox.FocusLost:Connect(function()
 	local v = tonumber(DistBox.Text)
 	if v and v > 0 then
-		configuration.MaxDistance = math.clamp(v, 5, 100000)
+		configurations.MaxDistance = math.clamp(v, 5, 100000)
 	end
-	DistBox.Text = tostring(configuration.MaxDistance)
-	configuration.SaveConfig()
+	DistBox.Text = tostring(configurations.MaxDistance)
+	configurations.SaveConfig()
 end)
 ExpApproachBox.FocusLost:Connect(function()
 	local v = tonumber(ExpApproachBox.Text)
 	if v and v > 0 then
-		configuration.ExpApproachDistance = math.clamp(v, 5, 100)
+		configurations.ExpApproachDistance = math.clamp(v, 5, 100)
 	end
-	ExpApproachBox.Text = tostring(configuration.ExpApproachDistance)
-	configuration.SaveConfig()
+	ExpApproachBox.Text = tostring(configurations.ExpApproachDistance)
+	configurations.SaveConfig()
 end)
 IntervalBox.FocusLost:Connect(function()
 	local v = tonumber(IntervalBox.Text)
-	if v and v >= 0 then configuration.Interval = v end
-	IntervalBox.Text = tostring(configuration.Interval)
-	configuration.SaveConfig()
+	if v and v >= 0 then configurations.Interval = v end
+	IntervalBox.Text = tostring(configurations.Interval)
+	configurations.SaveConfig()
 end)
 MaxBox.FocusLost:Connect(function()
 	local v = tonumber((MaxBox.Text:gsub(",", "")))
 	if v and v > 0 then
-		configuration.ExpGoal = v
-		MaxLabel.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
+		configurations.ExpGoal = v
+		MaxLabel.Text = "/ " .. configurations.FormatNumber(configurations.ExpGoal)
 	end
-	MaxBox.Text = tostring(configuration.ExpGoal)
-	configuration.SaveConfig()
+	MaxBox.Text = tostring(configurations.ExpGoal)
+	configurations.SaveConfig()
 end)
 
 --==================================================
@@ -3619,16 +3807,16 @@ end)
 --==================================================
 local PlayerPanel = Instance.new("Frame")
 PlayerPanel.Name = "PlayerListPanel"
-PlayerPanel.Size = UDim2.fromScale(configuration.PlayerPanelWidthScale, configuration.PlayerPanelHeightScale)
+PlayerPanel.Size = UDim2.fromScale(configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale)
 PlayerPanel.Position = UDim2.fromScale(0.52, 0.19)
 PlayerPanel.ZIndex = 90
-PlayerPanel.BackgroundColor3 = BG
+PlayerPanel.BackgroundColor3 = UIColors.BG
 PlayerPanel.BorderSizePixel = 0
 PlayerPanel.Visible = false
 PlayerPanel.Parent = ScreenGui
 Instance.new("UICorner", PlayerPanel).CornerRadius = UDim.new(0, 12)
 local PlayerPanelStroke = Instance.new("UIStroke", PlayerPanel)
-PlayerPanelStroke.Color = BORDER
+PlayerPanelStroke.Color = UIColors.BORDER
 PlayerPanelStroke.Thickness = 1
 PlayerPanelStroke.Transparency = 0.35
 
@@ -3653,7 +3841,7 @@ PlayerPanelHeaderFix.Parent = PlayerPanelHeader
 local PlayerPanelHeaderRule = Instance.new("Frame")
 PlayerPanelHeaderRule.Size = UDim2.new(1, -20, 0, 1)
 PlayerPanelHeaderRule.Position = UDim2.new(0, 10, 1, -1)
-PlayerPanelHeaderRule.BackgroundColor3 = BORDER
+PlayerPanelHeaderRule.BackgroundColor3 = UIColors.BORDER
 PlayerPanelHeaderRule.BackgroundTransparency = 0.4
 PlayerPanelHeaderRule.BorderSizePixel = 0
 PlayerPanelHeaderRule.ZIndex = 92
@@ -3666,7 +3854,7 @@ PlayerPanelTitle.ZIndex = 92
 PlayerPanelTitle.Active = true
 PlayerPanelTitle.BackgroundTransparency = 1
 PlayerPanelTitle.Text = "Players in server"
-PlayerPanelTitle.TextColor3 = TEXT
+PlayerPanelTitle.TextColor3 = UIColors.TEXT
 PlayerPanelTitle.TextSize = 16
 PlayerPanelTitle.Font = Enum.Font.GothamBold
 PlayerPanelTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -3676,10 +3864,10 @@ local PlayerPanelClose = Instance.new("TextButton")
 PlayerPanelClose.Size = UDim2.fromOffset(32, 32)
 PlayerPanelClose.Position = UDim2.new(1, -40, 0, 6)
 PlayerPanelClose.ZIndex = 92
-PlayerPanelClose.BackgroundColor3 = INPUT
+PlayerPanelClose.BackgroundColor3 = UIColors.INPUT
 PlayerPanelClose.BorderSizePixel = 0
 PlayerPanelClose.Text = "×"
-PlayerPanelClose.TextColor3 = TEXT
+PlayerPanelClose.TextColor3 = UIColors.TEXT
 PlayerPanelClose.TextSize = 19
 PlayerPanelClose.Font = Enum.Font.GothamBold
 PlayerPanelClose.Parent = PlayerPanelHeader
@@ -3692,7 +3880,7 @@ PlayerScroll.ZIndex = 91
 PlayerScroll.BackgroundTransparency = 1
 PlayerScroll.BorderSizePixel = 0
 PlayerScroll.ScrollBarThickness = 3
-PlayerScroll.ScrollBarImageColor3 = MUTED
+PlayerScroll.ScrollBarImageColor3 = UIColors.MUTED
 PlayerScroll.CanvasSize = UDim2.new()
 PlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 PlayerScroll.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -3711,250 +3899,250 @@ PlayerScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
 PlayerScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 PlayerListButton.MouseButton1Click:Connect(function()
-	configuration.PlayerPanelMode = "server"
+	configurations.PlayerPanelMode = "server"
 	PlayerPanelTitle.Text = "Players in server"
 	PlayerPanel.Visible = not PlayerPanel.Visible
-	configuration.SetActionVisual(PlayerListButton, PlayerPanel.Visible and "Close list" or "Player list", PlayerPanel.Visible)
+	configurations.SetActionVisual(PlayerListButton, PlayerPanel.Visible and "Close list" or "Player list", PlayerPanel.Visible)
 end)
 PlayerPanelClose.MouseButton1Click:Connect(function()
 	PlayerPanel.Visible = false
-	configuration.PlayerPanelMode = "server"
-	configuration.SetActionVisual(PlayerListButton, "Player list", false)
+	configurations.PlayerPanelMode = "server"
+	configurations.SetActionVisual(PlayerListButton, "Player list", false)
 end)
 
 FollowSelectButton.MouseButton1Click:Connect(function()
-	configuration.PlayerPanelMode = "follow"
+	configurations.PlayerPanelMode = "follow"
 	PlayerPanelTitle.Text = "Choose player to follow"
 	PlayerPanel.Visible = true
-	configuration.SetActionVisual(PlayerListButton, "Player list", false)
+	configurations.SetActionVisual(PlayerListButton, "Player list", false)
 end)
 
 FollowToggleButton.MouseButton1Click:Connect(function()
-	if not configuration.SelectedFollowUserId then
-		configuration.PlayerPanelMode = "follow"
+	if not configurations.SelectedFollowUserId then
+		configurations.PlayerPanelMode = "follow"
 		PlayerPanelTitle.Text = "Choose player to follow"
 		PlayerPanel.Visible = true
 		return
 	end
-	configuration.SetFollowEnabled(not configuration.FollowEnabled)
+	configurations.SetFollowEnabled(not configurations.FollowEnabled)
 end)
 
-configuration.WhitelistPanel = Instance.new("Frame")
-configuration.WhitelistPanel.Name = "WhitelistPanel"
-configuration.WhitelistPanel.Size = UDim2.fromScale(configuration.WhitelistPanelWidthScale, configuration.WhitelistPanelHeightScale)
-configuration.WhitelistPanel.Position = UDim2.fromScale(0.04, 0.20)
-configuration.WhitelistPanel.ZIndex = 90
-configuration.WhitelistPanel.BackgroundColor3 = BG
-configuration.WhitelistPanel.BorderSizePixel = 0
-configuration.WhitelistPanel.Visible = false
-configuration.WhitelistPanel.Parent = ScreenGui
-Instance.new("UICorner", configuration.WhitelistPanel).CornerRadius = UDim.new(0, 12)
-configuration.WhitelistPanelStroke = Instance.new("UIStroke", configuration.WhitelistPanel)
-configuration.WhitelistPanelStroke.Color = BORDER
-configuration.WhitelistPanelStroke.Thickness = 1
-configuration.WhitelistPanelStroke.Transparency = 0.35
+configurations.WhitelistPanel = Instance.new("Frame")
+configurations.WhitelistPanel.Name = "WhitelistPanel"
+configurations.WhitelistPanel.Size = UDim2.fromScale(configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale)
+configurations.WhitelistPanel.Position = UDim2.fromScale(0.04, 0.20)
+configurations.WhitelistPanel.ZIndex = 90
+configurations.WhitelistPanel.BackgroundColor3 = UIColors.BG
+configurations.WhitelistPanel.BorderSizePixel = 0
+configurations.WhitelistPanel.Visible = false
+configurations.WhitelistPanel.Parent = ScreenGui
+Instance.new("UICorner", configurations.WhitelistPanel).CornerRadius = UDim.new(0, 12)
+configurations.WhitelistPanelStroke = Instance.new("UIStroke", configurations.WhitelistPanel)
+configurations.WhitelistPanelStroke.Color = UIColors.BORDER
+configurations.WhitelistPanelStroke.Thickness = 1
+configurations.WhitelistPanelStroke.Transparency = 0.35
 
-configuration.WhitelistHeader = Instance.new("Frame")
-configuration.WhitelistHeader.Name = "Header"
-configuration.WhitelistHeader.Size = UDim2.new(1, 0, 0, 44)
-configuration.WhitelistHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
-configuration.WhitelistHeader.BorderSizePixel = 0
-configuration.WhitelistHeader.ZIndex = 91
-configuration.WhitelistHeader.Parent = configuration.WhitelistPanel
-Instance.new("UICorner", configuration.WhitelistHeader).CornerRadius = UDim.new(0, 12)
+configurations.WhitelistHeader = Instance.new("Frame")
+configurations.WhitelistHeader.Name = "Header"
+configurations.WhitelistHeader.Size = UDim2.new(1, 0, 0, 44)
+configurations.WhitelistHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configurations.WhitelistHeader.BorderSizePixel = 0
+configurations.WhitelistHeader.ZIndex = 91
+configurations.WhitelistHeader.Parent = configurations.WhitelistPanel
+Instance.new("UICorner", configurations.WhitelistHeader).CornerRadius = UDim.new(0, 12)
 
-configuration.WhitelistHeaderFix = Instance.new("Frame")
-configuration.WhitelistHeaderFix.Size = UDim2.new(1, 0, 0, 16)
-configuration.WhitelistHeaderFix.Position = UDim2.new(0, 0, 1, -16)
-configuration.WhitelistHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
-configuration.WhitelistHeaderFix.BorderSizePixel = 0
-configuration.WhitelistHeaderFix.ZIndex = 91
-configuration.WhitelistHeaderFix.Parent = configuration.WhitelistHeader
+configurations.WhitelistHeaderFix = Instance.new("Frame")
+configurations.WhitelistHeaderFix.Size = UDim2.new(1, 0, 0, 16)
+configurations.WhitelistHeaderFix.Position = UDim2.new(0, 0, 1, -16)
+configurations.WhitelistHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configurations.WhitelistHeaderFix.BorderSizePixel = 0
+configurations.WhitelistHeaderFix.ZIndex = 91
+configurations.WhitelistHeaderFix.Parent = configurations.WhitelistHeader
 
-configuration.WhitelistHeaderRule = Instance.new("Frame")
-configuration.WhitelistHeaderRule.Size = UDim2.new(1, -20, 0, 1)
-configuration.WhitelistHeaderRule.Position = UDim2.new(0, 10, 1, -1)
-configuration.WhitelistHeaderRule.BackgroundColor3 = BORDER
-configuration.WhitelistHeaderRule.BackgroundTransparency = 0.4
-configuration.WhitelistHeaderRule.BorderSizePixel = 0
-configuration.WhitelistHeaderRule.ZIndex = 92
-configuration.WhitelistHeaderRule.Parent = configuration.WhitelistHeader
+configurations.WhitelistHeaderRule = Instance.new("Frame")
+configurations.WhitelistHeaderRule.Size = UDim2.new(1, -20, 0, 1)
+configurations.WhitelistHeaderRule.Position = UDim2.new(0, 10, 1, -1)
+configurations.WhitelistHeaderRule.BackgroundColor3 = UIColors.BORDER
+configurations.WhitelistHeaderRule.BackgroundTransparency = 0.4
+configurations.WhitelistHeaderRule.BorderSizePixel = 0
+configurations.WhitelistHeaderRule.ZIndex = 92
+configurations.WhitelistHeaderRule.Parent = configurations.WhitelistHeader
 
-configuration.WhitelistTitle = Instance.new("TextLabel")
-configuration.WhitelistTitle.Size = UDim2.new(1, -164, 0, 24)
-configuration.WhitelistTitle.Position = UDim2.fromOffset(14, 11)
-configuration.WhitelistTitle.ZIndex = 92
-configuration.WhitelistTitle.Active = true
-configuration.WhitelistTitle.BackgroundTransparency = 1
-configuration.WhitelistTitle.Text = "Whitelist"
-configuration.WhitelistTitle.TextColor3 = TEXT
-configuration.WhitelistTitle.TextSize = 16
-configuration.WhitelistTitle.Font = Enum.Font.GothamBold
-configuration.WhitelistTitle.TextXAlignment = Enum.TextXAlignment.Left
-configuration.WhitelistTitle.Parent = configuration.WhitelistHeader
+configurations.WhitelistTitle = Instance.new("TextLabel")
+configurations.WhitelistTitle.Size = UDim2.new(1, -164, 0, 24)
+configurations.WhitelistTitle.Position = UDim2.fromOffset(14, 11)
+configurations.WhitelistTitle.ZIndex = 92
+configurations.WhitelistTitle.Active = true
+configurations.WhitelistTitle.BackgroundTransparency = 1
+configurations.WhitelistTitle.Text = "Whitelist"
+configurations.WhitelistTitle.TextColor3 = UIColors.TEXT
+configurations.WhitelistTitle.TextSize = 16
+configurations.WhitelistTitle.Font = Enum.Font.GothamBold
+configurations.WhitelistTitle.TextXAlignment = Enum.TextXAlignment.Left
+configurations.WhitelistTitle.Parent = configurations.WhitelistHeader
 
-configuration.AddAllWhitelistButton = Instance.new("TextButton")
-configuration.AddAllWhitelistButton.Size = UDim2.fromOffset(72, 28)
-configuration.AddAllWhitelistButton.Position = UDim2.new(1, -118, 0, 8)
-configuration.AddAllWhitelistButton.ZIndex = 92
-configuration.AddAllWhitelistButton.BackgroundColor3 = ACCENT_DIM
-configuration.AddAllWhitelistButton.BorderSizePixel = 0
-configuration.AddAllWhitelistButton.Text = "Add all"
-configuration.AddAllWhitelistButton.TextColor3 = ACCENT
-configuration.AddAllWhitelistButton.TextSize = 12
-configuration.AddAllWhitelistButton.Font = Enum.Font.GothamBold
-configuration.AddAllWhitelistButton.Parent = configuration.WhitelistHeader
-Instance.new("UICorner", configuration.AddAllWhitelistButton).CornerRadius = UDim.new(0, 6)
+configurations.AddAllWhitelistButton = Instance.new("TextButton")
+configurations.AddAllWhitelistButton.Size = UDim2.fromOffset(72, 28)
+configurations.AddAllWhitelistButton.Position = UDim2.new(1, -118, 0, 8)
+configurations.AddAllWhitelistButton.ZIndex = 92
+configurations.AddAllWhitelistButton.BackgroundColor3 = UIColors.ACCENT_DIM
+configurations.AddAllWhitelistButton.BorderSizePixel = 0
+configurations.AddAllWhitelistButton.Text = "Add all"
+configurations.AddAllWhitelistButton.TextColor3 = UIColors.ACCENT
+configurations.AddAllWhitelistButton.TextSize = 12
+configurations.AddAllWhitelistButton.Font = Enum.Font.GothamBold
+configurations.AddAllWhitelistButton.Parent = configurations.WhitelistHeader
+Instance.new("UICorner", configurations.AddAllWhitelistButton).CornerRadius = UDim.new(0, 6)
 
-configuration.WhitelistCloseButton = Instance.new("TextButton")
-configuration.WhitelistCloseButton.Name = "CloseButton"
-configuration.WhitelistCloseButton.Size = UDim2.fromOffset(32, 32)
-configuration.WhitelistCloseButton.Position = UDim2.new(1, -40, 0, 6)
-configuration.WhitelistCloseButton.ZIndex = 92
-configuration.WhitelistCloseButton.BackgroundColor3 = INPUT
-configuration.WhitelistCloseButton.BorderSizePixel = 0
-configuration.WhitelistCloseButton.Text = "×"
-configuration.WhitelistCloseButton.TextColor3 = TEXT
-configuration.WhitelistCloseButton.TextSize = 19
-configuration.WhitelistCloseButton.Font = Enum.Font.GothamBold
-configuration.WhitelistCloseButton.Parent = configuration.WhitelistHeader
-Instance.new("UICorner", configuration.WhitelistCloseButton).CornerRadius = UDim.new(0, 6)
+configurations.WhitelistCloseButton = Instance.new("TextButton")
+configurations.WhitelistCloseButton.Name = "CloseButton"
+configurations.WhitelistCloseButton.Size = UDim2.fromOffset(32, 32)
+configurations.WhitelistCloseButton.Position = UDim2.new(1, -40, 0, 6)
+configurations.WhitelistCloseButton.ZIndex = 92
+configurations.WhitelistCloseButton.BackgroundColor3 = UIColors.INPUT
+configurations.WhitelistCloseButton.BorderSizePixel = 0
+configurations.WhitelistCloseButton.Text = "×"
+configurations.WhitelistCloseButton.TextColor3 = UIColors.TEXT
+configurations.WhitelistCloseButton.TextSize = 19
+configurations.WhitelistCloseButton.Font = Enum.Font.GothamBold
+configurations.WhitelistCloseButton.Parent = configurations.WhitelistHeader
+Instance.new("UICorner", configurations.WhitelistCloseButton).CornerRadius = UDim.new(0, 6)
 
-configuration.WhitelistInput = Instance.new("TextBox")
-configuration.WhitelistInput.Size = UDim2.new(1, -112, 0, 34)
-configuration.WhitelistInput.Position = UDim2.fromOffset(12, 54)
-configuration.WhitelistInput.ZIndex = 91
-configuration.WhitelistInput.BackgroundColor3 = INPUT
-configuration.WhitelistInput.BorderSizePixel = 0
-configuration.WhitelistInput.PlaceholderText = "Enter Player UserId"
-configuration.WhitelistInput.Text = ""
-configuration.WhitelistInput.TextColor3 = TEXT
-configuration.WhitelistInput.PlaceholderColor3 = MUTED
-configuration.WhitelistInput.TextSize = 14
-configuration.WhitelistInput.Font = Enum.Font.Gotham
-configuration.WhitelistInput.ClearTextOnFocus = false
-configuration.WhitelistInput.Parent = configuration.WhitelistPanel
-Instance.new("UICorner", configuration.WhitelistInput).CornerRadius = UDim.new(0, 8)
+configurations.WhitelistInput = Instance.new("TextBox")
+configurations.WhitelistInput.Size = UDim2.new(1, -112, 0, 34)
+configurations.WhitelistInput.Position = UDim2.fromOffset(12, 54)
+configurations.WhitelistInput.ZIndex = 91
+configurations.WhitelistInput.BackgroundColor3 = UIColors.INPUT
+configurations.WhitelistInput.BorderSizePixel = 0
+configurations.WhitelistInput.PlaceholderText = "Enter Player UserId"
+configurations.WhitelistInput.Text = ""
+configurations.WhitelistInput.TextColor3 = UIColors.TEXT
+configurations.WhitelistInput.PlaceholderColor3 = UIColors.MUTED
+configurations.WhitelistInput.TextSize = 14
+configurations.WhitelistInput.Font = Enum.Font.Gotham
+configurations.WhitelistInput.ClearTextOnFocus = false
+configurations.WhitelistInput.Parent = configurations.WhitelistPanel
+Instance.new("UICorner", configurations.WhitelistInput).CornerRadius = UDim.new(0, 8)
 
-configuration.AddWhitelistButton = Instance.new("TextButton")
-configuration.AddWhitelistButton.Size = UDim2.fromOffset(88, 34)
-configuration.AddWhitelistButton.Position = UDim2.new(1, -100, 0, 54)
-configuration.AddWhitelistButton.ZIndex = 91
-configuration.AddWhitelistButton.BackgroundColor3 = ACCENT_DIM
-configuration.AddWhitelistButton.BorderSizePixel = 0
-configuration.AddWhitelistButton.Text = "Add ID"
-configuration.AddWhitelistButton.TextColor3 = ACCENT
-configuration.AddWhitelistButton.TextSize = 14
-configuration.AddWhitelistButton.Font = Enum.Font.GothamBold
-configuration.AddWhitelistButton.Parent = configuration.WhitelistPanel
-Instance.new("UICorner", configuration.AddWhitelistButton).CornerRadius = UDim.new(0, 8)
+configurations.AddWhitelistButton = Instance.new("TextButton")
+configurations.AddWhitelistButton.Size = UDim2.fromOffset(88, 34)
+configurations.AddWhitelistButton.Position = UDim2.new(1, -100, 0, 54)
+configurations.AddWhitelistButton.ZIndex = 91
+configurations.AddWhitelistButton.BackgroundColor3 = UIColors.ACCENT_DIM
+configurations.AddWhitelistButton.BorderSizePixel = 0
+configurations.AddWhitelistButton.Text = "Add ID"
+configurations.AddWhitelistButton.TextColor3 = UIColors.ACCENT
+configurations.AddWhitelistButton.TextSize = 14
+configurations.AddWhitelistButton.Font = Enum.Font.GothamBold
+configurations.AddWhitelistButton.Parent = configurations.WhitelistPanel
+Instance.new("UICorner", configurations.AddWhitelistButton).CornerRadius = UDim.new(0, 8)
 
-configuration.WhitelistScroll = Instance.new("ScrollingFrame")
-configuration.WhitelistScroll.Size = UDim2.new(1, -20, 1, -102)
-configuration.WhitelistScroll.Position = UDim2.fromOffset(10, 96)
-configuration.WhitelistScroll.ZIndex = 91
-configuration.WhitelistScroll.BackgroundTransparency = 1
-configuration.WhitelistScroll.BorderSizePixel = 0
-configuration.WhitelistScroll.ScrollBarThickness = 3
-configuration.WhitelistScroll.ScrollBarImageColor3 = MUTED
-configuration.WhitelistScroll.CanvasSize = UDim2.new()
-configuration.WhitelistScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-configuration.WhitelistScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-configuration.WhitelistScroll.Parent = configuration.WhitelistPanel
+configurations.WhitelistScroll = Instance.new("ScrollingFrame")
+configurations.WhitelistScroll.Size = UDim2.new(1, -20, 1, -102)
+configurations.WhitelistScroll.Position = UDim2.fromOffset(10, 96)
+configurations.WhitelistScroll.ZIndex = 91
+configurations.WhitelistScroll.BackgroundTransparency = 1
+configurations.WhitelistScroll.BorderSizePixel = 0
+configurations.WhitelistScroll.ScrollBarThickness = 3
+configurations.WhitelistScroll.ScrollBarImageColor3 = UIColors.MUTED
+configurations.WhitelistScroll.CanvasSize = UDim2.new()
+configurations.WhitelistScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configurations.WhitelistScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+configurations.WhitelistScroll.Parent = configurations.WhitelistPanel
 
-configuration.WhitelistLayout = Instance.new("UIListLayout", configuration.WhitelistScroll)
-configuration.WhitelistLayout.Padding = UDim.new(0, 6)
-configuration.WhitelistLayout.SortOrder = Enum.SortOrder.LayoutOrder
-configuration.WhitelistLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+configurations.WhitelistLayout = Instance.new("UIListLayout", configurations.WhitelistScroll)
+configurations.WhitelistLayout.Padding = UDim.new(0, 6)
+configurations.WhitelistLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configurations.WhitelistLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-configuration.JoinLogPanel = Instance.new("Frame")
-configuration.JoinLogPanel.Name = "PlayerJoinLogPanel"
-configuration.JoinLogPanel.Size = UDim2.fromScale(0.38, 0.54)
-configuration.JoinLogPanel.Position = UDim2.fromScale(0.31, 0.2)
-configuration.JoinLogPanel.ZIndex = 90
-configuration.JoinLogPanel.BackgroundColor3 = BG
-configuration.JoinLogPanel.BorderSizePixel = 0
-configuration.JoinLogPanel.Visible = false
-configuration.JoinLogPanel.Parent = ScreenGui
-Instance.new("UICorner", configuration.JoinLogPanel).CornerRadius = UDim.new(0, 12)
-configuration.JoinLogPanelStroke = Instance.new("UIStroke", configuration.JoinLogPanel)
-configuration.JoinLogPanelStroke.Color = BORDER
-configuration.JoinLogPanelStroke.Thickness = 1
-configuration.JoinLogPanelStroke.Transparency = 0.35
+configurations.JoinLogPanel = Instance.new("Frame")
+configurations.JoinLogPanel.Name = "PlayerJoinLogPanel"
+configurations.JoinLogPanel.Size = UDim2.fromScale(configurations.JoinLogWidthScale, configurations.JoinLogHeightScale)
+configurations.JoinLogPanel.Position = UDim2.fromScale(0.31, 0.2)
+configurations.JoinLogPanel.ZIndex = 90
+configurations.JoinLogPanel.BackgroundColor3 = UIColors.BG
+configurations.JoinLogPanel.BorderSizePixel = 0
+configurations.JoinLogPanel.Visible = false
+configurations.JoinLogPanel.Parent = ScreenGui
+Instance.new("UICorner", configurations.JoinLogPanel).CornerRadius = UDim.new(0, 12)
+configurations.JoinLogPanelStroke = Instance.new("UIStroke", configurations.JoinLogPanel)
+configurations.JoinLogPanelStroke.Color = UIColors.BORDER
+configurations.JoinLogPanelStroke.Thickness = 1
+configurations.JoinLogPanelStroke.Transparency = 0.35
 
-configuration.JoinLogHeader = Instance.new("Frame")
-configuration.JoinLogHeader.Name = "Header"
-configuration.JoinLogHeader.Size = UDim2.new(1, 0, 0, 44)
-configuration.JoinLogHeader.ZIndex = 91
-configuration.JoinLogHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
-configuration.JoinLogHeader.BorderSizePixel = 0
-configuration.JoinLogHeader.Parent = configuration.JoinLogPanel
-Instance.new("UICorner", configuration.JoinLogHeader).CornerRadius = UDim.new(0, 12)
+configurations.JoinLogHeader = Instance.new("Frame")
+configurations.JoinLogHeader.Name = "Header"
+configurations.JoinLogHeader.Size = UDim2.new(1, 0, 0, 44)
+configurations.JoinLogHeader.ZIndex = 91
+configurations.JoinLogHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configurations.JoinLogHeader.BorderSizePixel = 0
+configurations.JoinLogHeader.Parent = configurations.JoinLogPanel
+Instance.new("UICorner", configurations.JoinLogHeader).CornerRadius = UDim.new(0, 12)
 
-configuration.JoinLogHeaderFix = Instance.new("Frame")
-configuration.JoinLogHeaderFix.Size = UDim2.new(1, 0, 0, 16)
-configuration.JoinLogHeaderFix.Position = UDim2.new(0, 0, 1, -16)
-configuration.JoinLogHeaderFix.ZIndex = 91
-configuration.JoinLogHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
-configuration.JoinLogHeaderFix.BorderSizePixel = 0
-configuration.JoinLogHeaderFix.Parent = configuration.JoinLogHeader
+configurations.JoinLogHeaderFix = Instance.new("Frame")
+configurations.JoinLogHeaderFix.Size = UDim2.new(1, 0, 0, 16)
+configurations.JoinLogHeaderFix.Position = UDim2.new(0, 0, 1, -16)
+configurations.JoinLogHeaderFix.ZIndex = 91
+configurations.JoinLogHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configurations.JoinLogHeaderFix.BorderSizePixel = 0
+configurations.JoinLogHeaderFix.Parent = configurations.JoinLogHeader
 
-configuration.JoinLogTitle = Instance.new("TextLabel")
-configuration.JoinLogTitle.Size = UDim2.new(1, -56, 0, 22)
-configuration.JoinLogTitle.Position = UDim2.fromOffset(14, 11)
-configuration.JoinLogTitle.ZIndex = 92
-configuration.JoinLogTitle.BackgroundTransparency = 1
-configuration.JoinLogTitle.Text = "Player activity"
-configuration.JoinLogTitle.TextColor3 = TEXT
-configuration.JoinLogTitle.TextSize = 16
-configuration.JoinLogTitle.Font = Enum.Font.GothamBold
-configuration.JoinLogTitle.TextXAlignment = Enum.TextXAlignment.Left
-configuration.JoinLogTitle.Parent = configuration.JoinLogHeader
+configurations.JoinLogTitle = Instance.new("TextLabel")
+configurations.JoinLogTitle.Size = UDim2.new(1, -56, 0, 22)
+configurations.JoinLogTitle.Position = UDim2.fromOffset(14, 11)
+configurations.JoinLogTitle.ZIndex = 92
+configurations.JoinLogTitle.BackgroundTransparency = 1
+configurations.JoinLogTitle.Text = "Player activity"
+configurations.JoinLogTitle.TextColor3 = UIColors.TEXT
+configurations.JoinLogTitle.TextSize = 16
+configurations.JoinLogTitle.Font = Enum.Font.GothamBold
+configurations.JoinLogTitle.TextXAlignment = Enum.TextXAlignment.Left
+configurations.JoinLogTitle.Parent = configurations.JoinLogHeader
 
-configuration.JoinLogCloseButton = Instance.new("TextButton")
-configuration.JoinLogCloseButton.Size = UDim2.fromOffset(32, 32)
-configuration.JoinLogCloseButton.Position = UDim2.new(1, -40, 0, 6)
-configuration.JoinLogCloseButton.ZIndex = 92
-configuration.JoinLogCloseButton.BackgroundColor3 = INPUT
-configuration.JoinLogCloseButton.BorderSizePixel = 0
-configuration.JoinLogCloseButton.Text = "×"
-configuration.JoinLogCloseButton.TextColor3 = TEXT
-configuration.JoinLogCloseButton.TextSize = 19
-configuration.JoinLogCloseButton.Font = Enum.Font.GothamBold
-configuration.JoinLogCloseButton.Parent = configuration.JoinLogHeader
-Instance.new("UICorner", configuration.JoinLogCloseButton).CornerRadius = UDim.new(0, 6)
+configurations.JoinLogCloseButton = Instance.new("TextButton")
+configurations.JoinLogCloseButton.Size = UDim2.fromOffset(32, 32)
+configurations.JoinLogCloseButton.Position = UDim2.new(1, -40, 0, 6)
+configurations.JoinLogCloseButton.ZIndex = 92
+configurations.JoinLogCloseButton.BackgroundColor3 = UIColors.INPUT
+configurations.JoinLogCloseButton.BorderSizePixel = 0
+configurations.JoinLogCloseButton.Text = "×"
+configurations.JoinLogCloseButton.TextColor3 = UIColors.TEXT
+configurations.JoinLogCloseButton.TextSize = 19
+configurations.JoinLogCloseButton.Font = Enum.Font.GothamBold
+configurations.JoinLogCloseButton.Parent = configurations.JoinLogHeader
+Instance.new("UICorner", configurations.JoinLogCloseButton).CornerRadius = UDim.new(0, 6)
 
-configuration.JoinLogScroll = Instance.new("ScrollingFrame")
-configuration.JoinLogScroll.Size = UDim2.new(1, -20, 1, -58)
-configuration.JoinLogScroll.Position = UDim2.fromOffset(10, 50)
-configuration.JoinLogScroll.ZIndex = 91
-configuration.JoinLogScroll.BackgroundTransparency = 1
-configuration.JoinLogScroll.BorderSizePixel = 0
-configuration.JoinLogScroll.ScrollBarThickness = 3
-configuration.JoinLogScroll.ScrollBarImageColor3 = MUTED
-configuration.JoinLogScroll.CanvasSize = UDim2.new()
-configuration.JoinLogScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-configuration.JoinLogScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-configuration.JoinLogScroll.Parent = configuration.JoinLogPanel
-configuration.JoinLogLayout = Instance.new("UIListLayout", configuration.JoinLogScroll)
-configuration.JoinLogLayout.Padding = UDim.new(0, 5)
-configuration.JoinLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
-configuration.JoinLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+configurations.JoinLogScroll = Instance.new("ScrollingFrame")
+configurations.JoinLogScroll.Size = UDim2.new(1, -20, 1, -58)
+configurations.JoinLogScroll.Position = UDim2.fromOffset(10, 50)
+configurations.JoinLogScroll.ZIndex = 91
+configurations.JoinLogScroll.BackgroundTransparency = 1
+configurations.JoinLogScroll.BorderSizePixel = 0
+configurations.JoinLogScroll.ScrollBarThickness = 3
+configurations.JoinLogScroll.ScrollBarImageColor3 = UIColors.MUTED
+configurations.JoinLogScroll.CanvasSize = UDim2.new()
+configurations.JoinLogScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configurations.JoinLogScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+configurations.JoinLogScroll.Parent = configurations.JoinLogPanel
+configurations.JoinLogLayout = Instance.new("UIListLayout", configurations.JoinLogScroll)
+configurations.JoinLogLayout.Padding = UDim.new(0, 5)
+configurations.JoinLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configurations.JoinLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-function configuration.RefreshJoinLog()
-	for _, child in ipairs(configuration.JoinLogScroll:GetChildren()) do
+function configurations.RefreshJoinLog()
+	for _, child in ipairs(configurations.JoinLogScroll:GetChildren()) do
 		if child.Name:match("^JoinLogRow_") then child:Destroy() end
 	end
-	for order = #configuration.PlayerJoinLog, 1, -1 do
-		local entry = configuration.PlayerJoinLog[order]
+	for order = #configurations.PlayerJoinLog, 1, -1 do
+		local entry = configurations.PlayerJoinLog[order]
 		local row = Instance.new("Frame")
 		row.Name = "JoinLogRow_" .. tostring(order)
 		row.Size = UDim2.new(1, -8, 0, 42)
-		row.LayoutOrder = #configuration.PlayerJoinLog - order + 1
+		row.LayoutOrder = #configurations.PlayerJoinLog - order + 1
 		row.ZIndex = 92
-		row.BackgroundColor3 = CARD
+		row.BackgroundColor3 = UIColors.CARD
 		row.BorderSizePixel = 0
-		row.Parent = configuration.JoinLogScroll
+		row.Parent = configurations.JoinLogScroll
 		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 7)
 
 		local eventLabel = Instance.new("TextLabel")
@@ -3964,15 +4152,15 @@ function configuration.RefreshJoinLog()
 		eventLabel.BackgroundTransparency = 1
 		local eventName = entry.Event == "joined" and "JOINED"
 			or (entry.Event == "left" and "LEFT" or "HERE")
-		local currentlyWhitelisted = configuration.WhitelistIds[entry.UserId] == true
+		local currentlyWhitelisted = configurations.WhitelistIds[entry.UserId] == true
 		if entry.SpecialThreat and not currentlyWhitelisted then
 			eventLabel.Text = string.format("%s  SPECIAL DANGER  @%s", entry.Time, entry.Username)
-			eventLabel.TextColor3 = RED
+			eventLabel.TextColor3 = UIColors.RED
 		else
 			local whitelistTag = (entry.Whitelisted or currentlyWhitelisted) and "  ·  WHITELIST" or ""
 			eventLabel.Text = string.format("%s  %s  @%s%s", entry.Time, eventName, entry.Username, whitelistTag)
-			eventLabel.TextColor3 = entry.Event == "left" and RED
-				or (entry.Event == "present" and MUTED or GREEN)
+			eventLabel.TextColor3 = entry.Event == "left" and UIColors.RED
+				or (entry.Event == "present" and UIColors.MUTED or UIColors.GREEN)
 		end
 		eventLabel.TextSize = 13
 		eventLabel.Font = Enum.Font.GothamBold
@@ -3982,18 +4170,18 @@ function configuration.RefreshJoinLog()
 	end
 end
 
-configuration.JoinLogButton.MouseButton1Click:Connect(function()
-	local isOpen = not configuration.JoinLogPanel.Visible
-	configuration.JoinLogPanel.Visible = isOpen
-	configuration.SetActionVisual(configuration.JoinLogButton, isOpen and "Close log" or "Join log", isOpen)
-	if isOpen then configuration.RefreshJoinLog() end
+configurations.JoinLogButton.MouseButton1Click:Connect(function()
+	local isOpen = not configurations.JoinLogPanel.Visible
+	configurations.JoinLogPanel.Visible = isOpen
+	configurations.SetActionVisual(configurations.JoinLogButton, isOpen and "Close log" or "Join log", isOpen)
+	if isOpen then configurations.RefreshJoinLog() end
 end)
-configuration.JoinLogCloseButton.MouseButton1Click:Connect(function()
-	configuration.JoinLogPanel.Visible = false
-	configuration.SetActionVisual(configuration.JoinLogButton, "Join log", false)
+configurations.JoinLogCloseButton.MouseButton1Click:Connect(function()
+	configurations.JoinLogPanel.Visible = false
+	configurations.SetActionVisual(configurations.JoinLogButton, "Join log", false)
 end)
 
-function configuration.MakeDraggable(panel, handle)
+function configurations.MakeDraggable(panel, handle)
 	local dragging = false
 	local dragStart
 	local startPosition
@@ -4023,22 +4211,22 @@ function configuration.MakeDraggable(panel, handle)
 	end)
 end
 
-configuration.MakeDraggable(PlayerPanel, PlayerPanelHeader)
-configuration.MakeDraggable(configuration.WhitelistPanel, configuration.WhitelistHeader)
-configuration.MakeDraggable(configuration.JoinLogPanel, configuration.JoinLogHeader)
+configurations.MakeDraggable(PlayerPanel, PlayerPanelHeader)
+configurations.MakeDraggable(configurations.WhitelistPanel, configurations.WhitelistHeader)
+configurations.MakeDraggable(configurations.JoinLogPanel, configurations.JoinLogHeader)
 
-function configuration.MakeResizable(panel, name, minWidth, minHeight, onReleased)
+function configurations.MakeResizable(panel, name, minWidth, minHeight, onReleased)
 	local handle = Instance.new("TextButton")
 	handle.Name = name .. "ResizeHandle"
 	handle.Size = UDim2.fromScale(0.07, 0.05)
 	handle.AnchorPoint = Vector2.new(1, 1)
 	handle.Position = UDim2.fromScale(1, 1)
 	handle.ZIndex = 95
-	handle.BackgroundColor3 = CARD
+	handle.BackgroundColor3 = UIColors.CARD
 	handle.BackgroundTransparency = 0.1
 	handle.BorderSizePixel = 0
 	handle.Text = "◢"
-	handle.TextColor3 = MUTED
+	handle.TextColor3 = UIColors.MUTED
 	handle.TextScaled = true
 	handle.Font = Enum.Font.GothamBold
 	handle.Parent = panel
@@ -4074,21 +4262,25 @@ function configuration.MakeResizable(panel, name, minWidth, minHeight, onRelease
 	end)
 end
 
-configuration.MakeResizable(PlayerPanel, "PlayerPanel", 0.28, 0.35, function(width, height)
-	configuration.PlayerPanelWidthScale, configuration.PlayerPanelHeightScale = width, height
-	configuration.SaveConfig()
+configurations.MakeResizable(PlayerPanel, "PlayerPanel", 0.28, 0.35, function(width, height)
+	configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale = width, height
+	configurations.SaveConfig()
 end)
-configuration.MakeResizable(configuration.WhitelistPanel, "WhitelistPanel", 0.26, 0.32, function(width, height)
-	configuration.WhitelistPanelWidthScale, configuration.WhitelistPanelHeightScale = width, height
-	configuration.SaveConfig()
+configurations.MakeResizable(configurations.WhitelistPanel, "WhitelistPanel", 0.26, 0.32, function(width, height)
+	configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale = width, height
+	configurations.SaveConfig()
+end)
+configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 0.28, 0.35, function(width, height)
+	configurations.JoinLogWidthScale, configurations.JoinLogHeightScale = width, height
+	configurations.SaveConfig()
 end)
 
-function configuration.ApplyResponsiveOverlaySizes()
+function configurations.ApplyResponsiveOverlaySizes()
 	local camera = workspace.CurrentCamera
 	if not camera then return end
 	local viewport = camera.ViewportSize
 	if viewport.X < 1 or viewport.Y < 1 then return end
-	configuration.ClampOverlaySize = function(panel, widthScale, heightScale, minWidthPx, maxWidthPx, minHeightPx, maxHeightPx)
+	configurations.ClampOverlaySize = function(panel, widthScale, heightScale, minWidthPx, maxWidthPx, minHeightPx, maxHeightPx)
 		local maxWidth = math.min(maxWidthPx / viewport.X, 1 - 16 / viewport.X)
 		local minWidth = math.min(minWidthPx / viewport.X, maxWidth)
 		local maxHeight = math.min(maxHeightPx / viewport.Y, 1 - 16 / viewport.Y)
@@ -4101,19 +4293,19 @@ function configuration.ApplyResponsiveOverlaySizes()
 			math.clamp(panel.Position.Y.Scale, 0, 1 - height)
 		)
 	end
-	configuration.ClampOverlaySize(PlayerPanel, configuration.PlayerPanelWidthScale, configuration.PlayerPanelHeightScale, 800, 1500, 600, 1150)
-	configuration.ClampOverlaySize(configuration.WhitelistPanel, configuration.WhitelistPanelWidthScale, configuration.WhitelistPanelHeightScale, 560, 1000, 500, 1000)
-	configuration.ClampOverlaySize(configuration.JoinLogPanel, 0.38, 0.54, 780, 1500, 560, 1150)
+	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale, 800, 1500, 600, 1150)
+	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale, 560, 1000, 500, 1000)
+	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthScale, configurations.JoinLogHeightScale, 780, 1500, 560, 1150)
 end
-configuration.ApplyResponsiveOverlaySizes()
+configurations.ApplyResponsiveOverlaySizes()
 
-function configuration.RefreshWhitelist()
-	for _, child in ipairs(configuration.WhitelistScroll:GetChildren()) do
+function configurations.RefreshWhitelist()
+	for _, child in ipairs(configurations.WhitelistScroll:GetChildren()) do
 		if child:IsA("Frame") then child:Destroy() end
 	end
 
 	local ids = {}
-	for userId in pairs(configuration.WhitelistIds) do table.insert(ids, userId) end
+	for userId in pairs(configurations.WhitelistIds) do table.insert(ids, userId) end
 	table.sort(ids, function(a, b) return tonumber(a) < tonumber(b) end)
 	for order, userId in ipairs(ids) do
 		local playerName = ""
@@ -4129,14 +4321,14 @@ function configuration.RefreshWhitelist()
 		row.LayoutOrder = order
 		row.ZIndex = 92
 		row.BackgroundTransparency = 1
-		row.Parent = configuration.WhitelistScroll
+		row.Parent = configurations.WhitelistScroll
 
 		local idLabel = Instance.new("TextLabel")
 		idLabel.Size = UDim2.new(1, -48, 1, 0)
 		idLabel.ZIndex = 93
 		idLabel.BackgroundTransparency = 1
 		idLabel.Text = userId .. playerName
-		idLabel.TextColor3 = TEXT
+		idLabel.TextColor3 = UIColors.TEXT
 		idLabel.TextSize = 13
 		idLabel.Font = Enum.Font.Gotham
 		idLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -4150,79 +4342,79 @@ function configuration.RefreshWhitelist()
 		removeButton.BackgroundColor3 = Color3.fromRGB(60, 30, 35)
 		removeButton.BorderSizePixel = 0
 		removeButton.Text = "×"
-		removeButton.TextColor3 = RED
+		removeButton.TextColor3 = UIColors.RED
 		removeButton.TextSize = 18
 		removeButton.Font = Enum.Font.GothamBold
 		removeButton.Parent = row
 		Instance.new("UICorner", removeButton).CornerRadius = UDim.new(0, 5)
 		removeButton.MouseButton1Click:Connect(function()
-			configuration.WhitelistIds[userId] = nil
-			configuration.SaveConfig()
-			configuration.RefreshWhitelist()
-			configuration.OnWhitelistChanged(userId)
+			configurations.WhitelistIds[userId] = nil
+			configurations.SaveConfig()
+			configurations.RefreshWhitelist()
+			configurations.OnWhitelistChanged(userId)
 		end)
 	end
 end
 
 WhitelistButton.MouseButton1Click:Connect(function()
-	configuration.WhitelistPanel.Visible = not configuration.WhitelistPanel.Visible
-	if configuration.WhitelistPanel.Visible then configuration.RefreshWhitelist() end
+	configurations.WhitelistPanel.Visible = not configurations.WhitelistPanel.Visible
+	if configurations.WhitelistPanel.Visible then configurations.RefreshWhitelist() end
 end)
-configuration.WhitelistCloseButton.MouseButton1Click:Connect(function()
-	configuration.WhitelistPanel.Visible = false
+configurations.WhitelistCloseButton.MouseButton1Click:Connect(function()
+	configurations.WhitelistPanel.Visible = false
 end)
 
-function configuration.AddWhitelistId()
-	local idText = configuration.WhitelistInput.Text:match("^%s*(%d+)%s*$")
+function configurations.AddWhitelistId()
+	local idText = configurations.WhitelistInput.Text:match("^%s*(%d+)%s*$")
 	if not idText then
-		configuration.WhitelistInput.Text = ""
-		configuration.WhitelistInput.PlaceholderText = "Enter a valid UserId"
+		configurations.WhitelistInput.Text = ""
+		configurations.WhitelistInput.PlaceholderText = "Enter a valid UserId"
 		return
 	end
 	local userId = idText:gsub("^0+", "")
 	if userId == "" then
-		configuration.WhitelistInput.Text = ""
-		configuration.WhitelistInput.PlaceholderText = "Enter a valid UserId"
+		configurations.WhitelistInput.Text = ""
+		configurations.WhitelistInput.PlaceholderText = "Enter a valid UserId"
 		return
 	end
-	configuration.WhitelistIds[userId] = true
-	configuration.WhitelistInput.Text = ""
-	configuration.WhitelistInput.PlaceholderText = "Enter Player UserId"
-	configuration.SaveConfig()
-	configuration.RefreshWhitelist()
-	configuration.OnWhitelistChanged(userId)
+	configurations.WhitelistIds[userId] = true
+	configurations.WhitelistInput.Text = ""
+	configurations.WhitelistInput.PlaceholderText = "Enter Player UserId"
+	configurations.SaveConfig()
+	configurations.RefreshWhitelist()
+	configurations.OnWhitelistChanged(userId)
 end
 
-function configuration.AddAllServerPlayersToWhitelist()
+function configurations.AddAllServerPlayersToWhitelist()
 	local added = 0
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= Player then
 			local userId = tostring(player.UserId)
-			if not configuration.WhitelistIds[userId] then
-				configuration.WhitelistIds[userId] = true
+			if not configurations.WhitelistIds[userId] then
+				configurations.WhitelistIds[userId] = true
 				added += 1
 			end
 		end
 	end
 	if added > 0 then
-		configuration.SaveConfig()
-		configuration.RefreshWhitelist()
-		configuration.OnWhitelistChanged()
+		configurations.SaveConfig()
+		configurations.RefreshWhitelist()
+		configurations.OnWhitelistChanged()
 	end
-	configuration.NotifyUser("Whitelist", added > 0 and ("Added " .. added .. " player(s).") or "All players are already whitelisted.")
+	configurations.NotifyUser("Whitelist", added > 0 and ("Added " .. added .. " player(s).") or "All players are already whitelisted.")
 	return added
 end
 
-configuration.AddWhitelistButton.MouseButton1Click:Connect(configuration.AddWhitelistId)
-configuration.AddAllWhitelistButton.MouseButton1Click:Connect(configuration.AddAllServerPlayersToWhitelist)
-configuration.WhitelistInput.FocusLost:Connect(function(enterPressed)
-	if enterPressed then configuration.AddWhitelistId() end
+configurations.AddWhitelistButton.MouseButton1Click:Connect(configurations.AddWhitelistId)
+configurations.AddAllWhitelistButton.MouseButton1Click:Connect(configurations.AddAllServerPlayersToWhitelist)
+configurations.WhitelistInput.FocusLost:Connect(function(enterPressed)
+	if enterPressed then configurations.AddWhitelistId() end
 end)
 
 AlarmOverlay = Instance.new("Frame")
 AlarmOverlay.Name = "FullScreenAlarm"
 AlarmOverlay.Size = UDim2.fromScale(1, 1)
-AlarmOverlay.BackgroundColor3 = RED
+AlarmOverlay.BackgroundColor3 = UIColors.RED
 AlarmOverlay.BackgroundTransparency = 0.35
 AlarmOverlay.BorderSizePixel = 0
 AlarmOverlay.Visible = false
@@ -4230,311 +4422,315 @@ AlarmOverlay.Active = false
 AlarmOverlay.ZIndex = 100
 AlarmOverlay.Parent = ScreenGui
 
-configuration.AlarmText = Instance.new("TextLabel")
-configuration.AlarmText.Size = UDim2.new(1, 0, 0, 72)
-configuration.AlarmText.Position = UDim2.new(0, 0, 0.5, -36)
-configuration.AlarmText.BackgroundTransparency = 1
-configuration.AlarmText.Text = ""
-configuration.AlarmText.TextColor3 = Color3.new(1, 1, 1)
-configuration.AlarmText.TextStrokeTransparency = 0.15
-configuration.AlarmText.TextSize = 30
-configuration.AlarmText.Font = Enum.Font.GothamBlack
-configuration.AlarmText.ZIndex = 101
-configuration.AlarmText.Parent = AlarmOverlay
+configurations.AlarmText = Instance.new("TextLabel")
+configurations.AlarmText.Size = UDim2.new(1, 0, 0, 72)
+configurations.AlarmText.Position = UDim2.new(0, 0, 0.5, -36)
+configurations.AlarmText.BackgroundTransparency = 1
+configurations.AlarmText.Text = ""
+configurations.AlarmText.TextColor3 = Color3.new(1, 1, 1)
+configurations.AlarmText.TextStrokeTransparency = 0.15
+configurations.AlarmText.TextSize = 30
+configurations.AlarmText.Font = Enum.Font.GothamBlack
+configurations.AlarmText.ZIndex = 101
+configurations.AlarmText.Parent = AlarmOverlay
 
-configuration.ExpHitFeedbackLabel = Instance.new("TextLabel")
-configuration.ExpHitFeedbackLabel.Name = "ExpHitFeedback"
-configuration.ExpHitFeedbackLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-configuration.ExpHitFeedbackLabel.Size = UDim2.new(0.82, 0, 0, 92)
-configuration.ExpHitFeedbackLabel.Position = UDim2.fromScale(0.5, 0.5)
-configuration.ExpHitFeedbackLabel.BackgroundColor3 = Color3.fromRGB(18, 20, 27)
-configuration.ExpHitFeedbackLabel.BackgroundTransparency = 0.18
-configuration.ExpHitFeedbackLabel.BorderSizePixel = 0
-configuration.ExpHitFeedbackLabel.Text = "ตีถืกแล้วเด้อ"
-configuration.ExpHitFeedbackLabel.TextColor3 = Color3.fromRGB(255, 226, 104)
-configuration.ExpHitFeedbackLabel.TextStrokeColor3 = Color3.fromRGB(16, 17, 22)
-configuration.ExpHitFeedbackLabel.TextStrokeTransparency = 0.12
-configuration.ExpHitFeedbackLabel.TextScaled = true
-configuration.ExpHitFeedbackLabel.Font = Enum.Font.GothamBlack
-configuration.ExpHitFeedbackLabel.Visible = false
-configuration.ExpHitFeedbackLabel.ZIndex = 110
-configuration.ExpHitFeedbackLabel.Parent = ScreenGui
-Instance.new("UICorner", configuration.ExpHitFeedbackLabel).CornerRadius = UDim.new(0, 12)
-configuration.ExpHitFeedbackTextConstraint = Instance.new("UITextSizeConstraint")
-configuration.ExpHitFeedbackTextConstraint.MinTextSize = 28
-configuration.ExpHitFeedbackTextConstraint.MaxTextSize = 48
-configuration.ExpHitFeedbackTextConstraint.Parent = configuration.ExpHitFeedbackLabel
+configurations.ExpHitFeedbackLabel = Instance.new("TextLabel")
+configurations.ExpHitFeedbackLabel.Name = "ExpHitFeedback"
+configurations.ExpHitFeedbackLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+configurations.ExpHitFeedbackLabel.Size = UDim2.new(0.82, 0, 0, 92)
+configurations.ExpHitFeedbackLabel.Position = UDim2.fromScale(0.5, 0.5)
+configurations.ExpHitFeedbackLabel.BackgroundColor3 = Color3.fromRGB(18, 20, 27)
+configurations.ExpHitFeedbackLabel.BackgroundTransparency = 0.18
+configurations.ExpHitFeedbackLabel.BorderSizePixel = 0
+configurations.ExpHitFeedbackLabel.Text = "ตีถืกแล้วเด้อ"
+configurations.ExpHitFeedbackLabel.TextColor3 = Color3.fromRGB(255, 226, 104)
+configurations.ExpHitFeedbackLabel.TextStrokeColor3 = Color3.fromRGB(16, 17, 22)
+configurations.ExpHitFeedbackLabel.TextStrokeTransparency = 0.12
+configurations.ExpHitFeedbackLabel.TextScaled = true
+configurations.ExpHitFeedbackLabel.Font = Enum.Font.GothamBlack
+configurations.ExpHitFeedbackLabel.Visible = false
+configurations.ExpHitFeedbackLabel.ZIndex = 110
+configurations.ExpHitFeedbackLabel.Parent = ScreenGui
+Instance.new("UICorner", configurations.ExpHitFeedbackLabel).CornerRadius = UDim.new(0, 12)
+configurations.ExpHitFeedbackTextConstraint = Instance.new("UITextSizeConstraint")
+configurations.ExpHitFeedbackTextConstraint.MinTextSize = 28
+configurations.ExpHitFeedbackTextConstraint.MaxTextSize = 48
+configurations.ExpHitFeedbackTextConstraint.Parent = configurations.ExpHitFeedbackLabel
 
-function configuration.ShowExpHitFeedback()
-	if not configuration.ExpHitFeedbackEnabled then return end
-	local target = configuration.ExpHitWatchTarget
+function configurations.ShowExpHitFeedback()
+	if not configurations.ExpHitFeedbackEnabled then return end
+	local target = configurations.ExpHitWatchTarget
 	if not target or not target:IsDescendantOf(MobsFolder) then return end
 	local humanoid = target:FindFirstChildOfClass("Humanoid")
 	if not humanoid or humanoid.Health <= 0 then return end
-	configuration.ExpHitFeedbackTarget = target
-	configuration.UpdateExpHitFeedback()
+	configurations.ExpHitFeedbackTarget = target
+	configurations.UpdateExpHitFeedback()
 end
 
-function configuration.UpdateExpHitFeedback()
-	local target = configuration.ExpHitFeedbackTarget
+function configurations.UpdateExpHitFeedback()
+	local target = configurations.ExpHitFeedbackTarget
 	local humanoid = target and target:FindFirstChildOfClass("Humanoid")
 	local alive = target ~= nil and target:IsDescendantOf(MobsFolder)
 		and humanoid ~= nil and humanoid.Health > 0
-	if not alive then configuration.ExpHitFeedbackTarget = nil end
-	if configuration.ExpHitFeedbackLabel then
-		configuration.ExpHitFeedbackLabel.Visible = configuration.ExpHitFeedbackEnabled and alive == true
+	if not alive then configurations.ExpHitFeedbackTarget = nil end
+	if configurations.ExpHitFeedbackLabel then
+		configurations.ExpHitFeedbackLabel.Visible = configurations.ExpHitFeedbackEnabled and alive == true
 	end
 end
 
-function configuration.ResetExpHitTagWatch()
-	if configuration.ExpHitWatchHumanoidChildAddedConnection then configuration.ExpHitWatchHumanoidChildAddedConnection:Disconnect() end
-	if configuration.ExpHitWatchHumanoidChildRemovedConnection then configuration.ExpHitWatchHumanoidChildRemovedConnection:Disconnect() end
-	if configuration.ExpHitWatchTagChildAddedConnection then configuration.ExpHitWatchTagChildAddedConnection:Disconnect() end
-	if configuration.ExpHitWatchHitsConnection then configuration.ExpHitWatchHitsConnection:Disconnect() end
-	configuration.ExpHitWatchHumanoidChildAddedConnection = nil
-	configuration.ExpHitWatchHumanoidChildRemovedConnection = nil
-	configuration.ExpHitWatchTagChildAddedConnection = nil
-	configuration.ExpHitWatchHitsConnection = nil
-	configuration.ExpHitWatchDamageTag = nil
-	configuration.ExpHitWatchHits = nil
-	configuration.ExpHitLastHits = nil
-	configuration.ExpHitDamageTagWasAdded = false
+function configurations.ResetExpHitTagWatch()
+	if configurations.ExpHitWatchHumanoidChildAddedConnection then configurations.ExpHitWatchHumanoidChildAddedConnection:Disconnect() end
+	if configurations.ExpHitWatchHumanoidChildRemovedConnection then configurations.ExpHitWatchHumanoidChildRemovedConnection:Disconnect() end
+	if configurations.ExpHitWatchTagChildAddedConnection then configurations.ExpHitWatchTagChildAddedConnection:Disconnect() end
+	if configurations.ExpHitWatchHitsConnection then configurations.ExpHitWatchHitsConnection:Disconnect() end
+	configurations.ExpHitWatchHumanoidChildAddedConnection = nil
+	configurations.ExpHitWatchHumanoidChildRemovedConnection = nil
+	configurations.ExpHitWatchTagChildAddedConnection = nil
+	configurations.ExpHitWatchHitsConnection = nil
+	configurations.ExpHitWatchDamageTag = nil
+	configurations.ExpHitWatchHits = nil
+	configurations.ExpHitLastHits = nil
+	configurations.ExpHitDamageTagWasAdded = false
 end
 
-function configuration.BindExpHitDamageHits(tag)
+function configurations.BindExpHitDamageHits(tag)
 	-- This per-player creator tag is written by the mob's damage handler; Hits is the hit confirmation.
-	if not tag or configuration.ExpHitWatchDamageTag ~= tag then return false end
+	if not tag or configurations.ExpHitWatchDamageTag ~= tag then return false end
 	local hits = tag:FindFirstChild("Hits")
 	if hits and not (hits:IsA("IntValue") or hits:IsA("NumberValue")) then hits = nil end
-	if configuration.ExpHitWatchHits == hits then return true end
-	if configuration.ExpHitWatchHitsConnection then configuration.ExpHitWatchHitsConnection:Disconnect() end
-	configuration.ExpHitWatchHits = hits
-	configuration.ExpHitWatchHitsConnection = nil
-	configuration.ExpHitLastHits = hits and tonumber(hits.Value) or nil
+	if configurations.ExpHitWatchHits == hits then return true end
+	if configurations.ExpHitWatchHitsConnection then configurations.ExpHitWatchHitsConnection:Disconnect() end
+	configurations.ExpHitWatchHits = hits
+	configurations.ExpHitWatchHitsConnection = nil
+	configurations.ExpHitLastHits = hits and tonumber(hits.Value) or nil
 	if hits then
-		if configuration.ExpHitDamageTagWasAdded and configuration.ExpHitLastHits and configuration.ExpHitLastHits > 0 then
-			configuration.ShowExpHitFeedback()
+		if configurations.ExpHitDamageTagWasAdded and configurations.ExpHitLastHits and configurations.ExpHitLastHits > 0 then
+			configurations.ShowExpHitFeedback()
 		end
-		configuration.ExpHitDamageTagWasAdded = false
-		configuration.ExpHitWatchHitsConnection = hits:GetPropertyChangedSignal("Value"):Connect(function()
+		configurations.ExpHitDamageTagWasAdded = false
+		configurations.ExpHitWatchHitsConnection = hits:GetPropertyChangedSignal("Value"):Connect(function()
 			local currentHits = tonumber(hits.Value)
-			local previousHits = configuration.ExpHitLastHits
-			configuration.ExpHitLastHits = currentHits
+			local previousHits = configurations.ExpHitLastHits
+			configurations.ExpHitLastHits = currentHits
 			if currentHits and previousHits and currentHits > previousHits then
-				configuration.ShowExpHitFeedback()
+				configurations.ShowExpHitFeedback()
 			end
 		end)
 	end
 	return true
 end
 
-function configuration.BindExpHitDamageTag(tag, wasJustAdded)
-	if configuration.ExpHitWatchDamageTag == tag then return true end
-	if configuration.ExpHitWatchTagChildAddedConnection then configuration.ExpHitWatchTagChildAddedConnection:Disconnect() end
-	if configuration.ExpHitWatchHitsConnection then configuration.ExpHitWatchHitsConnection:Disconnect() end
-	configuration.ExpHitWatchTagChildAddedConnection = nil
-	configuration.ExpHitWatchHitsConnection = nil
-	configuration.ExpHitWatchDamageTag = nil
-	configuration.ExpHitWatchHits = nil
-	configuration.ExpHitLastHits = nil
-	configuration.ExpHitDamageTagWasAdded = false
+function configurations.BindExpHitDamageTag(tag, wasJustAdded)
+	if configurations.ExpHitWatchDamageTag == tag then return true end
+	if configurations.ExpHitWatchTagChildAddedConnection then configurations.ExpHitWatchTagChildAddedConnection:Disconnect() end
+	if configurations.ExpHitWatchHitsConnection then configurations.ExpHitWatchHitsConnection:Disconnect() end
+	configurations.ExpHitWatchTagChildAddedConnection = nil
+	configurations.ExpHitWatchHitsConnection = nil
+	configurations.ExpHitWatchDamageTag = nil
+	configurations.ExpHitWatchHits = nil
+	configurations.ExpHitLastHits = nil
+	configurations.ExpHitDamageTagWasAdded = false
 	if not tag or not tag:IsA("StringValue")
 		or string.sub(tag.Name, 1, 8) ~= "creator_" or tag.Value ~= Player.Name then
 		return false
 	end
-	configuration.ExpHitWatchDamageTag = tag
-	configuration.ExpHitDamageTagWasAdded = wasJustAdded == true
-	configuration.ExpHitWatchTagChildAddedConnection = tag.ChildAdded:Connect(function(child)
-		if child.Name == "Hits" then configuration.BindExpHitDamageHits(tag) end
+	configurations.ExpHitWatchDamageTag = tag
+	configurations.ExpHitDamageTagWasAdded = wasJustAdded == true
+	configurations.ExpHitWatchTagChildAddedConnection = tag.ChildAdded:Connect(function(child)
+		if child.Name == "Hits" then configurations.BindExpHitDamageHits(tag) end
 	end)
-	configuration.BindExpHitDamageHits(tag)
+	configurations.BindExpHitDamageHits(tag)
 	return true
 end
 
-function configuration.WatchExpTargetForHit(target)
+function configurations.WatchExpTargetForHit(target)
 	if not target or not target:IsDescendantOf(MobsFolder) then target = nil end
 	local humanoid = target and target:FindFirstChildOfClass("Humanoid")
-	if configuration.ExpHitWatchTarget == target and configuration.ExpHitWatchHumanoid == humanoid then return end
-	configuration.ResetExpHitTagWatch()
-	configuration.ExpHitWatchTarget = target
-	configuration.ExpHitWatchHumanoid = humanoid
+	if configurations.ExpHitWatchTarget == target and configurations.ExpHitWatchHumanoid == humanoid then return end
+	configurations.ResetExpHitTagWatch()
+	configurations.ExpHitWatchTarget = target
+	configurations.ExpHitWatchHumanoid = humanoid
 	if not humanoid then return end
 
 	local tagPrefix = "creator_"
-	configuration.ExpHitWatchHumanoidChildAddedConnection = humanoid.ChildAdded:Connect(function(child)
+	configurations.ExpHitWatchHumanoidChildAddedConnection = humanoid.ChildAdded:Connect(function(child)
 		if child:IsA("StringValue") and string.sub(child.Name, 1, #tagPrefix) == tagPrefix
 			and child.Value == Player.Name then
-			configuration.BindExpHitDamageTag(child, true)
+			configurations.BindExpHitDamageTag(child, true)
 		end
 	end)
-	configuration.ExpHitWatchHumanoidChildRemovedConnection = humanoid.ChildRemoved:Connect(function(child)
-		if child == configuration.ExpHitWatchDamageTag then configuration.BindExpHitDamageTag(nil, false) end
+	configurations.ExpHitWatchHumanoidChildRemovedConnection = humanoid.ChildRemoved:Connect(function(child)
+		if child == configurations.ExpHitWatchDamageTag then configurations.BindExpHitDamageTag(nil, false) end
 	end)
 	for _, child in ipairs(humanoid:GetChildren()) do
 		if child:IsA("StringValue") and string.sub(child.Name, 1, #tagPrefix) == tagPrefix
 			and child.Value == Player.Name then
-			configuration.BindExpHitDamageTag(child, false)
+			configurations.BindExpHitDamageTag(child, false)
 			break
 		end
 	end
 end
 
-configuration.PlayerEspLayer = Instance.new("Frame")
-configuration.PlayerEspLayer.Name = "PlayerESPLayer"
-configuration.PlayerEspLayer.Size = UDim2.fromScale(1, 1)
-configuration.PlayerEspLayer.BackgroundTransparency = 1
-configuration.PlayerEspLayer.Active = false
-configuration.PlayerEspLayer.ZIndex = 0
-configuration.PlayerEspLayer.Parent = ScreenGui
+configurations.PlayerEspLayer = Instance.new("Frame")
+configurations.PlayerEspLayer.Name = "PlayerESPLayer"
+configurations.PlayerEspLayer.Size = UDim2.fromScale(1, 1)
+configurations.PlayerEspLayer.BackgroundTransparency = 1
+configurations.PlayerEspLayer.Active = false
+configurations.PlayerEspLayer.ZIndex = 0
+configurations.PlayerEspLayer.Parent = ScreenGui
 
-configuration.ResizeHandle = Instance.new("TextButton")
-configuration.ResizeHandle.Name = "ResizeHandle"
-configuration.ResizeHandle.Visible = not configuration.IsMinimized
-configuration.ResizeHandle.Size = UDim2.fromOffset(18, 18)
-configuration.ResizeHandle.AnchorPoint = Vector2.new(1, 1)
-configuration.ResizeHandle.Position = UDim2.new(1, -5, 1, -5)
-configuration.ResizeHandle.ZIndex = 92
-configuration.ResizeHandle.BackgroundColor3 = CARD
-configuration.ResizeHandle.BackgroundTransparency = 0.1
-configuration.ResizeHandle.BorderSizePixel = 0
-configuration.ResizeHandle.Text = "◢"
-configuration.ResizeHandle.TextColor3 = MUTED
-configuration.ResizeHandle.TextSize = 11
-configuration.ResizeHandle.Font = Enum.Font.GothamBold
-configuration.ResizeHandle.Parent = Main
-Instance.new("UICorner", configuration.ResizeHandle).CornerRadius = UDim.new(0, 4)
+configurations.ResizeHandle = Instance.new("TextButton")
+configurations.ResizeHandle.Name = "ResizeHandle"
+configurations.ResizeHandle.Visible = not configurations.IsMinimized
+configurations.ResizeHandle.Size = UDim2.fromOffset(18, 18)
+configurations.ResizeHandle.AnchorPoint = Vector2.new(1, 1)
+configurations.ResizeHandle.Position = UDim2.new(1, -5, 1, -5)
+configurations.ResizeHandle.ZIndex = 92
+configurations.ResizeHandle.BackgroundColor3 = UIColors.CARD
+configurations.ResizeHandle.BackgroundTransparency = 0.1
+configurations.ResizeHandle.BorderSizePixel = 0
+configurations.ResizeHandle.Text = "◢"
+configurations.ResizeHandle.TextColor3 = UIColors.MUTED
+configurations.ResizeHandle.TextSize = 11
+configurations.ResizeHandle.Font = Enum.Font.GothamBold
+configurations.ResizeHandle.Parent = Main
+Instance.new("UICorner", configurations.ResizeHandle).CornerRadius = UDim.new(0, 4)
 
-configuration.Resizing, configuration.ResizeStart, configuration.ResizeStartSize = false, nil, nil
-configuration.ResizeHandle.InputBegan:Connect(function(input)
+configurations.Resizing, configurations.ResizeStart, configurations.ResizeStartSize = false, nil, nil
+configurations.ResizeHandle.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		configuration.Resizing = true
-		configuration.ResizeStart = input.Position
-		configuration.ResizeStartSize = Vector2.new(Main.Size.X.Scale, Main.Size.Y.Scale)
+		configurations.Resizing = true
+		configurations.ResizeStart = input.Position
+		configurations.ResizeStartSize = Vector2.new(Main.Size.X.Scale, Main.Size.Y.Scale)
 		input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
-				configuration.Resizing = false
-				configuration.SaveConfig()
+				configurations.Resizing = false
+				configurations.SaveConfig()
 			end
 		end)
 	end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-	if not configuration.Resizing then return end
+	if not configurations.Resizing then return end
 	if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
 	local camera = workspace.CurrentCamera
 	if not camera then return end
 	local viewport = camera.ViewportSize
-	local delta = input.Position - configuration.ResizeStart
-	local maxWidth = math.max(0.2, math.min(1600 / viewport.X, 1 - Main.Position.X.Scale, 1 - 16 / viewport.X))
-	local minWidth = math.min(820 / viewport.X, maxWidth)
-	local maxHeight = math.max(0.4, math.min(1050 / viewport.Y, 1 - Main.Position.Y.Scale, 1 - 16 / viewport.Y))
-	local minHeight = math.min(560 / viewport.Y, maxHeight)
-	configuration.MainWidthScale = math.clamp(configuration.ResizeStartSize.X + delta.X / viewport.X, minWidth, maxWidth)
-	if not configuration.IsMinimized then
-		configuration.MainHeightScale = math.clamp(configuration.ResizeStartSize.Y + delta.Y / viewport.Y, minHeight, maxHeight)
+	local delta = input.Position - configurations.ResizeStart
+	local uiScale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+	local maxWidth = math.max(0.2, math.min(1600 / (viewport.X * uiScale), 1 - Main.Position.X.Scale, (1 - 16 / viewport.X) / uiScale))
+	local minWidth = math.min(820 / (viewport.X * uiScale), maxWidth)
+	local maxHeight = math.max(0.4, math.min(1050 / (viewport.Y * uiScale), 1 - Main.Position.Y.Scale, (1 - 16 / viewport.Y) / uiScale))
+	local minHeight = math.min(560 / (viewport.Y * uiScale), maxHeight)
+	configurations.MainWidthScale = math.clamp(configurations.ResizeStartSize.X + delta.X / (viewport.X * uiScale), minWidth, maxWidth)
+	if not configurations.IsMinimized then
+		configurations.MainHeightScale = math.clamp(configurations.ResizeStartSize.Y + delta.Y / (viewport.Y * uiScale), minHeight, maxHeight)
 	end
-	configuration.MainWindowInitialized = true
-	configuration.ApplyResponsiveMainSize()
+	configurations.MainWindowInitialized = true
+	configurations.ApplyResponsiveMainSize()
+	configurations.ApplyGuiScale()
+	configurations.ApplyTextScale(Main)
+
 end)
 
 --==================================================
 -- STATUS HELPERS
 --==================================================
-function configuration.PauseTimer()
-	if not configuration.IsPaused and configuration.LastTarget then
-		configuration.AccumulatedTime = configuration.AccumulatedTime + (os.clock() - configuration.TargetStartTime)
-		configuration.IsPaused = true
+function configurations.PauseTimer()
+	if not configurations.IsPaused and configurations.LastTarget then
+		configurations.AccumulatedTime = configurations.AccumulatedTime + (os.clock() - configurations.TargetStartTime)
+		configurations.IsPaused = true
 	end
 end
 
-function configuration.SetIdle(finishCurrentExpTarget)
-	local finishTarget = configuration.AutoExecuteEnabled and finishCurrentExpTarget and configuration.CurrentTarget
-	if finishTarget and configuration.Combat.IsLivingMob(finishTarget) then
-		configuration.ExpFinishTarget = finishTarget
+function configurations.SetIdle(finishCurrentExpTarget)
+	local finishTarget = configurations.AutoExecuteEnabled and finishCurrentExpTarget and configurations.CurrentTarget
+	if finishTarget and configurations.Combat.IsLivingMob(finishTarget) then
+		configurations.ExpFinishTarget = finishTarget
 	else
-		configuration.ExpFinishTarget = nil
+		configurations.ExpFinishTarget = nil
 	end
-	if not configuration.AlertCombatPending then
-		configuration.ExpRetaliationTarget = nil
+	if not configurations.AlertCombatPending then
+		configurations.ExpRetaliationTarget = nil
 	end
-	configuration.Farming = false
-	if configuration.StopExpMovement then configuration.StopExpMovement() end
-	configuration.PauseTimer()
+	configurations.Farming = false
+	if configurations.StopExpMovement then configurations.StopExpMovement() end
+	configurations.PauseTimer()
 	StartBtn.Text = "Start"
-	StartBtn.BackgroundColor3 = ACCENT
+	StartBtn.BackgroundColor3 = UIColors.ACCENT
 	Status.Text = "OFF"
-	Status.TextColor3 = RED
-	Status.BackgroundColor3 = RED_DIM
-	StateLabel.Text = configuration.ExpFinishTarget and "Finishing EXP target" or "Stopped"
-	MiniState.Text = configuration.ExpFinishTarget and "EXP paused — killing the locked target" or "Stopped"
-	TimeLabel.Text = configuration.FormatTime(configuration.AccumulatedTime)
-			MiniTime.Text = TimeLabel.Text
+	Status.TextColor3 = UIColors.RED
+	Status.BackgroundColor3 = UIColors.RED_DIM
+	StateLabel.Text = configurations.ExpFinishTarget and "Finishing EXP target" or "Stopped"
+	MiniState.Text = configurations.ExpFinishTarget and "EXP paused — killing the locked target" or "Stopped"
+	TimeLabel.Text = configurations.FormatTime(configurations.AccumulatedTime)
+	MiniTime.Text = TimeLabel.Text
 end
 
-function configuration.SetRunning()
-	if configuration.AlertCombatPending or configuration.AlertCombatHold or configuration.AlertCombatBlockReady then return end
-	configuration.AlertResumeRequired = false
-	configuration.AlertWasFarming = false
-	configuration.AlertBlockPromptShown = false
-	configuration.ExpLastShotTarget = nil
-	configuration.EmergencyStopActive = false
-	if configuration.UpdateEmergencyStopButton then configuration.UpdateEmergencyStopButton() end
-	configuration.Farming = true
-	configuration.ExpMaxCombatTarget = nil
-	configuration.ExpFinishTarget = nil
-	configuration.IsPaused = false
-	configuration.SessionExpGained = 0
-	configuration.SessionFarmSeconds = 0
-	configuration.NoProgressCycles = 0
+function configurations.SetRunning()
+	if configurations.AlertCombatPending or configurations.AlertCombatHold or configurations.AlertCombatBlockReady then return end
+	configurations.AlertResumeRequired = false
+	configurations.AlertWasFarming = false
+	configurations.AlertBlockPromptShown = false
+	configurations.ExpLastShotTarget = nil
+	configurations.EmergencyStopActive = false
+	if configurations.UpdateEmergencyStopButton then configurations.UpdateEmergencyStopButton() end
+	configurations.Farming = true
+	configurations.ExpMaxCombatTarget = nil
+	configurations.ExpFinishTarget = nil
+	configurations.IsPaused = false
+	configurations.SessionExpGained = 0
+	configurations.SessionFarmSeconds = 0
+	configurations.NoProgressCycles = 0
 	SessionLabel.Text = "Session: +0 EXP / 00:00:00 / 0 EXP/h"
-	configuration.RecentCycle = "รอบล่าสุด  -"
-	RecentCycleLabel.Text = configuration.RecentCycle
-	if configuration.LastTarget then
-		configuration.TargetStartTime = os.clock()
+	configurations.RecentCycle = "รอบล่าสุด  -"
+	RecentCycleLabel.Text = configurations.RecentCycle
+	if configurations.LastTarget then
+		configurations.TargetStartTime = os.clock()
 	end
 	StartBtn.Text = "Stop"
-	StartBtn.BackgroundColor3 = RED
+	StartBtn.BackgroundColor3 = UIColors.RED
 	Status.Text = "ON"
-	Status.TextColor3 = GREEN
-	Status.BackgroundColor3 = GREEN_DIM
+	Status.TextColor3 = UIColors.GREEN
+	Status.BackgroundColor3 = UIColors.GREEN_DIM
 	StateLabel.Text = "Searching..."
 	MiniState.Text = "Searching..."
 end
 
-function configuration.HandleExpMax(target)
-	if configuration.AutoExecuteEnabled and configuration.Combat.IsLivingMob(target) then
-		configuration.ExpMaxCombatTarget = target
-		configuration.PauseTimer()
+function configurations.HandleExpMax(target)
+	if configurations.AutoExecuteEnabled and configurations.Combat.IsLivingMob(target) then
+		configurations.ExpMaxCombatTarget = target
+		configurations.PauseTimer()
 		StateLabel.Text = "EXP max - finishing target"
 		MiniState.Text = "Auto Execute: attacking this EXP target until it dies"
 		return true
 	end
-	configuration.ExpMaxCombatTarget = nil
-	configuration.SetIdle(false)
+	configurations.ExpMaxCombatTarget = nil
+	configurations.SetIdle(false)
 	return false
 end
 
 StartBtn.MouseButton1Click:Connect(function()
-	if configuration.Farming then
-		configuration.SetIdle(true)
+	if configurations.Farming then
+		configurations.SetIdle(true)
 	else
-		configuration.SetRunning()
+		configurations.SetRunning()
 	end
 end)
 
 Status.MouseButton1Click:Connect(function()
-	if configuration.Farming then
-		configuration.SetIdle(true)
+	if configurations.Farming then
+		configurations.SetIdle(true)
 	else
-		configuration.SetRunning()
+		configurations.SetRunning()
 	end
 end)
 
 --==================================================
 -- FIND TARGET
 --==================================================
-function configuration.FindTarget()
+function configurations.FindTarget()
 	local char = Player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart")
 	if not root then return nil end
@@ -4546,7 +4742,7 @@ function configuration.FindTarget()
 		if not entry.HasEXP or not exp then
 			continue
 		end
-		if exp.Value >= configuration.ExpGoal then
+		if exp.Value >= configurations.ExpGoal then
 			continue
 		end
 		local humanoid = entry.Humanoid
@@ -4565,10 +4761,10 @@ function configuration.FindTarget()
 			continue
 		end
 		local d = (root.Position - mroot.Position).Magnitude
-		if d > configuration.MaxDistance then
+		if d > configurations.MaxDistance then
 			continue
 		end
-		local remaining = configuration.ExpGoal - exp.Value
+		local remaining = configurations.ExpGoal - exp.Value
 		-- Prefer closer targets; break distance ties with less remaining EXP (finishes faster).
 		if d < bestDist - 0.5 or (math.abs(d - bestDist) <= 0.5 and remaining < bestRemaining) then
 			bestDist = d
@@ -4579,19 +4775,19 @@ function configuration.FindTarget()
 	return best
 end
 
-function configuration.Combat.IsLivingMob(mob)
+function configurations.Combat.IsLivingMob(mob)
 	if not mob or not mob:IsDescendantOf(MobsFolder) then return false end
 	local humanoid = mob:FindFirstChildOfClass("Humanoid")
 	return not humanoid or humanoid.Health > 0
 end
 
-function configuration.Combat.GetExpExecutionTarget()
+function configurations.Combat.GetExpExecutionTarget()
 	local candidates = {}
-	if configuration.ExpLastShotTarget then table.insert(candidates, configuration.ExpLastShotTarget) end
-	if configuration.CurrentTarget then table.insert(candidates, configuration.CurrentTarget) end
-	if configuration.LastTarget then table.insert(candidates, configuration.LastTarget) end
+	if configurations.ExpLastShotTarget then table.insert(candidates, configurations.ExpLastShotTarget) end
+	if configurations.CurrentTarget then table.insert(candidates, configurations.CurrentTarget) end
+	if configurations.LastTarget then table.insert(candidates, configurations.LastTarget) end
 	for _, mob in ipairs(candidates) do
-		if configuration.Combat.IsLivingMob(mob) then
+		if configurations.Combat.IsLivingMob(mob) then
 			local cfg = mob:FindFirstChild("Config")
 			local exp = cfg and cfg:FindFirstChild("EXP")
 			if exp and (exp:IsA("IntValue") or exp:IsA("NumberValue")) then
@@ -4602,7 +4798,7 @@ function configuration.Combat.GetExpExecutionTarget()
 	return nil
 end
 
-function configuration.Combat.GetWeaponEquipState(character)
+function configurations.Combat.GetWeaponEquipState(character)
 	if not character then return false, false end
 	-- F8's character layout stores the weapon as Character.Sword/MainWeld
 	-- and waits for PlayerStats before using this state.
@@ -4624,14 +4820,14 @@ function configuration.Combat.GetWeaponEquipState(character)
 	return false, false
 end
 
-function configuration.Combat.GetSelectedCombatMob(localRoot)
+function configurations.Combat.GetSelectedCombatMob(localRoot)
 	if not localRoot then return nil end
 	local function horizontalDistance(a, b)
 		local offset = b - a
 		return Vector3.new(offset.X, 0, offset.Z).Magnitude
 	end
 	local function resolve(mob, maxDistance)
-		if not configuration.Combat.IsLivingMob(mob) or not mob:IsDescendantOf(MobsFolder) then return nil end
+		if not configurations.Combat.IsLivingMob(mob) or not mob:IsDescendantOf(MobsFolder) then return nil end
 		local root = mob.PrimaryPart or mob:FindFirstChild("HumanoidRootPart")
 		if not root or not root:IsA("BasePart") then return nil end
 		local distance = horizontalDistance(localRoot.Position, root.Position)
@@ -4639,36 +4835,36 @@ function configuration.Combat.GetSelectedCombatMob(localRoot)
 		return mob, root, distance
 	end
 	-- Auto Execute takes priority over list selection and locks the EXP mob to finish.
-	if configuration.AutoExecuteEnabled then
-		if configuration.AlertCombatPending then
-			local mob, root, distance = resolve(configuration.AlertCombatTarget)
+	if configurations.AutoExecuteEnabled then
+		if configurations.AlertCombatPending then
+			local mob, root, distance = resolve(configurations.AlertCombatTarget)
 			if mob then return mob, root, distance end
 			return nil
 		end
-		if configuration.ExpMaxCombatTarget then
-			local mob, root, distance = resolve(configuration.ExpMaxCombatTarget)
+		if configurations.ExpMaxCombatTarget then
+			local mob, root, distance = resolve(configurations.ExpMaxCombatTarget)
 			if mob then return mob, root, distance end
-			configuration.ExpMaxCombatTarget = nil
+			configurations.ExpMaxCombatTarget = nil
 			return nil
 		end
-		if configuration.ExpFinishTarget then
-			local mob, root, distance = resolve(configuration.ExpFinishTarget)
+		if configurations.ExpFinishTarget then
+			local mob, root, distance = resolve(configurations.ExpFinishTarget)
 			if mob then return mob, root, distance end
-			configuration.ExpFinishTarget = nil
+			configurations.ExpFinishTarget = nil
 			return nil
 		end
 	end
-	local retaliationMob, retaliationRoot, retaliationDistance = resolve(configuration.ExpRetaliationTarget)
+	local retaliationMob, retaliationRoot, retaliationDistance = resolve(configurations.ExpRetaliationTarget)
 	if retaliationMob then return retaliationMob, retaliationRoot, retaliationDistance end
-	if configuration.AutoBossTargetEnabled or configuration.AutoMiniBossTargetEnabled then
+	if configurations.AutoBossTargetEnabled or configurations.AutoMiniBossTargetEnabled then
 		MobCache_Rebuild(false)
 		local nearestMob, nearestRoot, nearestDistance
 		for _, entry in ipairs(MobCache.List) do
 			local mob = entry.Mob
-			local matchesBoss = configuration.AutoBossTargetEnabled and mob:FindFirstChild("IsBoss") ~= nil
-			local matchesMiniBoss = configuration.AutoMiniBossTargetEnabled and mob:FindFirstChild("IsMiniBoss") ~= nil
+			local matchesBoss = configurations.AutoBossTargetEnabled and mob:FindFirstChild("IsBoss") ~= nil
+			local matchesMiniBoss = configurations.AutoMiniBossTargetEnabled and mob:FindFirstChild("IsMiniBoss") ~= nil
 			if matchesBoss or matchesMiniBoss then
-				local candidate, root, distance = resolve(mob, configuration.AutoAttackSearchRange)
+				local candidate, root, distance = resolve(mob, configurations.AutoAttackSearchRange)
 				if candidate and (not nearestDistance or distance < nearestDistance) then
 					nearestMob, nearestRoot, nearestDistance = candidate, root, distance
 				end
@@ -4677,27 +4873,27 @@ function configuration.Combat.GetSelectedCombatMob(localRoot)
 		if nearestMob then return nearestMob, nearestRoot, nearestDistance end
 		return nil
 	end
-	local selectedMob = configuration.SelectedCombatMob
+	local selectedMob = configurations.SelectedCombatMob
 	if not selectedMob or not selectedMob:IsDescendantOf(MobsFolder) then
-		configuration.SelectedCombatMob = nil
+		configurations.SelectedCombatMob = nil
 		return nil
 	end
-	return resolve(selectedMob, configuration.AutoAttackSearchRange)
+	return resolve(selectedMob, configurations.AutoAttackSearchRange)
 end
 
-function configuration.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, currentExp)
+function configurations.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, currentExp)
 	local elapsed = math.max(os.clock() - cycleStartTime, 0.001)
 	local gained = currentExp - cycleStartExp
-	configuration.RecentCycle = string.format("Last: +%s EXP / %.2fs / %d calls", configuration.FormatNumber(gained), elapsed, callsSent)
-	RecentCycleLabel.Text = configuration.RecentCycle
-	configuration.SessionExpGained += math.max(gained, 0)
-	configuration.SessionFarmSeconds += elapsed
-	local sessionRate = configuration.SessionFarmSeconds > 0 and (configuration.SessionExpGained / configuration.SessionFarmSeconds) * 3600 or 0
-	SessionLabel.Text = string.format("Session: +%s EXP / %s / %s EXP/h", configuration.FormatNumber(configuration.SessionExpGained), configuration.FormatTime(configuration.SessionFarmSeconds), configuration.FormatNumber(sessionRate))
+	configurations.RecentCycle = string.format("Last: +%s EXP / %.2fs / %d calls", configurations.FormatNumber(gained), elapsed, callsSent)
+	RecentCycleLabel.Text = configurations.RecentCycle
+	configurations.SessionExpGained += math.max(gained, 0)
+	configurations.SessionFarmSeconds += elapsed
+	local sessionRate = configurations.SessionFarmSeconds > 0 and (configurations.SessionExpGained / configurations.SessionFarmSeconds) * 3600 or 0
+	SessionLabel.Text = string.format("Session: +%s EXP / %s / %s EXP/h", configurations.FormatNumber(configurations.SessionExpGained), configurations.FormatTime(configurations.SessionFarmSeconds), configurations.FormatNumber(sessionRate))
 	if callsSent > 0 and gained <= 0 then
-		configuration.NoProgressCycles += 1
+		configurations.NoProgressCycles += 1
 	else
-		configuration.NoProgressCycles = 0
+		configurations.NoProgressCycles = 0
 	end
 end
 
@@ -4707,7 +4903,7 @@ end
 task.spawn(function()
 	local expMoveState = { Active = false, Goal = nil, LastMoveAt = 0 }
 	local chasingExpTarget = nil
-	configuration.StopExpMovement = function()
+	configurations.StopExpMovement = function()
 		local character = Player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -4728,13 +4924,13 @@ task.spawn(function()
 	-- Must close in once per target before the first shot; after that, keep firing while walking back.
 	local engagedFireTarget = nil
 	local function StartExpRetaliation(mob, currentHealth)
-		configuration.ExpRetaliationTarget = mob
+		configurations.ExpRetaliationTarget = mob
 		lastObservedTargetHealth = currentHealth
 		StateLabel.Text = "EXP target hit"
 		MiniState.Text = "Attacking the damaged EXP target until it dies"
 	end
 	while true do
-		if not configuration.Farming or configuration.EmergencyStopActive then
+		if not configurations.Farming or configurations.EmergencyStopActive then
 			if watchedTarget then
 				local watchedConfig = watchedTarget:FindFirstChild("Config")
 				local watchedExp = watchedConfig and watchedConfig:FindFirstChild("EXP")
@@ -4754,16 +4950,16 @@ task.spawn(function()
 			continue
 		end
 
-		local target = configuration.CurrentTarget
-		local retaliationTarget = configuration.ExpRetaliationTarget
+		local target = configurations.CurrentTarget
+		local retaliationTarget = configurations.ExpRetaliationTarget
 		if retaliationTarget then
-			if configuration.Combat.IsLivingMob(retaliationTarget) then
+			if configurations.Combat.IsLivingMob(retaliationTarget) then
 				StateLabel.Text = "EXP target hit"
 				MiniState.Text = "Attacking the damaged EXP target until it dies"
 				task.wait(0.1)
 				continue
 			end
-			configuration.ExpRetaliationTarget = nil
+			configurations.ExpRetaliationTarget = nil
 			watchedHealthTarget = nil
 			lastObservedTargetHealth = nil
 			if healthChangedConnection then
@@ -4772,7 +4968,7 @@ task.spawn(function()
 			end
 		end
 
-		if target and configuration.Combat.IsLivingMob(target) then
+		if target and configurations.Combat.IsLivingMob(target) then
 			-- ยึดตัวเดิม
 		else
 			if chasingExpTarget or expMoveState.Active then
@@ -4784,17 +4980,17 @@ task.spawn(function()
 				expMoveState.Active = false
 				expMoveState.Goal = nil
 			end
-			if configuration.ExpMaxCombatTarget == target then
-				configuration.ExpMaxCombatTarget = nil
+			if configurations.ExpMaxCombatTarget == target then
+				configurations.ExpMaxCombatTarget = nil
 			end
-			if configuration.ExpLastShotTarget == target and not configuration.Combat.IsLivingMob(target) then
-				configuration.ExpLastShotTarget = nil
+			if configurations.ExpLastShotTarget == target and not configurations.Combat.IsLivingMob(target) then
+				configurations.ExpLastShotTarget = nil
 			end
-			configuration.ClearBillboard()
-			configuration.CurrentTarget = nil
+			configurations.ClearBillboard()
+			configurations.CurrentTarget = nil
 			engagedFireTarget = nil
-			target = configuration.FindTarget()
-			configuration.CurrentTarget = target
+			target = configurations.FindTarget()
+			configurations.CurrentTarget = target
 
 			if not target then
 				TargetLabel.Text = "No target"
@@ -4804,18 +5000,18 @@ task.spawn(function()
 				StateLabel.Text = "Searching..."
 				MiniState.Text = "Searching within the configured radius"
 				RateLabel.Text = "Rate -"
-				configuration.PauseTimer()
+				configurations.PauseTimer()
 				task.wait(0.5)
 				continue
 			end
 
 			local cfg = target:FindFirstChild("Config")
 			local exp = cfg and cfg:FindFirstChild("EXP")
-			configuration.AttachBillboard(target, exp and tonumber(exp.Value) or 0)
+			configurations.AttachBillboard(target, exp and tonumber(exp.Value) or 0)
 
 			-- เริ่มจับเวลา rate ของมอนตัวนี้
-			configuration.SessionStartEXP = exp and tonumber(exp.Value) or 0
-			configuration.SessionStartTime = os.clock()
+			configurations.SessionStartEXP = exp and tonumber(exp.Value) or 0
+			configurations.SessionStartTime = os.clock()
 		end
 
 		local cfg = target:FindFirstChild("Config")
@@ -4835,8 +5031,8 @@ task.spawn(function()
 			healthChangedConnection = nil
 			if targetHumanoid then
 				healthChangedConnection = targetHumanoid.HealthChanged:Connect(function(currentHealth)
-					if configuration.Farming and not configuration.EmergencyStopActive
-						and configuration.ExpTargetRetaliationEnabled and lastObservedTargetHealth
+					if configurations.Farming and not configurations.EmergencyStopActive
+						and configurations.ExpTargetRetaliationEnabled and lastObservedTargetHealth
 						and currentHealth < lastObservedTargetHealth then
 						StartExpRetaliation(target, currentHealth)
 					end
@@ -4844,7 +5040,7 @@ task.spawn(function()
 				end)
 			end
 		elseif targetHumanoid then
-			if configuration.ExpTargetRetaliationEnabled
+			if configurations.ExpTargetRetaliationEnabled
 				and lastObservedTargetHealth and targetHumanoid.Health < lastObservedTargetHealth then
 				StartExpRetaliation(target, targetHumanoid.Health)
 				task.wait(0.05)
@@ -4866,11 +5062,11 @@ task.spawn(function()
 			lastExpProgressAt = now
 		end
 
-		if exp.Value < configuration.ExpGoal and now - lastExpProgressAt >= 20 then
+		if exp.Value < configurations.ExpGoal and now - lastExpProgressAt >= 20 then
 			local character = Player.Character
 			local playerGui = Player:FindFirstChildOfClass("PlayerGui")
 			local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
-			local _, needsEquip = configuration.Combat.GetWeaponEquipState(character)
+			local _, needsEquip = configurations.Combat.GetWeaponEquipState(character)
 			StateLabel.Text = needsEquip and "Checking weapon" or "EXP stalled"
 			MiniState.Text = needsEquip and "No EXP change; checking weapon and keeping target" or "No EXP change; retrying same target"
 			if needsEquip and inputFunction and inputFunction:IsA("BindableFunction") then
@@ -4880,7 +5076,7 @@ task.spawn(function()
 			end
 			lastExpProgressAt = now
 			local recoveryEndsAt = now + 3
-			while configuration.Farming and not configuration.EmergencyStopActive and os.clock() < recoveryEndsAt do
+			while configurations.Farming and not configurations.EmergencyStopActive and os.clock() < recoveryEndsAt do
 				task.wait(0.1)
 			end
 			continue
@@ -4893,24 +5089,24 @@ task.spawn(function()
 
 		local expNow = tonumber(exp.Value) or 0
 		TargetLabel.Text = target.Name
-		ExpLabel.Text = configuration.FormatNumber(expNow)
-		MaxLabel.Text = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
+		ExpLabel.Text = configurations.FormatNumber(expNow)
+		MaxLabel.Text = "/ " .. configurations.FormatNumber(configurations.ExpGoal)
 		DistLabel.Text = "Dist  " .. string.format("%.1f", dist)
 		-- Keep marker alive/updated even if the host part respawned.
-		if not configuration.CurrentBillboard or not configuration.CurrentBillboard.Parent then
-			configuration.AttachBillboard(target, expNow)
+		if not configurations.CurrentBillboard or not configurations.CurrentBillboard.Parent then
+			configurations.AttachBillboard(target, expNow)
 		else
-			configuration.UpdateBillboardText(expNow, expNow >= configuration.ExpGoal)
+			configurations.UpdateBillboardText(expNow, expNow >= configurations.ExpGoal)
 		end
 
 		-- Move only when outside firing range. Holding still inside range avoids orbiting away from the mob.
-		if configuration.ExpAutoApproachEnabled and exp.Value < configuration.ExpGoal and root and mroot
-			and configuration.ExpRetaliationTarget ~= target
-			and configuration.ExpMaxCombatTarget ~= target
-			and not (configuration.PendingServerHop and configuration.ServerHopKillTarget == target)
-			and not (configuration.AlertCombatPending and configuration.AlertCombatTarget == target) then
+		if configurations.ExpAutoApproachEnabled and exp.Value < configurations.ExpGoal and root and mroot
+			and configurations.ExpRetaliationTarget ~= target
+			and configurations.ExpMaxCombatTarget ~= target
+			and not (configurations.PendingServerHop and configurations.ServerHopKillTarget == target)
+			and not (configurations.AlertCombatPending and configurations.AlertCombatTarget == target) then
 			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-			local standoff = configuration.ExpApproachDistance
+			local standoff = configurations.ExpApproachDistance
 			if dist > standoff + 0.75 then
 				local goal = OrbitApproachPoint(root, mroot, standoff)
 				SmoothMoveTo(humanoid, root, goal, expMoveState, dist > 60 and 0.18 or 0.28, 1.8)
@@ -4932,39 +5128,39 @@ task.spawn(function()
 		end
 
 		-- เมื่อถึง Max ให้คงเป้าหมายเดิมไว้จนกว่ามอนจะตาย
-		if exp.Value >= configuration.ExpGoal then
-			if not configuration.HandleExpMax(target) then
+		if exp.Value >= configurations.ExpGoal then
+			if not configurations.HandleExpMax(target) then
 				task.wait(0.2)
 				continue
 			end
-			configuration.UpdateBillboardText(exp.Value, true)
+			configurations.UpdateBillboardText(exp.Value, true)
 			Bar.Size = UDim2.fromScale(1, 1)
 			PercentLabel.Text = "100%"
 			task.wait(0.2)
 			continue
 		end
 
-		if configuration.ExpAutoApproachEnabled and dist > configuration.ExpApproachDistance + 1 then
+		if configurations.ExpAutoApproachEnabled and dist > configurations.ExpApproachDistance + 1 then
 			StateLabel.Text = "Moving"
 			MiniState.Text = "Walking to locked EXP target"
-		elseif configuration.NoProgressCycles >= 2 then
+		elseif configurations.NoProgressCycles >= 2 then
 			StateLabel.Text = "Waiting"
 			MiniState.Text = "Waiting for EXP to update on this target"
 		else
 			StateLabel.Text = "Firing"
 			MiniState.Text = "Sending EXP to locked target"
 		end
-		configuration.UpdateBillboardText(exp.Value, false)
+		configurations.UpdateBillboardText(exp.Value, false)
 
 		-- Adaptive fire: scale batch + yield from recent progress.
-		local remaining = configuration.ExpGoal - exp.Value
-		local baseAmount = configuration.Amount
-		if configuration.NoProgressCycles >= 2 then
+		local remaining = configurations.ExpGoal - exp.Value
+		local baseAmount = configurations.Amount
+		if configurations.NoProgressCycles >= 2 then
 			baseAmount = math.max(200, math.floor(baseAmount * 0.35))
 		elseif lastCycleCalls > 0 and lastCycleGain <= 0 then
 			baseAmount = math.max(300, math.floor(baseAmount * 0.55))
 		elseif lastCycleCalls > 0 and lastCycleGain >= lastCycleCalls * 0.6 then
-			baseAmount = math.min(configuration.Amount, math.floor(baseAmount * 1.15))
+			baseAmount = math.min(configurations.Amount, math.floor(baseAmount * 1.15))
 		end
 		local toFire = math.min(baseAmount, math.max(0, remaining))
 		local cycleStartExp = exp.Value
@@ -4978,17 +5174,17 @@ task.spawn(function()
 		end
 
 		while callsSent < toFire do
-			if not configuration.Farming or configuration.EmergencyStopActive then break end
+			if not configurations.Farming or configurations.EmergencyStopActive then break end
 			if not target:IsDescendantOf(MobsFolder) then break end
-			if configuration.ExpRetaliationTarget == target
-				or configuration.ExpMaxCombatTarget == target
-				or (configuration.PendingServerHop and configuration.ServerHopKillTarget == target)
-				or (configuration.AlertCombatPending and configuration.AlertCombatTarget == target) then
+			if configurations.ExpRetaliationTarget == target
+				or configurations.ExpMaxCombatTarget == target
+				or (configurations.PendingServerHop and configurations.ServerHopKillTarget == target)
+				or (configurations.AlertCombatPending and configurations.AlertCombatTarget == target) then
 				break
 			end
-			if exp.Value >= configuration.ExpGoal then break end
+			if exp.Value >= configurations.ExpGoal then break end
 			local firingHumanoid = target:FindFirstChildOfClass("Humanoid")
-			if configuration.ExpTargetRetaliationEnabled and watchedHealthTarget == target
+			if configurations.ExpTargetRetaliationEnabled and watchedHealthTarget == target
 				and firingHumanoid and lastObservedTargetHealth
 				and firingHumanoid.Health < lastObservedTargetHealth then
 				StartExpRetaliation(target, firingHumanoid.Health)
@@ -5002,16 +5198,16 @@ task.spawn(function()
 			local firingMobRoot = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
 			local firingDistance = firingRoot and firingMobRoot
 				and (firingRoot.Position - firingMobRoot.Position).Magnitude or math.huge
-			local inApproach = not configuration.ExpAutoApproachEnabled
-				or firingDistance <= configuration.ExpApproachDistance + 0.75
+			local inApproach = not configurations.ExpAutoApproachEnabled
+				or firingDistance <= configurations.ExpApproachDistance + 0.75
 			local hasEngaged = engagedFireTarget == target
 
 			-- EXP target movement is opt-in; Combat can still approach the target
 			-- separately for Alert or Max handling.
-			if configuration.ExpAutoApproachEnabled and firingRoot and firingMobRoot and not inApproach then
+			if configurations.ExpAutoApproachEnabled and firingRoot and firingMobRoot and not inApproach then
 				local moveHumanoid = firingCharacter and firingCharacter:FindFirstChildOfClass("Humanoid")
 				if moveHumanoid then
-					local goal = OrbitApproachPoint(firingRoot, firingMobRoot, configuration.ExpApproachDistance)
+					local goal = OrbitApproachPoint(firingRoot, firingMobRoot, configurations.ExpApproachDistance)
 					SmoothMoveTo(moveHumanoid, firingRoot, goal, expMoveState, 0.22, 1.6)
 					chasingExpTarget = target
 				end
@@ -5027,7 +5223,7 @@ task.spawn(function()
 			if not hasEngaged then
 				if not inApproach then
 					StateLabel.Text = "Moving"
-					MiniState.Text = string.format("Approach target once (%.0f / %.0f studs)", firingDistance, configuration.ExpApproachDistance)
+					MiniState.Text = string.format("Approach target once (%.0f / %.0f studs)", firingDistance, configurations.ExpApproachDistance)
 					task.wait(0.08)
 					continue
 				end
@@ -5036,11 +5232,11 @@ task.spawn(function()
 			end
 
 			-- After engaged: keep firing even if range is briefly lost; only bail if way outside search radius.
-			if firingDistance > configuration.MaxDistance + 25 then
-				StateLabel.Text = configuration.ExpAutoApproachEnabled and "Moving" or "Waiting"
-				MiniState.Text = configuration.ExpAutoApproachEnabled
-					and string.format("Too far (%.0f); walking back into %.0f studs", firingDistance, configuration.MaxDistance)
-					or string.format("Target too far (%.0f); waiting within %.0f studs", firingDistance, configuration.MaxDistance)
+			if firingDistance > configurations.MaxDistance + 25 then
+				StateLabel.Text = configurations.ExpAutoApproachEnabled and "Moving" or "Waiting"
+				MiniState.Text = configurations.ExpAutoApproachEnabled
+					and string.format("Too far (%.0f); walking back into %.0f studs", firingDistance, configurations.MaxDistance)
+					or string.format("Target too far (%.0f); waiting within %.0f studs", firingDistance, configurations.MaxDistance)
 				task.wait(0.08)
 				continue
 			end
@@ -5053,39 +5249,39 @@ task.spawn(function()
 				MiniState.Text = string.format("Out of standoff (%.0f); firing while closing in", firingDistance)
 			end
 
-			configuration.ExpLastShotTarget = target
+			configurations.ExpLastShotTarget = target
 			InitClashing:FireServer(2, exp)
 			callsSent += 1
 
 			-- Adaptive throttle near max / after stalled cycles / periodic yield for replicate.
-			if exp.Value >= configuration.ExpGoal - 200 then
+			if exp.Value >= configurations.ExpGoal - 200 then
 				task.wait(0.025 + adaptiveYield)
-			elseif configuration.NoProgressCycles >= 2 and callsSent % 15 == 0 then
+			elseif configurations.NoProgressCycles >= 2 and callsSent % 15 == 0 then
 				task.wait(0.03 + adaptiveYield)
 			elseif callsSent % batchYieldEvery == 0 then
 				task.wait(math.max(0, adaptiveYield))
 			end
 		end
 
-		if not configuration.Farming or configuration.EmergencyStopActive then continue end
+		if not configurations.Farming or configurations.EmergencyStopActive then continue end
 
 		if not target:IsDescendantOf(MobsFolder) then
-			configuration.ClearBillboard()
-			configuration.CurrentTarget = nil
+			configurations.ClearBillboard()
+			configurations.CurrentTarget = nil
 			task.wait(0.05)
 			continue
 		end
 
-		if exp.Value >= configuration.ExpGoal then
-			configuration.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
+		if exp.Value >= configurations.ExpGoal then
+			configurations.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
 			lastCycleGain = math.max(0, exp.Value - cycleStartExp)
 			lastCycleCalls = callsSent
 			adaptiveYield = math.max(0, adaptiveYield - 0.004)
-			if not configuration.HandleExpMax(target) then
+			if not configurations.HandleExpMax(target) then
 				task.wait(0.2)
 				continue
 			end
-			configuration.UpdateBillboardText(exp.Value, true)
+			configurations.UpdateBillboardText(exp.Value, true)
 			Bar.Size = UDim2.fromScale(1, 1)
 			PercentLabel.Text = "100%"
 			task.wait(0.2)
@@ -5096,19 +5292,19 @@ task.spawn(function()
 		if target:IsDescendantOf(MobsFolder) then
 			StateLabel.Text = "Waiting"
 			MiniState.Text = "Waiting for EXP update on locked target"
-			local expected = math.min(cycleStartExp + callsSent, configuration.ExpGoal)
+			local expected = math.min(cycleStartExp + callsSent, configurations.ExpGoal)
 			local startWait = os.clock()
-			local maxWait = (exp.Value >= configuration.ExpGoal - 500) and 2 or 5
+			local maxWait = (exp.Value >= configurations.ExpGoal - 500) and 2 or 5
 
-			while configuration.Farming and not configuration.EmergencyStopActive and exp.Parent and exp.Value < expected do
+			while configurations.Farming and not configurations.EmergencyStopActive and exp.Parent and exp.Value < expected do
 				if not target:IsDescendantOf(MobsFolder) then break end
-				if exp.Value >= configuration.ExpGoal then break end
+				if exp.Value >= configurations.ExpGoal then break end
 				if os.clock() - startWait > maxWait then break end
 				task.wait(0.05)
 			end
 		end
 
-		configuration.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
+		configurations.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
 		lastCycleGain = math.max(0, exp.Value - cycleStartExp)
 		lastCycleCalls = callsSent
 		if callsSent > 0 and lastCycleGain <= 0 then
@@ -5117,22 +5313,22 @@ task.spawn(function()
 			adaptiveYield = math.max(0, adaptiveYield - 0.006)
 		end
 
-		if configuration.Farming then
+		if configurations.Farming then
 			if not target:IsDescendantOf(MobsFolder) then
-				configuration.ClearBillboard()
-				configuration.CurrentTarget = nil
+				configurations.ClearBillboard()
+				configurations.CurrentTarget = nil
 				task.wait(0.05)
 				continue
 			end
-			if exp.Value >= configuration.ExpGoal then
-				configuration.PauseTimer()
+			if exp.Value >= configurations.ExpGoal then
+				configurations.PauseTimer()
 				continue
 			end
-			StateLabel.Text = configuration.NoProgressCycles >= 2 and "Waiting" or "Interval"
-			MiniState.Text = configuration.NoProgressCycles >= 2
+			StateLabel.Text = configurations.NoProgressCycles >= 2 and "Waiting" or "Interval"
+			MiniState.Text = configurations.NoProgressCycles >= 2
 				and "EXP did not update; keeping the same target"
-				or ("Waiting " .. tostring(configuration.Interval) .. "s before next cycle")
-			task.wait(configuration.Interval)
+				or ("Waiting " .. tostring(configurations.Interval) .. "s before next cycle")
+			task.wait(configurations.Interval)
 		end
 	end
 end)
@@ -5150,29 +5346,29 @@ task.spawn(function()
 	local lastRetaliationAttackTarget = nil
 	while true do
 		local combatTargetPresent = false
-		local autoMarkedTarget = configuration.AutoBossTargetEnabled or configuration.AutoMiniBossTargetEnabled
-		local canCombatDuringExp = configuration.Farming
-			and (configuration.ExpMaxCombatTarget ~= nil or configuration.ExpRetaliationTarget ~= nil
-				or configuration.PendingServerHop or configuration.ExpFinishTarget ~= nil)
-		local forceFinishExp = configuration.PendingServerHop and configuration.ServerHopKillTarget ~= nil
-		local priorityCombat = configuration.AlertCombatPending or configuration.ExpMaxCombatTarget ~= nil
-			or configuration.ExpRetaliationTarget ~= nil or configuration.PendingServerHop
-			or (configuration.AutoExecuteEnabled and configuration.ExpFinishTarget ~= nil)
-		if not configuration.EmergencyStopActive
-			and (configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or priorityCombat or autoMarkedTarget)
-			and not configuration.AlertCombatHold
-			and (not configuration.Farming or canCombatDuringExp or forceFinishExp)
-			and not configuration.AlertCombatBlockReady then
+		local autoMarkedTarget = configurations.AutoBossTargetEnabled or configurations.AutoMiniBossTargetEnabled
+		local canCombatDuringExp = configurations.Farming
+			and (configurations.ExpMaxCombatTarget ~= nil or configurations.ExpRetaliationTarget ~= nil
+				or configurations.PendingServerHop or configurations.ExpFinishTarget ~= nil)
+		local forceFinishExp = configurations.PendingServerHop and configurations.ServerHopKillTarget ~= nil
+		local priorityCombat = configurations.AlertCombatPending or configurations.ExpMaxCombatTarget ~= nil
+			or configurations.ExpRetaliationTarget ~= nil or configurations.PendingServerHop
+			or (configurations.AutoExecuteEnabled and configurations.ExpFinishTarget ~= nil)
+		if not configurations.EmergencyStopActive
+			and (configurations.AutoAttackEnabled or configurations.AutoSkillEnabled or priorityCombat or autoMarkedTarget)
+			and not configurations.AlertCombatHold
+			and (not configurations.Farming or canCombatDuringExp or forceFinishExp)
+			and not configurations.AlertCombatBlockReady then
 			local character = Player.Character
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			local target, targetRoot, distance
 			if localRoot then
-				local selectedMob, selectedRoot, selectedDistance = configuration.Combat.GetSelectedCombatMob(localRoot)
+				local selectedMob, selectedRoot, selectedDistance = configurations.Combat.GetSelectedCombatMob(localRoot)
 				target, targetRoot, distance = selectedMob, selectedRoot, selectedDistance
 			end
-			if target == configuration.ExpRetaliationTarget and target then
+			if target == configurations.ExpRetaliationTarget and target then
 				if lastRetaliationAttackTarget ~= target then
-					lastAttackAt = os.clock() - configuration.AutoAttackInterval
+					lastAttackAt = os.clock() - configurations.AutoAttackInterval
 					lastRetaliationAttackTarget = target
 				end
 			else
@@ -5180,52 +5376,52 @@ task.spawn(function()
 			end
 			if target and targetRoot then
 				combatTargetPresent = true
-				if target == configuration.ExpFinishTarget and target ~= lastFinishHandoffTarget then
-					configuration.CombatSystem.ResetNavigationState(attackMoveState)
+				if target == configurations.ExpFinishTarget and target ~= lastFinishHandoffTarget then
+					configurations.CombatSystem.ResetNavigationState(attackMoveState)
 					attackMoveState.Active = false
 					attackMoveState.Goal = nil
 					attackMoveState.LastMoveAt = 0
 					attackMoveState.Target = nil
 					chasingMob = false
 					lastFinishHandoffTarget = target
-				elseif target ~= configuration.ExpFinishTarget then
+				elseif target ~= configurations.ExpFinishTarget then
 					lastFinishHandoffTarget = nil
 				end
 				local attackRange = math.min(
-					configuration.AutoAttackRange,
-					math.max(7, configuration.AutoAttackStandoff + 3)
+					configurations.AutoAttackRange,
+					math.max(7, configurations.AutoAttackStandoff + 3)
 				)
 				if attackMoveState.Target ~= target then
 					if attackMoveState.Target ~= nil and attackMoveState.Active then
 						local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 						if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
 					end
-					configuration.CombatSystem.ResetNavigationState(attackMoveState)
+					configurations.CombatSystem.ResetNavigationState(attackMoveState)
 					attackMoveState.Target = target
 				end
 				-- Keep steering toward the selected mob while attacking, including at close range.
-				local forcedExpCombat = target == configuration.AlertCombatTarget and configuration.AlertCombatPending
-					or target == configuration.ExpMaxCombatTarget
-					or target == configuration.ExpFinishTarget and configuration.AutoExecuteEnabled
-					or target == configuration.ExpRetaliationTarget
-					or target == configuration.ServerHopKillTarget and configuration.PendingServerHop
-				if localRoot and (configuration.AutoAttackEnabled or forcedExpCombat or autoMarkedTarget) then
+				local forcedExpCombat = target == configurations.AlertCombatTarget and configurations.AlertCombatPending
+					or target == configurations.ExpMaxCombatTarget
+					or target == configurations.ExpFinishTarget and configurations.AutoExecuteEnabled
+					or target == configurations.ExpRetaliationTarget
+					or target == configurations.ServerHopKillTarget and configurations.PendingServerHop
+				if localRoot and (configurations.AutoAttackEnabled or forcedExpCombat or autoMarkedTarget) then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					ClaimMovement("Combat", humanoid, localRoot)
-					local approachPoint = configuration.CombatSystem.SelectApproachPoint(
-						localRoot, targetRoot, configuration.AutoAttackStandoff, target, attackMoveState, attackRange
+					local approachPoint = configurations.CombatSystem.SelectApproachPoint(
+						localRoot, targetRoot, configurations.AutoAttackStandoff, target, attackMoveState, attackRange
 					)
-					approachPoint = configuration.CombatSystem.GroundAlignGoal(localRoot, approachPoint, target)
+					approachPoint = configurations.CombatSystem.GroundAlignGoal(localRoot, approachPoint, target)
 					local interval = (distance or 0) > 40 and 0.24 or 0.14
 					local stopRadius = 1.8
-					local arrived, navigationState = configuration.CombatSystem.NavigateMoveTo(
+					local arrived, navigationState = configurations.CombatSystem.NavigateMoveTo(
 						humanoid, localRoot, approachPoint, target, attackMoveState, interval, stopRadius, true
 					)
 					attackMoveState.NavigationMode = navigationState
 					chasingMob = not arrived
-					local finishingExpTarget = target == configuration.ExpFinishTarget
-						or target == configuration.ExpMaxCombatTarget
-						or configuration.AlertCombatPending and target == configuration.AlertCombatTarget
+					local finishingExpTarget = target == configurations.ExpFinishTarget
+						or target == configurations.ExpMaxCombatTarget
+						or configurations.AlertCombatPending and target == configurations.AlertCombatTarget
 					StateLabel.Text = navigationState == "detouring" and "Going around obstacle"
 						or (finishingExpTarget and "Finishing EXP target" or "Moving to target")
 					MiniState.Text = navigationState == "detouring" and "Steering around the obstacle"
@@ -5236,7 +5432,7 @@ task.spawn(function()
 					if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
 					attackMoveState.Active = false
 					attackMoveState.Goal = nil
-					configuration.CombatSystem.ResetNavigationState(attackMoveState)
+					configurations.CombatSystem.ResetNavigationState(attackMoveState)
 					chasingMob = false
 					attackMoveState.Target = nil
 					ReleaseMovement("Combat", humanoid, localRoot)
@@ -5252,11 +5448,11 @@ task.spawn(function()
 					if inputFunction and inputFunction:IsA("BindableFunction") then
 						local now = os.clock()
 						local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-						local hasWeapon, needsEquip = configuration.Combat.GetWeaponEquipState(character)
+						local hasWeapon, needsEquip = configurations.Combat.GetWeaponEquipState(character)
 						local canAttack = humanoid and humanoid.Health > 0 and hasWeapon
 						if not canAttack then
-							configuration.CombatInfo.Text = needsEquip and "Waiting for Sword; trying EquipButton before attacking." or "Waiting for PlayerStats and Sword/MainWeld."
-							if not configuration.Farming or configuration.AlertCombatPending or configuration.ExpMaxCombatTarget then
+							configurations.CombatInfo.Text = needsEquip and "Waiting for Sword; trying EquipButton before attacking." or "Waiting for PlayerStats and Sword/MainWeld."
+							if not configurations.Farming or configurations.AlertCombatPending or configurations.ExpMaxCombatTarget then
 								StateLabel.Text = needsEquip and "Equipping" or "Waiting"
 								MiniState.Text = needsEquip and "Auto Attack is equipping the Sword" or "Waiting for Sword and PlayerStats"
 							end
@@ -5269,29 +5465,29 @@ task.spawn(function()
 								if not ok then warn("Auto Equip failed:", err) end
 							end
 						else
-							configuration.CombatInfo.Text = configuration.AlertCombatPending and "Alert response: attacking only the locked EXP target." or "Weapon ready; Auto Attack can engage the selected target."
-							if configuration.AlertCombatPending and target == configuration.AlertCombatTarget then
+							configurations.CombatInfo.Text = configurations.AlertCombatPending and "Alert response: attacking only the locked EXP target." or "Weapon ready; Auto Attack can engage the selected target."
+							if configurations.AlertCombatPending and target == configurations.AlertCombatTarget then
 								StateLabel.Text = "Alert execute"
 								MiniState.Text = distance > attackRange
 									and "EXP paused — closing in on the locked target"
 									or "EXP paused — attacking the locked target before Block"
-							elseif target == configuration.ExpFinishTarget or target == configuration.ExpMaxCombatTarget then
+							elseif target == configurations.ExpFinishTarget or target == configurations.ExpMaxCombatTarget then
 								StateLabel.Text = distance > attackRange and "Moving and finishing target" or "Finishing target"
 								MiniState.Text = distance > attackRange and "Attacking while moving to the locked EXP target" or "Attacking the locked EXP target until it dies"
-							elseif not configuration.Farming or configuration.AlertCombatPending or configuration.ExpRetaliationTarget == target then
+							elseif not configurations.Farming or configurations.AlertCombatPending or configurations.ExpRetaliationTarget == target then
 								StateLabel.Text = distance > attackRange and "Moving and attacking" or "Attacking"
 								MiniState.Text = distance > attackRange and "Attacking while closing distance" or "In range — attacking target"
 							end
-							if (configuration.AutoAttackEnabled or forcedExpCombat or autoMarkedTarget)
-								and now - lastAttackAt >= configuration.AutoAttackInterval then
-								if distance <= attackRange and (target == configuration.CurrentTarget
-									or target == configuration.ExpMaxCombatTarget
-									or target == configuration.ExpFinishTarget
-									or target == configuration.AlertCombatTarget
-									or target == configuration.ExpRetaliationTarget
-									or target == configuration.ServerHopKillTarget
-									or target == configuration.ExpLastShotTarget) then
-									configuration.WatchExpTargetForHit(target)
+							if (configurations.AutoAttackEnabled or forcedExpCombat or autoMarkedTarget)
+								and now - lastAttackAt >= configurations.AutoAttackInterval then
+								if distance <= attackRange and (target == configurations.CurrentTarget
+									or target == configurations.ExpMaxCombatTarget
+									or target == configurations.ExpFinishTarget
+									or target == configurations.AlertCombatTarget
+									or target == configurations.ExpRetaliationTarget
+									or target == configurations.ServerHopKillTarget
+									or target == configurations.ExpLastShotTarget) then
+									configurations.WatchExpTargetForHit(target)
 								end
 								local ok, err = pcall(function()
 									inputFunction:Invoke("AttackButton", Enum.UserInputState.Begin)
@@ -5304,7 +5500,7 @@ task.spawn(function()
 									warn("Auto Attack failed:", err)
 								end
 							end
-							if configuration.AutoSkillEnabled and distance <= attackRange and now - lastSkillAt >= configuration.AutoSkillInterval then
+							if configurations.AutoSkillEnabled and distance <= attackRange and now - lastSkillAt >= configurations.AutoSkillInterval then
 								local ok, err = pcall(function()
 									inputFunction:Invoke("SkillButton", Enum.UserInputState.Begin)
 								end)
@@ -5317,11 +5513,11 @@ task.spawn(function()
 						end
 					end
 				end
-				if not configuration.Farming or configuration.AlertCombatPending
-					or target == configuration.ExpRetaliationTarget or target == configuration.ExpMaxCombatTarget
-					or target == configuration.ExpFinishTarget
-					or target == configuration.ServerHopKillTarget then
-					configuration.UpdateCombatStatus(target, targetRoot, distance, attackMoveState.NavigationMode, attackMoveState)
+				if not configurations.Farming or configurations.AlertCombatPending
+					or target == configurations.ExpRetaliationTarget or target == configurations.ExpMaxCombatTarget
+					or target == configurations.ExpFinishTarget
+					or target == configurations.ServerHopKillTarget then
+					configurations.UpdateCombatStatus(target, targetRoot, distance, attackMoveState.NavigationMode, attackMoveState)
 				end
 			else
 				if chasingMob or attackMoveState.Active then
@@ -5329,36 +5525,36 @@ task.spawn(function()
 					if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
 					attackMoveState.Active = false
 					attackMoveState.Goal = nil
-					configuration.CombatSystem.ResetNavigationState(attackMoveState)
+					configurations.CombatSystem.ResetNavigationState(attackMoveState)
 					chasingMob = false
 				end
 				attackMoveState.Target = nil
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				ReleaseMovement("Combat", humanoid, localRoot)
-				if configuration.AlertCombatHold then
-					if configuration.AlertCombatBlockReady then
+				if configurations.AlertCombatHold then
+					if configurations.AlertCombatBlockReady then
 						StateLabel.Text = "Block"
 						MiniState.Text = "Waiting to open Block prompt"
-					elseif configuration.AlertBlockPromptShown then
+					elseif configurations.AlertBlockPromptShown then
 						StateLabel.Text = "Block prompt"
 						MiniState.Text = "Block prompt opened; waiting for the Alert player to leave"
 					else
 						StateLabel.Text = "Alert hold"
 						MiniState.Text = "Waiting for the Alert player to leave"
 					end
-				elseif not configuration.Farming then
-					if configuration.AlertResumeRequired then
+				elseif not configurations.Farming then
+					if configurations.AlertResumeRequired then
 						StateLabel.Text = "Stopped"
 						MiniState.Text = "Alert cleared — press Start to resume EXP"
-					elseif configuration.AutoAttackEnabled or configuration.AutoSkillEnabled or autoMarkedTarget then
+					elseif configurations.AutoAttackEnabled or configurations.AutoSkillEnabled or autoMarkedTarget then
 						StateLabel.Text = "Searching..."
 						MiniState.Text = "Searching for a valid combat target"
-					elseif not configuration.EmergencyStopActive then
+					elseif not configurations.EmergencyStopActive then
 						StateLabel.Text = "Stopped"
 						MiniState.Text = "Stopped"
 					end
 				end
-				configuration.UpdateCombatStatus(nil, nil, nil, "searching", attackMoveState)
+				configurations.UpdateCombatStatus(nil, nil, nil, "searching", attackMoveState)
 			end
 		else
 			if chasingMob or attackMoveState.Active then
@@ -5368,7 +5564,7 @@ task.spawn(function()
 				if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
 				attackMoveState.Active = false
 				attackMoveState.Goal = nil
-				configuration.CombatSystem.ResetNavigationState(attackMoveState)
+				configurations.CombatSystem.ResetNavigationState(attackMoveState)
 				chasingMob = false
 			end
 			attackMoveState.Target = nil
@@ -5376,14 +5572,14 @@ task.spawn(function()
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local localRoot = character and character:FindFirstChild("HumanoidRootPart")
 			ReleaseMovement("Combat", humanoid, localRoot)
-			configuration.UpdateCombatStatus(nil, nil, nil, "paused", attackMoveState)
+			configurations.UpdateCombatStatus(nil, nil, nil, "paused", attackMoveState)
 		end
-		local combatBusy = not configuration.EmergencyStopActive and not configuration.AlertCombatHold and (
-			combatTargetPresent or configuration.AlertCombatPending or configuration.ExpMaxCombatTarget ~= nil
-			or configuration.ExpRetaliationTarget ~= nil or configuration.ExpFinishTarget ~= nil
-			or configuration.PendingServerHop
+		local combatBusy = not configurations.EmergencyStopActive and not configurations.AlertCombatHold and (
+			combatTargetPresent or configurations.AlertCombatPending or configurations.ExpMaxCombatTarget ~= nil
+				or configurations.ExpRetaliationTarget ~= nil or configurations.ExpFinishTarget ~= nil
+				or configurations.PendingServerHop
 		)
-		local combatWait = configuration.FPSBoostEnabled and not combatBusy and 0.3 or 0.08
+		local combatWait = configurations.FPSBoostEnabled and not combatBusy and 0.3 or 0.08
 		task.wait(combatWait)
 	end
 end)
@@ -5394,49 +5590,49 @@ task.spawn(function()
 		local character = Player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local point = configuration.WaypointPosition
-		configuration.RefreshPartyWaypointState()
-		local paused = configuration.EmergencyStopActive
-			or configuration.FollowEnabled
-			or configuration.PartyWaypointSuspended
-			or configuration.AlertCombatPending
-			or configuration.AlertCombatHold
-			or configuration.ExpMaxCombatTarget ~= nil
-			or configuration.ExpRetaliationTarget ~= nil
-			or configuration.ExpFinishTarget ~= nil
-			or configuration.PendingServerHop
-		if not paused and root and (configuration.AutoAttackEnabled or configuration.AutoBossTargetEnabled
-			or configuration.AutoMiniBossTargetEnabled) and not configuration.Farming then
-			local selectedMob = configuration.Combat.GetSelectedCombatMob(root)
+		local point = configurations.WaypointPosition
+		configurations.RefreshPartyWaypointState()
+		local paused = configurations.EmergencyStopActive
+			or configurations.FollowEnabled
+			or configurations.PartyWaypointSuspended
+			or configurations.AlertCombatPending
+			or configurations.AlertCombatHold
+			or configurations.ExpMaxCombatTarget ~= nil
+			or configurations.ExpRetaliationTarget ~= nil
+			or configurations.ExpFinishTarget ~= nil
+			or configurations.PendingServerHop
+		if not paused and root and (configurations.AutoAttackEnabled or configurations.AutoBossTargetEnabled
+			or configurations.AutoMiniBossTargetEnabled) and not configurations.Farming then
+			local selectedMob = configurations.Combat.GetSelectedCombatMob(root)
 			paused = selectedMob ~= nil
 		end
-		if configuration.Farming and configuration.ExpAutoApproachEnabled then
+		if configurations.Farming and configurations.ExpAutoApproachEnabled then
 			paused = true
 		end
 
 		-- Combat has exclusive ownership of Humanoid movement while attacking.
 		-- Never let waypoint-return navigation issue MoveTo calls over combat pursuit.
 		if MovementOwner == "Combat" then
-			configuration.WaypointNavigator.Reset()
+			configurations.WaypointNavigator.Reset()
 		else
-			if configuration.WaypointReturnEnabled and point and root and humanoid and not paused then
+			if configurations.WaypointReturnEnabled and point and root and humanoid and not paused then
 				local distance = (root.Position - point).Magnitude
 				if distance > 0.75 then
 					ClaimMovement("Waypoint", humanoid, root)
-					configuration.WaypointNavigator.Update(humanoid, root, point)
+					configurations.WaypointNavigator.Update(humanoid, root, point)
 				else
 					ReleaseMovement("Waypoint", humanoid, root)
-					configuration.WaypointNavigator.Reset()
+					configurations.WaypointNavigator.Reset()
 				end
 			else
 				if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
-				configuration.WaypointNavigator.Reset()
+				configurations.WaypointNavigator.Reset()
 			end
 		end
 		local waypointBusy = MovementOwner == "Combat"
-			or (configuration.WaypointReturnEnabled and point and root and humanoid and not paused
+			or (configurations.WaypointReturnEnabled and point and root and humanoid and not paused
 				and (root.Position - point).Magnitude > 0.75)
-		local waypointWait = configuration.FPSBoostEnabled and not waypointBusy and 0.35 or 0.12
+		local waypointWait = configurations.FPSBoostEnabled and not waypointBusy and 0.35 or 0.12
 		task.wait(waypointWait)
 	end
 end)
@@ -5446,102 +5642,102 @@ end)
 --==================================================
 task.spawn(function()
 	while true do
-		configuration.WatchExpTargetForHit(configuration.ExpMaxCombatTarget or configuration.ExpFinishTarget
-			or configuration.AlertCombatTarget
-			or configuration.ExpRetaliationTarget or configuration.CurrentTarget
-			or configuration.ExpLastShotTarget)
-		configuration.UpdateExpHitFeedback()
-		if configuration.Farming and configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
-			local cfg = configuration.CurrentTarget:FindFirstChild("Config")
+		configurations.WatchExpTargetForHit(configurations.ExpMaxCombatTarget or configurations.ExpFinishTarget
+			or configurations.AlertCombatTarget
+			or configurations.ExpRetaliationTarget or configurations.CurrentTarget
+			or configurations.ExpLastShotTarget)
+		configurations.UpdateExpHitFeedback()
+		if configurations.Farming and configurations.CurrentTarget and configurations.CurrentTarget:IsDescendantOf(MobsFolder) then
+			local cfg = configurations.CurrentTarget:FindFirstChild("Config")
 			local exp = cfg and cfg:FindFirstChild("EXP")
-			local reachedMax = exp and exp.Value >= configuration.ExpGoal
+			local reachedMax = exp and exp.Value >= configurations.ExpGoal
 
-			if configuration.CurrentTarget ~= configuration.LastTarget then
-				configuration.LastTarget = configuration.CurrentTarget
-				configuration.TargetStartTime = os.clock()
-				configuration.AccumulatedTime = 0
-				configuration.IsPaused = false
+			if configurations.CurrentTarget ~= configurations.LastTarget then
+				configurations.LastTarget = configurations.CurrentTarget
+				configurations.TargetStartTime = os.clock()
+				configurations.AccumulatedTime = 0
+				configurations.IsPaused = false
 				if exp then
-					configuration.SessionStartEXP = exp.Value
-					configuration.SessionStartTime = os.clock()
+					configurations.SessionStartEXP = exp.Value
+					configurations.SessionStartTime = os.clock()
 				end
 			end
 
 			if not reachedMax then
-				if configuration.IsPaused then
-					configuration.TargetStartTime = os.clock()
-					configuration.IsPaused = false
+				if configurations.IsPaused then
+					configurations.TargetStartTime = os.clock()
+					configurations.IsPaused = false
 				end
-				TimeLabel.Text = configuration.FormatTime(configuration.AccumulatedTime + (os.clock() - configuration.TargetStartTime))
+				TimeLabel.Text = configurations.FormatTime(configurations.AccumulatedTime + (os.clock() - configurations.TargetStartTime))
 				MiniTime.Text = TimeLabel.Text
 			else
-				configuration.PauseTimer()
-				TimeLabel.Text = configuration.FormatTime(configuration.AccumulatedTime)
-			MiniTime.Text = TimeLabel.Text
+				configurations.PauseTimer()
+				TimeLabel.Text = configurations.FormatTime(configurations.AccumulatedTime)
+				MiniTime.Text = TimeLabel.Text
 			end
 
 			-- EXP / Hour
-			if exp and configuration.SessionStartTime > 0 then
-				local elapsed = os.clock() - configuration.SessionStartTime
+			if exp and configurations.SessionStartTime > 0 then
+				local elapsed = os.clock() - configurations.SessionStartTime
 				if elapsed > 1 then
-					local gained = exp.Value - configuration.SessionStartEXP
+					local gained = exp.Value - configurations.SessionStartEXP
 					local perHour = (gained / elapsed) * 3600
-					RateLabel.Text = configuration.FormatNumber(perHour) .. "/h"
+					RateLabel.Text = configurations.FormatNumber(perHour) .. "/h"
 				end
 			end
 		else
-			if configuration.LastTarget then
-				TimeLabel.Text = configuration.FormatTime(configuration.AccumulatedTime)
-			MiniTime.Text = TimeLabel.Text
+			if configurations.LastTarget then
+				TimeLabel.Text = configurations.FormatTime(configurations.AccumulatedTime)
+				MiniTime.Text = TimeLabel.Text
 			end
 		end
 
-		if configuration.CurrentTarget and configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
-			local cfg = configuration.CurrentTarget:FindFirstChild("Config")
+		if configurations.CurrentTarget and configurations.CurrentTarget:IsDescendantOf(MobsFolder) then
+			local cfg = configurations.CurrentTarget:FindFirstChild("Config")
 			local exp = cfg and cfg:FindFirstChild("EXP")
 			if exp then
-				local ratio = math.clamp(exp.Value / configuration.ExpGoal, 0, 1)
+				local ratio = math.clamp(exp.Value / configurations.ExpGoal, 0, 1)
 				if math.floor(ratio * 1000) ~= math.floor((Bar.Size.X.Scale or 0) * 1000) then
 					Bar.Size = UDim2.fromScale(ratio, 1)
 				end
 				if math.floor(ratio * 1000) ~= math.floor((MiniBarFill.Size.X.Scale or 0) * 1000) then
 					MiniBarFill.Size = UDim2.fromScale(ratio, 1)
-					MiniBarFill.BackgroundColor3 = ratio >= 1 and GREEN or (ratio >= 0.6 and ACCENT or GREEN)
+					MiniBarFill.BackgroundColor3 = ratio >= 1 and UIColors.GREEN or (ratio >= 0.6 and UIColors.ACCENT or UIColors.GREEN)
 				end
-				local expText = configuration.FormatNumber(exp.Value)
+				local expText = configurations.FormatNumber(exp.Value)
 				if ExpLabel.Text ~= expText then ExpLabel.Text = expText end
 				if MiniExp.Text ~= expText then MiniExp.Text = expText end
-				local maxText = "/ " .. configuration.FormatNumber(configuration.ExpGoal)
+				local maxText = "/ " .. configurations.FormatNumber(configurations.ExpGoal)
 				if MaxLabel.Text ~= maxText then MaxLabel.Text = maxText end
 				if MiniMax.Text ~= maxText then MiniMax.Text = maxText end
 				local percentText = string.format("%.1f%%", ratio * 100)
 				if PercentLabel.Text ~= percentText then PercentLabel.Text = percentText end
-				configuration.UpdateBillboardText(exp.Value, exp.Value >= configuration.ExpGoal)
+				configurations.UpdateBillboardText(exp.Value, exp.Value >= configurations.ExpGoal)
 			end
 
 			local char = Player.Character
 			local root = char and char:FindFirstChild("HumanoidRootPart")
-			local mroot = configuration.CurrentTarget.PrimaryPart or configuration.CurrentTarget:FindFirstChild("HumanoidRootPart")
+			local mroot = configurations.CurrentTarget.PrimaryPart or configurations.CurrentTarget:FindFirstChild("HumanoidRootPart")
 			if root and mroot then
 				local distText = "Dist  " .. string.format("%.1f", (root.Position - mroot.Position).Magnitude)
 				if DistLabel.Text ~= distText then DistLabel.Text = distText end
 			end
 		else
-			if configuration.CurrentTarget and not configuration.CurrentTarget:IsDescendantOf(MobsFolder) then
-				configuration.ClearBillboard()
-				configuration.CurrentTarget = nil
+			if configurations.CurrentTarget and not configurations.CurrentTarget:IsDescendantOf(MobsFolder) then
+				configurations.ClearBillboard()
+				configurations.CurrentTarget = nil
 			end
 		end
 
 		-- Player level + Exp current/max from PlayerStats.Level / PlayerStats.EXP
 		do
-			local level, pExp, pMax = configuration.GetLocalLevelProgress()
+			local level, pExp, pMax = configurations.GetLocalLevelProgress()
 			local levelText = (type(level) == "number") and ("Lv " .. tostring(math.floor(level + 0))) or "Lv —"
 			local expLine
 			if type(pExp) == "number" and type(pMax) == "number" then
-				expLine = string.format("Exp %s/%s", configuration.FormatNumber(pExp), configuration.FormatNumber(pMax))
+				expLine = string.format("Exp %s/%s", configurations.FormatNumber(pExp), configurations.FormatNumber(pMax))
 			elseif type(pExp) == "number" then
-				expLine = "Exp " .. configuration.FormatNumber(pExp)
+				expLine = "Exp " .. configurations.FormatNumber(pExp)
 			else
 				expLine = "Exp —/—"
 			end
@@ -5552,9 +5748,9 @@ task.spawn(function()
 		end
 
 		-- Faster while farming/combat feedback matters; slower when idle to cut CPU.
-		local uiBusy = configuration.Farming or configuration.AutoAttackEnabled or configuration.AlertCombatPending
+		local uiBusy = configurations.Farming or configurations.AutoAttackEnabled or configurations.AlertCombatPending
 		local uiWait = uiBusy and 0.12 or 0.28
-		if configuration.FPSBoostEnabled then uiWait = uiBusy and 0.2 or 0.45 end
+		if configurations.FPSBoostEnabled then uiWait = uiBusy and 0.2 or 0.45 end
 		task.wait(uiWait)
 	end
 end)
@@ -5578,8 +5774,8 @@ task.spawn(function()
 		local char = Player.Character
 		local localRoot = char and char:FindFirstChild("HumanoidRootPart")
 		local playerSnapshots = nil
-		if localRoot and not configuration.EmergencyStopActive
-			and (configuration.AlertsEnabled or configuration.FollowEnabled) then
+		if localRoot and not configurations.EmergencyStopActive
+			and (configurations.AlertsEnabled or configurations.FollowEnabled) then
 			playerSnapshots = {}
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= Player then
@@ -5593,14 +5789,14 @@ task.spawn(function()
 		end
 		local nearbyPlayer = nil
 		local nearbyDistance = math.huge
-		if configuration.AlertsEnabled and not configuration.EmergencyStopActive and localRoot then
+		if configurations.AlertsEnabled and not configurations.EmergencyStopActive and localRoot then
 			for _, snapshot in ipairs(playerSnapshots or {}) do
 				local otherPlayer = snapshot.Player
-				if otherPlayer ~= Player and not configuration.IsWhitelisted(otherPlayer) then
+				if otherPlayer ~= Player and not configurations.IsWhitelisted(otherPlayer) then
 					local otherRoot = snapshot.Root
 					if otherRoot.Parent then
 						local distance = (localRoot.Position - otherRoot.Position).Magnitude
-						if distance <= configuration.AlertsDistance and distance < nearbyDistance then
+						if distance <= configurations.AlertsDistance and distance < nearbyDistance then
 							nearbyPlayer = otherPlayer
 							nearbyDistance = distance
 						end
@@ -5609,139 +5805,139 @@ task.spawn(function()
 			end
 		end
 
-		local trackedAlertId = tonumber(configuration.LastAlertCombatUserId)
+		local trackedAlertId = tonumber(configurations.LastAlertCombatUserId)
 		local trackedAlertPlayer = trackedAlertId and Players:GetPlayerByUserId(trackedAlertId)
 		local trackedCharacter = trackedAlertPlayer and trackedAlertPlayer.Character
 		local trackedRoot = trackedCharacter and trackedCharacter:FindFirstChild("HumanoidRootPart")
-		local trackedPlayerInRange = configuration.AlertsEnabled and localRoot and trackedRoot
-			and (localRoot.Position - trackedRoot.Position).Magnitude <= configuration.AlertsDistance
-		if not trackedPlayerInRange and not configuration.AlertCombatPending then
-			local shouldResume = configuration.AlertWasFarming and configuration.AlertCombatHold and configuration.AutoResumeAfterAlert
-				and not configuration.EmergencyStopActive
-			local mustResumeManually = configuration.AlertWasFarming and configuration.AlertCombatHold and not configuration.AutoResumeAfterAlert
-				and not configuration.EmergencyStopActive
-			configuration.LastAlertCombatUserId = nil
-			configuration.AlertCombatHold = false
-			configuration.AlertCombatBlockReady = false
-			configuration.AlertBlockTarget = nil
-			configuration.AlertBlockPromptShown = false
-			configuration.AlertResumeRequired = mustResumeManually
-			configuration.AlertWasFarming = false
-			if shouldResume then configuration.SetRunning() end
+		local trackedPlayerInRange = configurations.AlertsEnabled and localRoot and trackedRoot
+			and (localRoot.Position - trackedRoot.Position).Magnitude <= configurations.AlertsDistance
+		if not trackedPlayerInRange and not configurations.AlertCombatPending then
+			local shouldResume = configurations.AlertWasFarming and configurations.AlertCombatHold and configurations.AutoResumeAfterAlert
+				and not configurations.EmergencyStopActive
+			local mustResumeManually = configurations.AlertWasFarming and configurations.AlertCombatHold and not configurations.AutoResumeAfterAlert
+				and not configurations.EmergencyStopActive
+			configurations.LastAlertCombatUserId = nil
+			configurations.AlertCombatHold = false
+			configurations.AlertCombatBlockReady = false
+			configurations.AlertBlockTarget = nil
+			configurations.AlertBlockPromptShown = false
+			configurations.AlertResumeRequired = mustResumeManually
+			configurations.AlertWasFarming = false
+			if shouldResume then configurations.SetRunning() end
 		end
 
 		if nearbyPlayer then
 			local alertUserId = tostring(nearbyPlayer.UserId)
-			if not configuration.AlertCombatPending and not configuration.AlertCombatBlockReady
-				and configuration.LastAlertCombatUserId ~= alertUserId then
-				configuration.LastAlertCombatUserId = alertUserId
-				configuration.AlertResumeRequired = false
-				configuration.AlertWasFarming = configuration.Farming
-				configuration.AlertBlockPromptShown = false
-				configuration.AlertCombatPending = true
-				configuration.AlertBlockTarget = nearbyPlayer
-				local mob = configuration.AutoExecuteEnabled and configuration.Combat.GetExpExecutionTarget() or nil
-				if not configuration.Combat.IsLivingMob(mob) then mob = nil end
-				configuration.AlertCombatTarget = mob
+			if not configurations.AlertCombatPending and not configurations.AlertCombatBlockReady
+				and configurations.LastAlertCombatUserId ~= alertUserId then
+				configurations.LastAlertCombatUserId = alertUserId
+				configurations.AlertResumeRequired = false
+				configurations.AlertWasFarming = configurations.Farming
+				configurations.AlertBlockPromptShown = false
+				configurations.AlertCombatPending = true
+				configurations.AlertBlockTarget = nearbyPlayer
+				local mob = configurations.AutoExecuteEnabled and configurations.Combat.GetExpExecutionTarget() or nil
+				if not configurations.Combat.IsLivingMob(mob) then mob = nil end
+				configurations.AlertCombatTarget = mob
 				if mob then
 					StateLabel.Text = "Alert"
 					MiniState.Text = "Attacking locked EXP target before Block"
 				else
 					-- Never substitute a nearby mob when there is no active EXP target.
-					configuration.AlertCombatPending = false
-					configuration.AlertCombatHold = true
-					configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
-					StateLabel.Text = configuration.AutoBlockEnabled and "Block" or "Alert hold"
-					if not configuration.AutoExecuteEnabled then
+					configurations.AlertCombatPending = false
+					configurations.AlertCombatHold = true
+					configurations.AlertCombatBlockReady = configurations.AutoBlockEnabled
+					StateLabel.Text = configurations.AutoBlockEnabled and "Block" or "Alert hold"
+					if not configurations.AutoExecuteEnabled then
 						MiniState.Text = "Auto Execute is off; waiting for player to leave"
 					else
-						MiniState.Text = configuration.AutoBlockEnabled
+						MiniState.Text = configurations.AutoBlockEnabled
 							and "No live EXP target; opening Block prompt"
 							or "No live EXP target; waiting for player to leave"
 					end
-					if not configuration.AutoBlockEnabled then
-						configuration.AlertBlockTarget = nil
+					if not configurations.AutoBlockEnabled then
+						configurations.AlertBlockTarget = nil
 					end
 				end
-				if configuration.Farming then configuration.SetIdle(false) end
-				if configuration.AlertCombatPending then
+				if configurations.Farming then configurations.SetIdle(false) end
+				if configurations.AlertCombatPending then
 					StateLabel.Text = "Alert"
 					MiniState.Text = "Attacking locked EXP target before Block"
-				elseif configuration.AlertCombatBlockReady then
+				elseif configurations.AlertCombatBlockReady then
 					StateLabel.Text = "Block"
 					MiniState.Text = "No EXP target; opening Block prompt"
-				elseif configuration.AlertCombatHold then
+				elseif configurations.AlertCombatHold then
 					StateLabel.Text = "Alert hold"
 					MiniState.Text = "No EXP target; waiting for player to leave"
 				end
 			end
 		else
-			if not configuration.AlertCombatPending and not configuration.AlertCombatBlockReady then
-				configuration.AlertCombatHold = false
-				configuration.LastAlertCombatUserId = nil
+			if not configurations.AlertCombatPending and not configurations.AlertCombatBlockReady then
+				configurations.AlertCombatHold = false
+				configurations.LastAlertCombatUserId = nil
 			end
 		end
 
-		if configuration.AlertCombatPending then
-			local alertMob = configuration.AlertCombatTarget
+		if configurations.AlertCombatPending then
+			local alertMob = configurations.AlertCombatTarget
 			if alertMob then
-				if not configuration.Combat.IsLivingMob(alertMob) then
-					configuration.AlertCombatPending = false
-					configuration.AlertCombatTarget = nil
-					configuration.AlertCombatHold = true
-					configuration.AlertCombatBlockReady = configuration.AutoBlockEnabled
-					StateLabel.Text = configuration.AutoBlockEnabled and "Block" or "Alert hold"
-					MiniState.Text = configuration.AutoBlockEnabled and "EXP target defeated; opening Block prompt" or "EXP target defeated; waiting for player to leave"
+				if not configurations.Combat.IsLivingMob(alertMob) then
+					configurations.AlertCombatPending = false
+					configurations.AlertCombatTarget = nil
+					configurations.AlertCombatHold = true
+					configurations.AlertCombatBlockReady = configurations.AutoBlockEnabled
+					StateLabel.Text = configurations.AutoBlockEnabled and "Block" or "Alert hold"
+					MiniState.Text = configurations.AutoBlockEnabled and "EXP target defeated; opening Block prompt" or "EXP target defeated; waiting for player to leave"
 				end
 			end
 		end
 
-		local followedPlayer = configuration.FollowEnabled and configuration.SelectedFollowUserId
-			and Players:GetPlayerByUserId(tonumber(configuration.SelectedFollowUserId))
+		local followedPlayer = configurations.FollowEnabled and configurations.SelectedFollowUserId
+			and Players:GetPlayerByUserId(tonumber(configurations.SelectedFollowUserId))
 		-- Pause Follow while Auto Attack is pursuing a valid target; resume when the target clears.
-		local interruptFollow = configuration.AlertCombatPending == true
-		if not interruptFollow and (configuration.AutoAttackEnabled or configuration.AutoBossTargetEnabled
-			or configuration.AutoMiniBossTargetEnabled or configuration.ExpFinishTarget ~= nil)
-			and not configuration.Farming and localRoot then
-			local selectedMob = configuration.Combat.GetSelectedCombatMob(localRoot)
+		local interruptFollow = configurations.AlertCombatPending == true
+		if not interruptFollow and (configurations.AutoAttackEnabled or configurations.AutoBossTargetEnabled
+			or configurations.AutoMiniBossTargetEnabled or configurations.ExpFinishTarget ~= nil)
+			and not configurations.Farming and localRoot then
+			local selectedMob = configurations.Combat.GetSelectedCombatMob(localRoot)
 			if selectedMob then
 				interruptFollow = true
 			end
 		end
 		local followHumanoid = char and char:FindFirstChildOfClass("Humanoid")
-		if configuration.FollowEnabled and not configuration.EmergencyStopActive and not configuration.Farming
+		if configurations.FollowEnabled and not configurations.EmergencyStopActive and not configurations.Farming
 			and followedPlayer and char and not interruptFollow then
-			configuration.FollowSystem.Update(localRoot, followHumanoid, followedPlayer, playerSnapshots)
+			configurations.FollowSystem.Update(localRoot, followHumanoid, followedPlayer, playerSnapshots)
 		else
-			configuration.FollowSystem.Reset(followHumanoid, localRoot)
+			configurations.FollowSystem.Reset(followHumanoid, localRoot)
 		end
 
-		if configuration.AutoBlockEnabled and not configuration.EmergencyStopActive and not configuration.AlertCombatPending
+		if configurations.AutoBlockEnabled and not configurations.EmergencyStopActive and not configurations.AlertCombatPending
 			and os.clock() - lastAutoBlockCheck >= 1 then
 			lastAutoBlockCheck = os.clock()
-			local blockedUsers = configuration.GetBlockedUserSet()
+			local blockedUsers = configurations.GetBlockedUserSet()
 			local hasNonWhitelistedPlayer = false
 			local blockedNonWhitelistedPlayer = false
 			local nextPlayerToPrompt = nil
-			if not configuration.Farming then
+			if not configurations.Farming then
 				deferredAutoBlockMob = nil
 			elseif not deferredAutoBlockMob then
-				local activeExpMob = configuration.CurrentTarget
-				if not configuration.Combat.IsLivingMob(activeExpMob) then
-					activeExpMob = configuration.ExpMaxCombatTarget
+				local activeExpMob = configurations.CurrentTarget
+				if not configurations.Combat.IsLivingMob(activeExpMob) then
+					activeExpMob = configurations.ExpMaxCombatTarget
 				end
-				if configuration.Combat.IsLivingMob(activeExpMob) then
+				if configurations.Combat.IsLivingMob(activeExpMob) then
 					deferredAutoBlockMob = activeExpMob
 				end
 			end
 			local deferPromptForExp = deferredAutoBlockMob ~= nil
-				and configuration.Combat.IsLivingMob(deferredAutoBlockMob)
+				and configurations.Combat.IsLivingMob(deferredAutoBlockMob)
 			if deferredAutoBlockMob and not deferPromptForExp then
 				deferredAutoBlockMob = nil
 			end
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= Player and not configuration.IsWhitelisted(otherPlayer) then
+				if otherPlayer ~= Player and not configurations.IsWhitelisted(otherPlayer) then
 					hasNonWhitelistedPlayer = true
 					if blockedUsers and blockedUsers[tostring(otherPlayer.UserId)] then
 						blockedNonWhitelistedPlayer = true
@@ -5752,9 +5948,9 @@ task.spawn(function()
 				end
 			end
 
-			local alertTarget = configuration.AlertCombatBlockReady and configuration.AlertBlockTarget
+			local alertTarget = configurations.AlertCombatBlockReady and configurations.AlertBlockTarget
 			if alertTarget and alertTarget.Parent == Players
-				and not configuration.IsWhitelisted(alertTarget)
+				and not configurations.IsWhitelisted(alertTarget)
 				and not (blockedUsers and blockedUsers[tostring(alertTarget.UserId)]) then
 				nextPlayerToPrompt = alertTarget
 			end
@@ -5762,40 +5958,40 @@ task.spawn(function()
 			if not hasNonWhitelistedPlayer then
 				-- A server containing only whitelisted players never triggers block or teleport.
 				nextAutoBlockPromptAt = 0
-				configuration.AlertCombatBlockReady = false
-				configuration.AlertBlockTarget = nil
-				configuration.AlertBlockPromptShown = false
+				configurations.AlertCombatBlockReady = false
+				configurations.AlertBlockTarget = nil
+				configurations.AlertBlockPromptShown = false
 			elseif blockedNonWhitelistedPlayer and not autoBlockTeleporting then
-				configuration.AlertCombatBlockReady = false
-				configuration.AlertBlockTarget = nil
-				configuration.AlertBlockPromptShown = false
+				configurations.AlertCombatBlockReady = false
+				configurations.AlertBlockTarget = nil
+				configurations.AlertBlockPromptShown = false
 				-- Prefer finishing the active EXP mob before hopping.
 				local killMob = deferredAutoBlockMob
-				if not configuration.Combat.IsLivingMob(killMob) then
-					killMob = configuration.CurrentTarget
+				if not configurations.Combat.IsLivingMob(killMob) then
+					killMob = configurations.CurrentTarget
 				end
-				if not configuration.Combat.IsLivingMob(killMob) then
-					killMob = configuration.ExpMaxCombatTarget
+				if not configurations.Combat.IsLivingMob(killMob) then
+					killMob = configurations.ExpMaxCombatTarget
 				end
-				if configuration.Combat.IsLivingMob(killMob) then
-					configuration.PendingServerHop = true
-					configuration.ServerHopKillTarget = killMob
-					configuration.ExpMaxCombatTarget = killMob
+				if configurations.Combat.IsLivingMob(killMob) then
+					configurations.PendingServerHop = true
+					configurations.ServerHopKillTarget = killMob
+					configurations.ExpMaxCombatTarget = killMob
 					-- Stop EXP firing; focus on killing, then hop.
-					if configuration.Farming then
-						configuration.Farming = false
-						configuration.PauseTimer()
+					if configurations.Farming then
+						configurations.Farming = false
+						configurations.PauseTimer()
 						StartBtn.Text = "Start"
-						StartBtn.BackgroundColor3 = ACCENT
+						StartBtn.BackgroundColor3 = UIColors.ACCENT
 						Status.Text = "OFF"
-						Status.TextColor3 = RED
-						Status.BackgroundColor3 = RED_DIM
+						Status.TextColor3 = UIColors.RED
+						Status.BackgroundColor3 = UIColors.RED_DIM
 					end
 					StateLabel.Text = "Finish EXP"
 					MiniState.Text = "Blocked player in server — killing EXP mob before hop"
 				else
-					configuration.PendingServerHop = false
-					configuration.ServerHopKillTarget = nil
+					configurations.PendingServerHop = false
+					configurations.ServerHopKillTarget = nil
 					StateLabel.Text = "Server hop"
 					MiniState.Text = "A non-Whitelisted player is already blocked"
 					autoBlockTeleporting = true
@@ -5819,33 +6015,33 @@ task.spawn(function()
 				local ok, err = pcall(function()
 					StarterGui:SetCore("PromptBlockPlayer", nextPlayerToPrompt)
 				end)
-				if ok and configuration.AlertCombatBlockReady and nextPlayerToPrompt == alertTarget then
-					configuration.AlertCombatBlockReady = false
-					configuration.AlertBlockTarget = nil
-					configuration.AlertBlockPromptShown = true
+				if ok and configurations.AlertCombatBlockReady and nextPlayerToPrompt == alertTarget then
+					configurations.AlertCombatBlockReady = false
+					configurations.AlertBlockTarget = nil
+					configurations.AlertBlockPromptShown = true
 					StateLabel.Text = "Block prompt"
 					MiniState.Text = "Block prompt opened; waiting for the Alert player to leave"
 				elseif not ok then
 					warn("Auto Block prompt failed:", err)
 				end
 			end
-		elseif not configuration.AutoBlockEnabled then
+		elseif not configurations.AutoBlockEnabled then
 			nextAutoBlockPromptAt = 0
-			configuration.PendingServerHop = false
-			configuration.ServerHopKillTarget = nil
+			configurations.PendingServerHop = false
+			configurations.ServerHopKillTarget = nil
 		end
 
 		-- Complete deferred hop once the locked EXP mob is dead (or gone).
-		if configuration.PendingServerHop and not autoBlockTeleporting and not configuration.EmergencyStopActive then
-			local hopMob = configuration.ServerHopKillTarget
-			local stillAlive = configuration.Combat.IsLivingMob(hopMob)
+		if configurations.PendingServerHop and not autoBlockTeleporting and not configurations.EmergencyStopActive then
+			local hopMob = configurations.ServerHopKillTarget
+			local stillAlive = configurations.Combat.IsLivingMob(hopMob)
 			if stillAlive then
 				StateLabel.Text = "Finish EXP"
 				MiniState.Text = "Killing EXP mob before server hop"
 			else
-				configuration.PendingServerHop = false
-				configuration.ServerHopKillTarget = nil
-				configuration.ExpMaxCombatTarget = nil
+				configurations.PendingServerHop = false
+				configurations.ServerHopKillTarget = nil
+				configurations.ExpMaxCombatTarget = nil
 				StateLabel.Text = "Server hop"
 				MiniState.Text = "EXP mob down — hopping away from blocked player"
 				autoBlockTeleporting = true
@@ -5866,24 +6062,24 @@ task.spawn(function()
 		if PlayerPanel.Visible and os.clock() - lastPlayerRefresh >= 0.5 then
 			lastPlayerRefresh = os.clock()
 			local panelPlayers = Players:GetPlayers()
-			if configuration.PlayerPanelMode == "server" then
+			if configurations.PlayerPanelMode == "server" then
 				table.sort(panelPlayers, function(a, b)
 					if a == Player then return b ~= Player end
 					if b == Player then return false end
-					local aPinned = configuration.PinnedPlayerIds[tostring(a.UserId)] == true
-					local bPinned = configuration.PinnedPlayerIds[tostring(b.UserId)] == true
+					local aPinned = configurations.PinnedPlayerIds[tostring(a.UserId)] == true
+					local bPinned = configurations.PinnedPlayerIds[tostring(b.UserId)] == true
 					if aPinned ~= bPinned then return aPinned end
 					return string.lower(a.Name) < string.lower(b.Name)
 				end)
 			end
-			local signatureParts = { configuration.PlayerPanelMode }
+			local signatureParts = { configurations.PlayerPanelMode }
 			for _, listedPlayer in ipairs(panelPlayers) do
 				table.insert(signatureParts, table.concat({
-				tostring(listedPlayer.UserId),
-				configuration.IsWhitelisted(listedPlayer) and "w" or "-",
-				configuration.IsPlayerESPEnabled(listedPlayer) and "e" or "-",
-				configuration.SelectedFollowUserId == tostring(listedPlayer.UserId) and "f" or "-",
-				configuration.PinnedPlayerIds[tostring(listedPlayer.UserId)] and "p" or "-",
+					tostring(listedPlayer.UserId),
+					configurations.IsWhitelisted(listedPlayer) and "w" or "-",
+					configurations.IsPlayerESPEnabled(listedPlayer) and "e" or "-",
+					configurations.SelectedFollowUserId == tostring(listedPlayer.UserId) and "f" or "-",
+					configurations.PinnedPlayerIds[tostring(listedPlayer.UserId)] and "p" or "-",
 				}, ":"))
 			end
 			local panelSignature = table.concat(signatureParts, "|")
@@ -5898,279 +6094,311 @@ task.spawn(function()
 			end
 
 			if rebuildPlayerRows then
-			for order, otherPlayer in ipairs(panelPlayers) do
-				if configuration.PlayerPanelMode == "follow" then
-					if otherPlayer == Player then continue end
-					local selectedPlayer = otherPlayer
-					local row = Instance.new("TextButton")
-					row.Name = "PlayerRow_" .. selectedPlayer.UserId
-					row.Size = UDim2.new(1, -4, 0, 44)
+				for order, otherPlayer in ipairs(panelPlayers) do
+					if configurations.PlayerPanelMode == "follow" then
+						if otherPlayer == Player then continue end
+						local selectedPlayer = otherPlayer
+						local row = Instance.new("TextButton")
+						row.Name = "PlayerRow_" .. selectedPlayer.UserId
+						row.Size = UDim2.new(1, -4, 0, 44)
+						row.LayoutOrder = order
+						row.ZIndex = 92
+						local isFollowSelected = configurations.SelectedFollowUserId == tostring(selectedPlayer.UserId)
+						row.BackgroundColor3 = isFollowSelected and UIColors.SEL_BG or UIColors.CARD
+						row.BorderSizePixel = 0
+						row.Text = "  @" .. selectedPlayer.Name
+						row.TextColor3 = isFollowSelected and UIColors.SEL_TEXT or UIColors.TEXT
+						row.TextSize = 13
+						row.Font = Enum.Font.GothamBold
+						row.TextXAlignment = Enum.TextXAlignment.Left
+						row.TextTruncate = Enum.TextTruncate.AtEnd
+						row.Parent = PlayerScroll
+						Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
+						row.MouseButton1Click:Connect(function()
+							configurations.SelectedFollowUserId = tostring(selectedPlayer.UserId)
+							configurations.SaveConfig()
+							configurations.UpdateFollowButtons()
+							PlayerPanel.Visible = false
+							configurations.PlayerPanelMode = "server"
+							PlayerPanelTitle.Text = "Players in server"
+							lastPlayerRefresh = 0
+						end)
+						continue
+					end
+
+					local otherCharacter = otherPlayer.Character
+					local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
+					local distanceText = otherPlayer == Player and "You" or "Distance unavailable"
+					if localRoot and otherRoot then
+						local distance = (localRoot.Position - otherRoot.Position).Magnitude
+						if otherPlayer ~= Player then
+							distanceText = string.format("%.0f studs away", distance)
+						end
+					end
+
+					local row = Instance.new("Frame")
+					row.Name = "PlayerRow_" .. otherPlayer.UserId
+					row.Size = UDim2.new(1, -4, 0, 174)
 					row.LayoutOrder = order
 					row.ZIndex = 92
-					local isFollowSelected = configuration.SelectedFollowUserId == tostring(selectedPlayer.UserId)
-					row.BackgroundColor3 = isFollowSelected and SEL_BG or CARD
+					row.BackgroundColor3 = UIColors.CARD
 					row.BorderSizePixel = 0
-					row.Text = "  @" .. selectedPlayer.Name
-					row.TextColor3 = isFollowSelected and SEL_TEXT or TEXT
-					row.TextSize = 13
-					row.Font = Enum.Font.GothamBold
-					row.TextXAlignment = Enum.TextXAlignment.Left
-					row.TextTruncate = Enum.TextTruncate.AtEnd
 					row.Parent = PlayerScroll
-					Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
-					row.MouseButton1Click:Connect(function()
-						configuration.SelectedFollowUserId = tostring(selectedPlayer.UserId)
-						configuration.SaveConfig()
-						configuration.UpdateFollowButtons()
-						PlayerPanel.Visible = false
-						configuration.PlayerPanelMode = "server"
-						PlayerPanelTitle.Text = "Players in server"
-						lastPlayerRefresh = 0
-					end)
-					continue
-				end
+					Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+					local rowStroke = Instance.new("UIStroke", row)
+					rowStroke.Color = UIColors.BORDER
+					rowStroke.Thickness = 1
+					rowStroke.Transparency = 0.55
 
-				local otherCharacter = otherPlayer.Character
-				local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
-				local distanceText = otherPlayer == Player and "You" or "Distance unavailable"
-				if localRoot and otherRoot then
-					local distance = (localRoot.Position - otherRoot.Position).Magnitude
-					if otherPlayer ~= Player then
-						distanceText = string.format("%.0f studs away", distance)
+					local avatar = Instance.new("ImageLabel")
+					avatar.Name = "Avatar"
+					avatar.Size = UDim2.fromOffset(52, 52)
+					avatar.Position = UDim2.fromOffset(12, 16)
+					avatar.ZIndex = 93
+					avatar.BackgroundColor3 = UIColors.INPUT
+					avatar.BorderSizePixel = 0
+					avatar.ScaleType = Enum.ScaleType.Crop
+					avatar.Parent = row
+					Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
+
+					if not ThumbnailCache[otherPlayer.UserId] then
+						local ok, imageUrl = pcall(function()
+							return Players:GetUserThumbnailAsync(otherPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+						end)
+						if ok then ThumbnailCache[otherPlayer.UserId] = imageUrl end
 					end
-				end
+					avatar.Image = ThumbnailCache[otherPlayer.UserId] or ""
 
-				local row = Instance.new("Frame")
-				row.Name = "PlayerRow_" .. otherPlayer.UserId
-				row.Size = UDim2.new(1, -4, 0, 160)
-				row.LayoutOrder = order
-				row.ZIndex = 92
-				row.BackgroundColor3 = CARD
-				row.BorderSizePixel = 0
-				row.Parent = PlayerScroll
-				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
-				local rowStroke = Instance.new("UIStroke", row)
-				rowStroke.Color = BORDER
-				rowStroke.Thickness = 1
-				rowStroke.Transparency = 0.55
+					local displayName = Instance.new("TextLabel")
+					displayName.Name = "DisplayName"
+					displayName.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 20)
+					displayName.Position = UDim2.fromOffset(66, 11)
+					displayName.ZIndex = 93
+					displayName.BackgroundTransparency = 1
+					displayName.Text = configurations.FormatPlayerDisplayName(otherPlayer)
+					displayName.TextColor3 = UIColors.TEXT
+					displayName.TextSize = 16
+					displayName.Font = Enum.Font.GothamBold
+					displayName.TextXAlignment = Enum.TextXAlignment.Left
+					displayName.TextTruncate = Enum.TextTruncate.AtEnd
+					displayName.Parent = row
 
-				local avatar = Instance.new("ImageLabel")
-				avatar.Name = "Avatar"
-				avatar.Size = UDim2.fromOffset(52, 52)
-				avatar.Position = UDim2.fromOffset(12, 16)
-				avatar.ZIndex = 93
-				avatar.BackgroundColor3 = INPUT
-				avatar.BorderSizePixel = 0
-				avatar.ScaleType = Enum.ScaleType.Crop
-				avatar.Parent = row
-				Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
+					local usernameLabel = Instance.new("TextLabel")
+					usernameLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 18)
+					usernameLabel.Position = UDim2.fromOffset(66, 33)
+					usernameLabel.ZIndex = 93
+					usernameLabel.BackgroundTransparency = 1
+					usernameLabel.Text = "@" .. otherPlayer.Name
+					usernameLabel.TextColor3 = UIColors.MUTED
+					usernameLabel.TextSize = 13
+					usernameLabel.Font = Enum.Font.Gotham
+					usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+					usernameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+					usernameLabel.Parent = row
 
-				if not ThumbnailCache[otherPlayer.UserId] then
-					local ok, imageUrl = pcall(function()
-						return Players:GetUserThumbnailAsync(otherPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
-					end)
-					if ok then ThumbnailCache[otherPlayer.UserId] = imageUrl end
-				end
-				avatar.Image = ThumbnailCache[otherPlayer.UserId] or ""
+					local detail = Instance.new("TextLabel")
+					detail.Name = "Distance"
+					detail.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 18)
+					detail.Position = UDim2.fromOffset(66, 53)
+					detail.ZIndex = 93
+					detail.BackgroundTransparency = 1
+					detail.Text = distanceText
+					detail.TextColor3 = UIColors.MUTED
+					detail.TextSize = 13
+					detail.Font = Enum.Font.Gotham
+					detail.TextXAlignment = Enum.TextXAlignment.Left
+					detail.TextTruncate = Enum.TextTruncate.AtEnd
+					detail.Parent = row
 
-				local displayName = Instance.new("TextLabel")
-				displayName.Name = "DisplayName"
-				displayName.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 20)
-				displayName.Position = UDim2.fromOffset(66, 11)
-				displayName.ZIndex = 93
-				displayName.BackgroundTransparency = 1
-				displayName.Text = configuration.FormatPlayerDisplayName(otherPlayer)
-				displayName.TextColor3 = TEXT
-				displayName.TextSize = 16
-				displayName.Font = Enum.Font.GothamBold
-				displayName.TextXAlignment = Enum.TextXAlignment.Left
-				displayName.TextTruncate = Enum.TextTruncate.AtEnd
-				displayName.Parent = row
+					local currentHP, maximumHP = configurations.GetPlayerHealth(otherPlayer)
+					local healthLabel = Instance.new("TextLabel")
+					healthLabel.Name = "Health"
+					healthLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 18)
+					healthLabel.Position = UDim2.fromOffset(66, 74)
+					healthLabel.ZIndex = 93
+					healthLabel.BackgroundTransparency = 1
+					healthLabel.Text = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
+					if configurations.IsWhitelisted(otherPlayer) then
+						healthLabel.Text ..= "  •  WHITELIST"
+					end
+					healthLabel.TextColor3 = configurations.GetHealthColor(currentHP, maximumHP)
+					healthLabel.TextSize = 13
+					healthLabel.Font = Enum.Font.Gotham
+					healthLabel.TextXAlignment = Enum.TextXAlignment.Left
+					healthLabel.TextTruncate = Enum.TextTruncate.AtEnd
+					healthLabel.Parent = row
 
-				local usernameLabel = Instance.new("TextLabel")
-				usernameLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 18)
-				usernameLabel.Position = UDim2.fromOffset(66, 33)
-				usernameLabel.ZIndex = 93
-				usernameLabel.BackgroundTransparency = 1
-				usernameLabel.Text = "@" .. otherPlayer.Name
-				usernameLabel.TextColor3 = MUTED
-				usernameLabel.TextSize = 13
-				usernameLabel.Font = Enum.Font.Gotham
-				usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
-				usernameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-				usernameLabel.Parent = row
+					local statsLabel = Instance.new("TextLabel")
+					statsLabel.Name = "PlayerStats"
+					statsLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 46)
+					statsLabel.Position = UDim2.fromOffset(66, 96)
+					statsLabel.ZIndex = 93
+					statsLabel.BackgroundTransparency = 1
+					statsLabel.Text = configurations.FormatPlayerListStats(otherPlayer)
+					statsLabel.TextColor3 = UIColors.MUTED
+					statsLabel.TextSize = 11
+					statsLabel.Font = Enum.Font.Gotham
+					statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+					statsLabel.TextYAlignment = Enum.TextYAlignment.Top
+					statsLabel.TextTruncate = Enum.TextTruncate.AtEnd
+					statsLabel.Parent = row
 
-				local detail = Instance.new("TextLabel")
-				detail.Name = "Distance"
-				detail.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 18)
-				detail.Position = UDim2.fromOffset(66, 53)
-				detail.ZIndex = 93
-				detail.BackgroundTransparency = 1
-				detail.Text = distanceText
-				detail.TextColor3 = MUTED
-				detail.TextSize = 13
-				detail.Font = Enum.Font.Gotham
-				detail.TextXAlignment = Enum.TextXAlignment.Left
-				detail.TextTruncate = Enum.TextTruncate.AtEnd
-				detail.Parent = row
+					local expLevel, expCurrent, expMax, expRatio = configurations.GetPlayerExpProgress(otherPlayer)
+					local expLabel = Instance.new("TextLabel")
+					expLabel.Name = "PlayerExp"
+					expLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 16)
+					expLabel.Position = UDim2.fromOffset(66, 139)
+					expLabel.ZIndex = 93
+					expLabel.BackgroundTransparency = 1
+					expLabel.Text = expCurrent and expMax and string.format("EXP %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP unavailable"
+					expLabel.TextColor3 = UIColors.MUTED
+					expLabel.TextSize = 10
+					expLabel.Font = Enum.Font.Gotham
+					expLabel.TextXAlignment = Enum.TextXAlignment.Left
+					expLabel.Parent = row
 
-				local currentHP, maximumHP = configuration.GetPlayerHealth(otherPlayer)
-				local healthLabel = Instance.new("TextLabel")
-				healthLabel.Name = "Health"
-				healthLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 18)
-				healthLabel.Position = UDim2.fromOffset(66, 74)
-				healthLabel.ZIndex = 93
-				healthLabel.BackgroundTransparency = 1
-				healthLabel.Text = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
-				if configuration.IsWhitelisted(otherPlayer) then
-					healthLabel.Text ..= "  •  WHITELIST"
-				end
-				healthLabel.TextColor3 = configuration.GetHealthColor(currentHP, maximumHP)
-				healthLabel.TextSize = 13
-				healthLabel.Font = Enum.Font.Gotham
-				healthLabel.TextXAlignment = Enum.TextXAlignment.Left
-				healthLabel.TextTruncate = Enum.TextTruncate.AtEnd
-				healthLabel.Parent = row
+					local expBarBg = Instance.new("Frame")
+					expBarBg.Name = "PlayerExpBar"
+					expBarBg.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 5)
+					expBarBg.Position = UDim2.fromOffset(66, 156)
+					expBarBg.ZIndex = 93
+					expBarBg.BackgroundColor3 = UIColors.INPUT
+					expBarBg.BorderSizePixel = 0
+					expBarBg.Parent = row
+					Instance.new("UICorner", expBarBg).CornerRadius = UDim.new(1, 0)
 
-				local statsLabel = Instance.new("TextLabel")
-				statsLabel.Name = "PlayerStats"
-				statsLabel.Size = UDim2.new(1, -(otherPlayer == Player and 78 or 214), 0, 46)
-				statsLabel.Position = UDim2.fromOffset(66, 96)
-				statsLabel.ZIndex = 93
-				statsLabel.BackgroundTransparency = 1
-				statsLabel.Text = configuration.FormatPlayerListStats(otherPlayer)
-				statsLabel.TextColor3 = MUTED
-				statsLabel.TextSize = 11
-				statsLabel.Font = Enum.Font.Gotham
-				statsLabel.TextXAlignment = Enum.TextXAlignment.Left
-				statsLabel.TextYAlignment = Enum.TextYAlignment.Top
-				statsLabel.TextTruncate = Enum.TextTruncate.AtEnd
-				statsLabel.Parent = row
+					local expBarFill = Instance.new("Frame")
+					expBarFill.Name = "Fill"
+					expBarFill.Size = UDim2.new(expRatio, 0, 1, 0)
+					expBarFill.BackgroundColor3 = UIColors.ACCENT
+					expBarFill.BorderSizePixel = 0
+					expBarFill.Parent = expBarBg
+					Instance.new("UICorner", expBarFill).CornerRadius = UDim.new(1, 0)
 
-				if otherPlayer ~= Player then
-					local playerEspButton = Instance.new("TextButton")
-					playerEspButton.Name = "PlayerESPToggle"
-					playerEspButton.Size = UDim2.fromOffset(66, 28)
-					playerEspButton.Position = UDim2.new(1, -74, 0, 10)
-					playerEspButton.ZIndex = 93
-					playerEspButton.BackgroundColor3 = configuration.IsPlayerESPEnabled(otherPlayer) and GREEN_DIM or INPUT
-					playerEspButton.BorderSizePixel = 0
-					playerEspButton.Text = configuration.IsPlayerESPEnabled(otherPlayer) and "ESP ON" or "ESP OFF"
-					playerEspButton.TextColor3 = configuration.IsPlayerESPEnabled(otherPlayer) and GREEN or MUTED
-					playerEspButton.TextSize = 11
-					playerEspButton.Font = Enum.Font.GothamBold
-					playerEspButton.Parent = row
-					Instance.new("UICorner", playerEspButton).CornerRadius = UDim.new(0, 6)
-					playerEspButton.MouseButton1Click:Connect(function()
-						local enabled = not configuration.IsPlayerESPEnabled(otherPlayer)
-						configuration.PlayerESPEnabled[tostring(otherPlayer.UserId)] = enabled
-						playerEspButton.Text = enabled and "ESP ON" or "ESP OFF"
-						playerEspButton.TextColor3 = enabled and GREEN or MUTED
-						playerEspButton.BackgroundColor3 = enabled and GREEN_DIM or INPUT
-					end)
-
-					configuration.PlayerPanelPinButton = Instance.new("TextButton")
-					configuration.PlayerPanelPinButton.Name = "PlayerPinToggle"
-					configuration.PlayerPanelPinButton.Size = UDim2.fromOffset(66, 28)
-					configuration.PlayerPanelPinButton.Position = UDim2.new(1, -146, 0, 10)
-					configuration.PlayerPanelPinButton.ZIndex = 93
-					configuration.PlayerPanelPinButton.BackgroundColor3 = configuration.PinnedPlayerIds[tostring(otherPlayer.UserId)] and Color3.fromRGB(55, 45, 22) or INPUT
-					configuration.PlayerPanelPinButton.BorderSizePixel = 0
-					configuration.PlayerPanelPinButton.Text = configuration.PinnedPlayerIds[tostring(otherPlayer.UserId)] and "PINNED" or "PIN"
-					configuration.PlayerPanelPinButton.TextColor3 = configuration.PinnedPlayerIds[tostring(otherPlayer.UserId)] and YELLOW or MUTED
-					configuration.PlayerPanelPinButton.TextSize = 11
-					configuration.PlayerPanelPinButton.Font = Enum.Font.GothamBold
-					configuration.PlayerPanelPinButton.Parent = row
-					Instance.new("UICorner", configuration.PlayerPanelPinButton).CornerRadius = UDim.new(0, 6)
-					configuration.PlayerPanelPinButton.MouseButton1Click:Connect(function()
-						local userId = tostring(otherPlayer.UserId)
-						local isPinned = configuration.PinnedPlayerIds[userId] == true
-						if isPinned then
-							configuration.PinnedPlayerIds[userId] = nil
-						else
-							configuration.PinnedPlayerIds[userId] = true
-						end
-						configuration.SaveConfig()
-						row:FindFirstChild("PlayerPinToggle").Text = isPinned and "PIN" or "PINNED"
-						row:FindFirstChild("PlayerPinToggle").TextColor3 = isPinned and MUTED or YELLOW
-						row:FindFirstChild("PlayerPinToggle").BackgroundColor3 = isPinned and INPUT or Color3.fromRGB(55, 45, 22)
-						PlayerPanelBuildSignature = nil
-					end)
-
-					local whitelistToggle = Instance.new("TextButton")
-					whitelistToggle.Name = "WhitelistToggle"
-					whitelistToggle.Size = UDim2.fromOffset(66, 28)
-					whitelistToggle.Position = UDim2.new(1, -146, 0, 42)
-					whitelistToggle.ZIndex = 93
-					whitelistToggle.BackgroundColor3 = configuration.IsWhitelisted(otherPlayer) and Color3.fromRGB(55, 45, 22) or INPUT
-					whitelistToggle.BorderSizePixel = 0
-					whitelistToggle.Text = configuration.IsWhitelisted(otherPlayer) and "WL ON" or "WL ADD"
-					whitelistToggle.TextColor3 = configuration.IsWhitelisted(otherPlayer) and YELLOW or MUTED
-					whitelistToggle.TextSize = 11
-					whitelistToggle.Font = Enum.Font.GothamBold
-					whitelistToggle.Parent = row
-					Instance.new("UICorner", whitelistToggle).CornerRadius = UDim.new(0, 6)
-					whitelistToggle.MouseButton1Click:Connect(function()
-						local userId = tostring(otherPlayer.UserId)
-						if configuration.IsWhitelisted(otherPlayer) then
-							configuration.WhitelistIds[userId] = nil
-						else
-							configuration.WhitelistIds[userId] = true
-						end
-						configuration.SaveConfig()
-						local enabled = configuration.IsWhitelisted(otherPlayer)
-						whitelistToggle.Text = enabled and "WL ON" or "WL ADD"
-						whitelistToggle.TextColor3 = enabled and YELLOW or MUTED
-						whitelistToggle.BackgroundColor3 = enabled and Color3.fromRGB(55, 45, 22) or INPUT
-						if configuration.WhitelistPanel.Visible then configuration.RefreshWhitelist() end
-						configuration.OnWhitelistChanged(userId)
-					end)
-
-					local blockButton = Instance.new("TextButton")
-					blockButton.Name = "BlockButton"
-					blockButton.Size = UDim2.fromOffset(66, 28)
-					blockButton.Position = UDim2.new(1, -74, 0, 42)
-					blockButton.ZIndex = 93
-					blockButton.BackgroundColor3 = RED_DIM
-					blockButton.BorderSizePixel = 0
-					blockButton.Text = "Block"
-					blockButton.TextColor3 = RED
-					blockButton.TextSize = 11
-					blockButton.Font = Enum.Font.GothamBold
-					blockButton.Parent = row
-					Instance.new("UICorner", blockButton).CornerRadius = UDim.new(0, 6)
-					blockButton.MouseButton1Click:Connect(function()
-						if configuration.BlockPromptCache[otherPlayer.UserId] then return end
-						configuration.BlockPromptCache[otherPlayer.UserId] = true
-						blockButton.Text = "..."
-						local ok, err = pcall(function()
-							StarterGui:SetCore("PromptBlockPlayer", otherPlayer)
+					if otherPlayer ~= Player then
+						local playerEspButton = Instance.new("TextButton")
+						playerEspButton.Name = "PlayerESPToggle"
+						playerEspButton.Size = UDim2.fromOffset(66, 28)
+						playerEspButton.Position = UDim2.new(1, -74, 0, 10)
+						playerEspButton.ZIndex = 93
+						playerEspButton.BackgroundColor3 = configurations.IsPlayerESPEnabled(otherPlayer) and UIColors.GREEN_DIM or UIColors.INPUT
+						playerEspButton.BorderSizePixel = 0
+						playerEspButton.Text = configurations.IsPlayerESPEnabled(otherPlayer) and "ESP ON" or "ESP OFF"
+						playerEspButton.TextColor3 = configurations.IsPlayerESPEnabled(otherPlayer) and UIColors.GREEN or UIColors.MUTED
+						playerEspButton.TextSize = 11
+						playerEspButton.Font = Enum.Font.GothamBold
+						playerEspButton.Parent = row
+						Instance.new("UICorner", playerEspButton).CornerRadius = UDim.new(0, 6)
+						playerEspButton.MouseButton1Click:Connect(function()
+							local enabled = not configurations.IsPlayerESPEnabled(otherPlayer)
+							configurations.PlayerESPEnabled[tostring(otherPlayer.UserId)] = enabled
+							playerEspButton.Text = enabled and "ESP ON" or "ESP OFF"
+							playerEspButton.TextColor3 = enabled and UIColors.GREEN or UIColors.MUTED
+							playerEspButton.BackgroundColor3 = enabled and UIColors.GREEN_DIM or UIColors.INPUT
 						end)
-						if not ok then
-							configuration.BlockPromptCache[otherPlayer.UserId] = nil
-							blockButton.Text = "Retry"
-							warn("PromptBlockPlayer failed:", err)
-							return
-						end
-						blockButton.Text = "Prompted"
-						task.delay(3, function()
-							configuration.BlockPromptCache[otherPlayer.UserId] = nil
-							if blockButton.Parent then blockButton.Text = "Block" end
+
+						configurations.PlayerPanelPinButton = Instance.new("TextButton")
+						configurations.PlayerPanelPinButton.Name = "PlayerPinToggle"
+						configurations.PlayerPanelPinButton.Size = UDim2.fromOffset(66, 28)
+						configurations.PlayerPanelPinButton.Position = UDim2.new(1, -146, 0, 10)
+						configurations.PlayerPanelPinButton.ZIndex = 93
+						configurations.PlayerPanelPinButton.BackgroundColor3 = configurations.PinnedPlayerIds[tostring(otherPlayer.UserId)] and Color3.fromRGB(55, 45, 22) or UIColors.INPUT
+						configurations.PlayerPanelPinButton.BorderSizePixel = 0
+						configurations.PlayerPanelPinButton.Text = configurations.PinnedPlayerIds[tostring(otherPlayer.UserId)] and "PINNED" or "PIN"
+						configurations.PlayerPanelPinButton.TextColor3 = configurations.PinnedPlayerIds[tostring(otherPlayer.UserId)] and UIColors.YELLOW or UIColors.MUTED
+						configurations.PlayerPanelPinButton.TextSize = 11
+						configurations.PlayerPanelPinButton.Font = Enum.Font.GothamBold
+						configurations.PlayerPanelPinButton.Parent = row
+						Instance.new("UICorner", configurations.PlayerPanelPinButton).CornerRadius = UDim.new(0, 6)
+						configurations.PlayerPanelPinButton.MouseButton1Click:Connect(function()
+							local userId = tostring(otherPlayer.UserId)
+							local isPinned = configurations.PinnedPlayerIds[userId] == true
+							if isPinned then
+								configurations.PinnedPlayerIds[userId] = nil
+							else
+								configurations.PinnedPlayerIds[userId] = true
+							end
+							configurations.SaveConfig()
+							row:FindFirstChild("PlayerPinToggle").Text = isPinned and "PIN" or "PINNED"
+							row:FindFirstChild("PlayerPinToggle").TextColor3 = isPinned and UIColors.MUTED or UIColors.YELLOW
+							row:FindFirstChild("PlayerPinToggle").BackgroundColor3 = isPinned and UIColors.INPUT or Color3.fromRGB(55, 45, 22)
+							PlayerPanelBuildSignature = nil
 						end)
+
+						local whitelistToggle = Instance.new("TextButton")
+						whitelistToggle.Name = "WhitelistToggle"
+						whitelistToggle.Size = UDim2.fromOffset(66, 28)
+						whitelistToggle.Position = UDim2.new(1, -146, 0, 42)
+						whitelistToggle.ZIndex = 93
+						whitelistToggle.BackgroundColor3 = configurations.IsWhitelisted(otherPlayer) and Color3.fromRGB(55, 45, 22) or UIColors.INPUT
+						whitelistToggle.BorderSizePixel = 0
+						whitelistToggle.Text = configurations.IsWhitelisted(otherPlayer) and "WL ON" or "WL ADD"
+						whitelistToggle.TextColor3 = configurations.IsWhitelisted(otherPlayer) and UIColors.YELLOW or UIColors.MUTED
+						whitelistToggle.TextSize = 11
+						whitelistToggle.Font = Enum.Font.GothamBold
+						whitelistToggle.Parent = row
+						Instance.new("UICorner", whitelistToggle).CornerRadius = UDim.new(0, 6)
+						whitelistToggle.MouseButton1Click:Connect(function()
+							local userId = tostring(otherPlayer.UserId)
+							if configurations.IsWhitelisted(otherPlayer) then
+								configurations.WhitelistIds[userId] = nil
+							else
+								configurations.WhitelistIds[userId] = true
+							end
+							configurations.SaveConfig()
+							local enabled = configurations.IsWhitelisted(otherPlayer)
+							whitelistToggle.Text = enabled and "WL ON" or "WL ADD"
+							whitelistToggle.TextColor3 = enabled and UIColors.YELLOW or UIColors.MUTED
+							whitelistToggle.BackgroundColor3 = enabled and Color3.fromRGB(55, 45, 22) or UIColors.INPUT
+							if configurations.WhitelistPanel.Visible then configurations.RefreshWhitelist() end
+							configurations.OnWhitelistChanged(userId)
+						end)
+
+						local blockButton = Instance.new("TextButton")
+						blockButton.Name = "BlockButton"
+						blockButton.Size = UDim2.fromOffset(66, 28)
+						blockButton.Position = UDim2.new(1, -74, 0, 42)
+						blockButton.ZIndex = 93
+						blockButton.BackgroundColor3 = UIColors.RED_DIM
+						blockButton.BorderSizePixel = 0
+						blockButton.Text = "Block"
+						blockButton.TextColor3 = UIColors.RED
+						blockButton.TextSize = 11
+						blockButton.Font = Enum.Font.GothamBold
+						blockButton.Parent = row
+						Instance.new("UICorner", blockButton).CornerRadius = UDim.new(0, 6)
+						blockButton.MouseButton1Click:Connect(function()
+							if configurations.BlockPromptCache[otherPlayer.UserId] then return end
+							configurations.BlockPromptCache[otherPlayer.UserId] = true
+							blockButton.Text = "..."
+							local ok, err = pcall(function()
+								StarterGui:SetCore("PromptBlockPlayer", otherPlayer)
+							end)
+							if not ok then
+								configurations.BlockPromptCache[otherPlayer.UserId] = nil
+								blockButton.Text = "Retry"
+								warn("PromptBlockPlayer failed:", err)
+								return
+							end
+							blockButton.Text = "Prompted"
+							task.delay(3, function()
+								configurations.BlockPromptCache[otherPlayer.UserId] = nil
+								if blockButton.Parent then blockButton.Text = "Block" end
+							end)
 						end)
 					end
 				end
 			end
 
 			-- Refresh changing player data in-place; keep cards and their callbacks alive.
-			if configuration.PlayerPanelMode == "server" then
+			if configurations.PlayerPanelMode == "server" then
 				for _, listedPlayer in ipairs(panelPlayers) do
 					local row = PlayerScroll:FindFirstChild("PlayerRow_" .. listedPlayer.UserId)
 					if row and row:IsA("Frame") then
 						local displayNameLabel = row:FindFirstChild("DisplayName")
 						if displayNameLabel then
-							if displayNameLabel.Text ~= configuration.FormatPlayerDisplayName(listedPlayer) then
-								displayNameLabel.Text = configuration.FormatPlayerDisplayName(listedPlayer)
+							if displayNameLabel.Text ~= configurations.FormatPlayerDisplayName(listedPlayer) then
+								displayNameLabel.Text = configurations.FormatPlayerDisplayName(listedPlayer)
 							end
 						end
 						local character = listedPlayer.Character
@@ -6185,17 +6413,26 @@ task.spawn(function()
 						end
 						local healthLabel = row:FindFirstChild("Health")
 						if healthLabel then
-							local currentHP, maximumHP = configuration.GetPlayerHealth(listedPlayer)
+							local currentHP, maximumHP = configurations.GetPlayerHealth(listedPlayer)
 							local healthText = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
-							if configuration.IsWhitelisted(listedPlayer) then healthText ..= "  •  WHITELIST" end
+							if configurations.IsWhitelisted(listedPlayer) then healthText ..= "  •  WHITELIST" end
 							if healthLabel.Text ~= healthText then healthLabel.Text = healthText end
-							local healthColor = configuration.GetHealthColor(currentHP, maximumHP)
+							local healthColor = configurations.GetHealthColor(currentHP, maximumHP)
 							if healthLabel.TextColor3 ~= healthColor then healthLabel.TextColor3 = healthColor end
 						end
 						local statsLabel = row:FindFirstChild("PlayerStats")
 						if statsLabel then
-							local statsText = configuration.FormatPlayerListStats(listedPlayer)
+							local statsText = configurations.FormatPlayerListStats(listedPlayer)
 							if statsLabel.Text ~= statsText then statsLabel.Text = statsText end
+						end
+						local expLabel = row:FindFirstChild("PlayerExp")
+						local expBar = row:FindFirstChild("PlayerExpBar")
+						if expLabel and expBar then
+							local _, expCurrent, expMax, expRatio = configurations.GetPlayerExpProgress(listedPlayer)
+							local expText = expCurrent and expMax and string.format("EXP %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP unavailable"
+							if expLabel.Text ~= expText then expLabel.Text = expText end
+							local fill = expBar:FindFirstChild("Fill")
+							if fill then fill.Size = UDim2.new(expRatio, 0, 1, 0) end
 						end
 					end
 				end
@@ -6218,20 +6455,20 @@ task.spawn(function()
 						local highlight = Instance.new("Highlight")
 						highlight.Name = "PlayerESPOutline"
 						highlight.FillTransparency = 1
-						highlight.OutlineColor = RED
+						highlight.OutlineColor = UIColors.RED
 						highlight.OutlineTransparency = 0
 						highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 						highlight.Parent = workspace
 
 						local nameTag = Instance.new("Frame")
 						nameTag.Name = "PlayerESPName"
-					nameTag.Size = UDim2.fromOffset(210, 86)
+						nameTag.Size = UDim2.fromOffset(210, 86)
 						nameTag.AnchorPoint = Vector2.new(0.5, 1)
 						nameTag.BackgroundTransparency = 1
 						nameTag.BorderSizePixel = 0
 						nameTag.Visible = false
 						nameTag.ZIndex = 80
-						nameTag.Parent = configuration.PlayerEspLayer
+						nameTag.Parent = configurations.PlayerEspLayer
 
 						local nameLabel = Instance.new("TextLabel")
 						nameLabel.Size = UDim2.new(1, 0, 0, 26)
@@ -6284,11 +6521,11 @@ task.spawn(function()
 						tracer.Name = "PlayerESPLine"
 						tracer.AnchorPoint = Vector2.new(0.5, 0.5)
 						tracer.Size = UDim2.fromScale(0, 0)
-						tracer.BackgroundColor3 = RED
+						tracer.BackgroundColor3 = UIColors.RED
 						tracer.BorderSizePixel = 0
 						tracer.Visible = false
 						tracer.ZIndex = 0
-						tracer.Parent = configuration.PlayerEspLayer
+						tracer.Parent = configurations.PlayerEspLayer
 						visual = { Highlight = highlight, NameTag = nameTag, NameLabel = nameLabel, DistanceLabel = distanceLabel, HealthLabel = healthLabel, StatsLabel = statsLabel, Tracer = tracer }
 						PlayerVisuals[otherPlayer] = visual
 					end
@@ -6301,12 +6538,12 @@ task.spawn(function()
 					else
 						visual.DistanceLabel.Text = "Distance unavailable"
 					end
-					local currentHP, maximumHP = configuration.GetPlayerHealth(otherPlayer)
+					local currentHP, maximumHP = configurations.GetPlayerHealth(otherPlayer)
 					visual.HealthLabel.Text = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
-					visual.HealthLabel.TextColor3 = configuration.GetHealthColor(currentHP, maximumHP)
-					visual.StatsLabel.Text = configuration.FormatPlayerStats(otherPlayer)
-					local visible = configuration.ESPEnabled and configuration.IsPlayerESPEnabled(otherPlayer)
-					visual.Highlight.Enabled = visible and configuration.ESPBoxEnabled
+					visual.HealthLabel.TextColor3 = configurations.GetHealthColor(currentHP, maximumHP)
+					visual.StatsLabel.Text = configurations.FormatPlayerStats(otherPlayer)
+					local visible = configurations.ESPEnabled and configurations.IsPlayerESPEnabled(otherPlayer)
+					visual.Highlight.Enabled = visible and configurations.ESPBoxEnabled
 					visual.NameTag.Visible = false
 					visual.Tracer.Visible = false
 
@@ -6315,7 +6552,7 @@ task.spawn(function()
 						if point.Z > 0 and onScreen then
 							visual.NameTag.Position = UDim2.fromScale(point.X / viewport.X, (point.Y - 8) / viewport.Y)
 							visual.NameTag.Visible = true
-							if configuration.ESPLineEnabled then
+							if configurations.ESPLineEnabled then
 								local startPoint = Vector2.new(viewport.X * 0.5, viewport.Y - 8)
 								local endPoint = Vector2.new(point.X, point.Y)
 								local delta = endPoint - startPoint
@@ -6330,7 +6567,7 @@ task.spawn(function()
 
 					if localRoot then
 						local distance = (localRoot.Position - otherRoot.Position).Magnitude
-						if not configuration.IsWhitelisted(otherPlayer) and distance <= configuration.AlertsDistance and distance < nearbyDistance then
+						if not configurations.IsWhitelisted(otherPlayer) and distance <= configurations.AlertsDistance and distance < nearbyDistance then
 							nearbyDistance = distance
 							nearbyPlayer = otherPlayer
 						end
@@ -6354,9 +6591,9 @@ task.spawn(function()
 			end
 		end
 
-		if configuration.AlertsEnabled and not configuration.EmergencyStopActive and configuration.AlertFlashEnabled and nearbyPlayer then
-			AlarmOverlay.BackgroundColor3 = RED
-			configuration.AlarmText.Text = string.format("PLAYER NEARBY  •  %s  •  %.0f studs", nearbyPlayer.Name, nearbyDistance)
+		if configurations.AlertsEnabled and not configurations.EmergencyStopActive and configurations.AlertFlashEnabled and nearbyPlayer then
+			AlarmOverlay.BackgroundColor3 = UIColors.RED
+			configurations.AlarmText.Text = string.format("PLAYER NEARBY  •  %s  •  %.0f studs", nearbyPlayer.Name, nearbyDistance)
 			AlarmOverlay.Visible = true
 		else
 			AlarmOverlay.Visible = false
@@ -6373,11 +6610,11 @@ task.spawn(function()
 		end
 
 		-- Alert / ESP / follow loop: stay responsive near threats, slower when quiet.
-		local followBusy = configuration.FollowEnabled
-		local alertBusy = configuration.AlertsEnabled or configuration.AlertCombatPending
-			or configuration.AlertCombatHold or AlarmOverlay.Visible
+		local followBusy = configurations.FollowEnabled
+		local alertBusy = configurations.AlertsEnabled or configurations.AlertCombatPending
+			or configurations.AlertCombatHold or AlarmOverlay.Visible
 		local alertWait = alertBusy and 0.08 or 0.18
-		if configuration.FPSBoostEnabled then
+		if configurations.FPSBoostEnabled then
 			if followBusy then
 				alertWait = 0.08
 			elseif alertBusy then
@@ -6390,5 +6627,10 @@ task.spawn(function()
 	end
 end)
 
-getgenv().IamrichLoaded = true
+configurations.ApplyGuiScale()
+configurations.ApplyTextScale(Main)
+
+if not configurations.IsStudio and type(getgenv) == "function" then
+	getgenv().IamrichLoaded = true
+end
 print("[Iamrich] Version " .. VERSION .. " loaded successfully.")
