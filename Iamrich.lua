@@ -1236,23 +1236,23 @@ end
 -- COLORS (Slayers2-inspired dark blue UI)
 --==================================================
 local UIColors = {
-	BG = Color3.fromRGB(16, 18, 26),
-	SIDEBAR_BG = Color3.fromRGB(12, 14, 22),
-	CARD = Color3.fromRGB(24, 28, 40),
-	INPUT = Color3.fromRGB(32, 36, 50),
-	BORDER = Color3.fromRGB(42, 48, 64),
-	TEXT = Color3.fromRGB(236, 240, 248),
-	MUTED = Color3.fromRGB(130, 138, 158),
-	ACCENT = Color3.fromRGB(90, 160, 255),
-	ACCENT_SEL = Color3.fromRGB(120, 180, 255),
-	GREEN = Color3.fromRGB(76, 218, 164),
-	RED = Color3.fromRGB(255, 92, 112),
-	YELLOW = Color3.fromRGB(255, 196, 92),
-	ACCENT_DIM = Color3.fromRGB(32, 56, 96),
-	GREEN_DIM = Color3.fromRGB(24, 53, 45),
-	RED_DIM = Color3.fromRGB(56, 30, 37),
-	SEL_BG = Color3.fromRGB(48, 78, 130),     -- selected nav (soft blue fill),
-	SEL_TEXT = Color3.fromRGB(220, 235, 255),
+	BG = Color3.fromRGB(14, 16, 24),
+	SIDEBAR_BG = Color3.fromRGB(10, 12, 20),
+	CARD = Color3.fromRGB(22, 26, 38),
+	INPUT = Color3.fromRGB(30, 34, 48),
+	BORDER = Color3.fromRGB(48, 56, 74),
+	TEXT = Color3.fromRGB(240, 244, 252),
+	MUTED = Color3.fromRGB(120, 130, 152),
+	ACCENT = Color3.fromRGB(88, 166, 255),
+	ACCENT_SEL = Color3.fromRGB(140, 190, 255),
+	GREEN = Color3.fromRGB(72, 220, 168),
+	RED = Color3.fromRGB(255, 96, 118),
+	YELLOW = Color3.fromRGB(255, 200, 96),
+	ACCENT_DIM = Color3.fromRGB(28, 52, 92),
+	GREEN_DIM = Color3.fromRGB(22, 52, 44),
+	RED_DIM = Color3.fromRGB(58, 28, 36),
+	SEL_BG = Color3.fromRGB(42, 72, 128),
+	SEL_TEXT = Color3.fromRGB(230, 240, 255),
 }
 
 function configurations.GetHealthColor(current, maximum)
@@ -1421,11 +1421,11 @@ Main.ZIndex = 90
 Main.BackgroundColor3 = UIColors.BG
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
 local MainStroke = Instance.new("UIStroke", Main)
 MainStroke.Color = UIColors.BORDER
 MainStroke.Thickness = 1
-MainStroke.Transparency = 0.4
+MainStroke.Transparency = 0.35
 
 local MainUIScale = Instance.new("UIScale")
 MainUIScale.Name = "GuiScale"
@@ -1553,7 +1553,7 @@ local AlarmOverlay
 local Header = Instance.new("Frame")
 Header.Size = UDim2.fromScale(1, 0.09)
 Header.Active = true
-Header.BackgroundColor3 = Color3.fromRGB(18, 20, 30)
+Header.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 Header.BorderSizePixel = 0
 Header.Parent = Main
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
@@ -1561,7 +1561,7 @@ Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
 local HeaderFix = Instance.new("Frame")
 HeaderFix.Size = UDim2.fromScale(1, 0.45)
 HeaderFix.Position = UDim2.fromScale(0, 0.55)
-HeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+HeaderFix.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
 HeaderFix.BorderSizePixel = 0
 HeaderFix.Parent = Header
 
@@ -1569,7 +1569,7 @@ local HeaderRule = Instance.new("Frame")
 HeaderRule.Size = UDim2.new(1, -20, 0, 1)
 HeaderRule.Position = UDim2.new(0, 10, 1, -1)
 HeaderRule.BackgroundColor3 = UIColors.BORDER
-HeaderRule.BackgroundTransparency = 0.4
+HeaderRule.BackgroundTransparency = 0.5
 HeaderRule.BorderSizePixel = 0
 HeaderRule.Parent = Header
 
@@ -1595,7 +1595,7 @@ Title.Position = UDim2.fromScale(0.155, 0.28)
 Title.BackgroundTransparency = 1
 Title.Text = "EXP+"
 Title.TextColor3 = UIColors.TEXT
-Title.TextSize = 16
+Title.TextSize = 17
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
@@ -1613,8 +1613,8 @@ Subtitle.Parent = Header
 
 -- Order (right edge): [ Status ON/OFF ] [ − / + ]  — same in full + mini
 local Status = Instance.new("TextButton")
-Status.Size = UDim2.fromOffset(48, 20)
-Status.Position = UDim2.new(1, -84, 0, 10)
+Status.Size = UDim2.fromOffset(52, 22)
+Status.Position = UDim2.new(1, -88, 0, 9)
 Status.BackgroundColor3 = UIColors.RED_DIM
 Status.BorderSizePixel = 0
 Status.AutoButtonColor = false
@@ -1626,8 +1626,8 @@ Status.Parent = Header
 Instance.new("UICorner", Status).CornerRadius = UDim.new(1, 0)
 
 local MinimizeBtn = Instance.new("TextButton")
-MinimizeBtn.Size = UDim2.fromOffset(24, 24)
-MinimizeBtn.Position = UDim2.new(1, -32, 0, 8)
+MinimizeBtn.Size = UDim2.fromOffset(26, 26)
+MinimizeBtn.Position = UDim2.new(1, -34, 0, 7)
 MinimizeBtn.BackgroundColor3 = UIColors.INPUT
 MinimizeBtn.BorderSizePixel = 0
 MinimizeBtn.Text = "−"
@@ -1635,7 +1635,7 @@ MinimizeBtn.TextColor3 = UIColors.TEXT
 MinimizeBtn.TextSize = 16
 MinimizeBtn.Font = Enum.Font.GothamBold
 MinimizeBtn.Parent = Header
-Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 7)
 
 --==================================================
 -- MINI UIColors.CARD (compact EXP box when minimized)
@@ -1890,7 +1890,7 @@ ContentPanel = Instance.new("Frame")
 ContentPanel.Name = "ContentPanel"
 ContentPanel.Size = UDim2.fromScale(0.715, 0.88)
 ContentPanel.Position = UDim2.fromScale(0.270, 0.10)
-ContentPanel.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
+ContentPanel.BackgroundColor3 = Color3.fromRGB(15, 17, 25)
 ContentPanel.BorderSizePixel = 0
 ContentPanel.Parent = Main
 Instance.new("UICorner", ContentPanel).CornerRadius = UDim.new(0, 10)
@@ -1904,10 +1904,10 @@ Content.BorderSizePixel = 0
 Content.Parent = ContentPanel
 
 local ContentPad = Instance.new("UIPadding")
-ContentPad.PaddingTop = UDim.new(0, 8)
-ContentPad.PaddingLeft = UDim.new(0, 12)
-ContentPad.PaddingRight = UDim.new(0, 12)
-ContentPad.PaddingBottom = UDim.new(0, 8)
+ContentPad.PaddingTop = UDim.new(0, 12)
+ContentPad.PaddingLeft = UDim.new(0, 14)
+ContentPad.PaddingRight = UDim.new(0, 14)
+ContentPad.PaddingBottom = UDim.new(0, 14)
 ContentPad.Parent = Content
 
 configurations.ApplyMinimized(configurations.IsMinimized)
@@ -1920,15 +1920,15 @@ function configurations.CreatePage(name, visible)
 	page.Size = UDim2.fromScale(1, 1)
 	page.BackgroundTransparency = 1
 	page.BorderSizePixel = 0
-	page.ScrollBarThickness = 3
-	page.ScrollBarImageColor3 = UIColors.MUTED
+	page.ScrollBarThickness = 4
+	page.ScrollBarImageColor3 = UIColors.BORDER
 	page.CanvasSize = UDim2.new()
 	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	page.ScrollingDirection = Enum.ScrollingDirection.Y
 	page.Visible = visible
 	page.Parent = Content
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 8)
+	layout.Padding = UDim.new(0, 10)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = page
 	Pages[name] = page
@@ -2008,44 +2008,43 @@ SidebarScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 SidebarScroll.Parent = Sidebar
 
 local SidebarLayout = Instance.new("UIListLayout")
-SidebarLayout.Padding = UDim.new(0, 2)
+SidebarLayout.Padding = UDim.new(0, 3)
 SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 SidebarLayout.Parent = SidebarScroll
 
 local SidebarPad = Instance.new("UIPadding")
-SidebarPad.PaddingTop = UDim.new(0, 10)
+SidebarPad.PaddingTop = UDim.new(0, 8)
 SidebarPad.PaddingLeft = UDim.new(0, 8)
 SidebarPad.PaddingRight = UDim.new(0, 8)
-SidebarPad.PaddingBottom = UDim.new(0, 12)
+SidebarPad.PaddingBottom = UDim.new(0, 14)
 SidebarPad.Parent = SidebarScroll
 
 function configurations.MakeNavSection(text, order)
 	-- Section header (not clickable) — visually distinct from nav buttons
 	local wrap = Instance.new("Frame")
 	wrap.Name = "Section_" .. text
-	wrap.Size = UDim2.new(1, 0, 0, 28)
+	wrap.Size = UDim2.new(1, 0, 0, 30)
 	wrap.LayoutOrder = order
 	wrap.BackgroundTransparency = 1
 	wrap.Parent = SidebarScroll
 
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, -16, 0, 14)
-	label.Position = UDim2.fromOffset(12, 12)
+	label.Size = UDim2.new(1, -14, 0, 14)
+	label.Position = UDim2.fromOffset(10, 12)
 	label.BackgroundTransparency = 1
 	label.Text = string.upper(text)
-	label.TextColor3 = Color3.fromRGB(88, 98, 120)
+	label.TextColor3 = Color3.fromRGB(98, 112, 142)
 	label.TextSize = 10
 	label.Font = Enum.Font.GothamBold
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextTransparency = 0.15
+	label.TextTransparency = 0
 	label.Parent = wrap
 
-	-- subtle divider under header text
 	local line = Instance.new("Frame")
-	line.Size = UDim2.new(1, -24, 0, 1)
-	line.Position = UDim2.fromOffset(12, 26)
+	line.Size = UDim2.new(1, -20, 0, 1)
+	line.Position = UDim2.fromOffset(10, 28)
 	line.BackgroundColor3 = UIColors.BORDER
-	line.BackgroundTransparency = 0.55
+	line.BackgroundTransparency = 0.4
 	line.BorderSizePixel = 0
 	line.Parent = wrap
 	return wrap
@@ -2054,7 +2053,7 @@ end
 function configurations.MakeNavButton(text, icon, order)
 	local button = Instance.new("TextButton")
 	button.Name = "Nav_" .. text
-	button.Size = UDim2.new(1, 0, 0, 36)
+	button.Size = UDim2.new(1, 0, 0, 34)
 	button.LayoutOrder = order
 	button.BackgroundColor3 = UIColors.SEL_BG
 	button.BackgroundTransparency = 1
@@ -2062,17 +2061,17 @@ function configurations.MakeNavButton(text, icon, order)
 	button.Text = ""
 	button.AutoButtonColor = false
 	button.Parent = SidebarScroll
-	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 9)
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
 
 	local textLabel = Instance.new("TextLabel")
 	textLabel.Name = "Label"
-	textLabel.Size = UDim2.new(1, -24, 1, 0)
-	textLabel.Position = UDim2.fromOffset(14, 0)
+	textLabel.Size = UDim2.new(1, -22, 1, 0)
+	textLabel.Position = UDim2.fromOffset(12, 0)
 	textLabel.BackgroundTransparency = 1
 	textLabel.Text = text
 	textLabel.TextColor3 = UIColors.MUTED
 	textLabel.TextSize = 13
-	textLabel.Font = Enum.Font.Gotham
+	textLabel.Font = Enum.Font.GothamMedium
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
 	textLabel.Parent = button
 
@@ -2114,8 +2113,20 @@ function configurations.SetMainTab(tab)
 		local label = button:FindFirstChild("Label")
 		if label then
 			label.TextColor3 = selected and UIColors.SEL_TEXT or UIColors.MUTED
-			label.Font = selected and Enum.Font.GothamBold or Enum.Font.Gotham
+			label.Font = selected and Enum.Font.GothamBold or Enum.Font.GothamMedium
 		end
+		local accent = button:FindFirstChild("SelAccent")
+		if not accent then
+			accent = Instance.new("Frame")
+			accent.Name = "SelAccent"
+			accent.Size = UDim2.new(0, 3, 0.55, 0)
+			accent.Position = UDim2.new(0, 4, 0.225, 0)
+			accent.BackgroundColor3 = UIColors.ACCENT
+			accent.BorderSizePixel = 0
+			accent.Parent = button
+			Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
+		end
+		accent.Visible = selected
 	end
 	if tab == "Combat" and configurations.RefreshCombatMobs then
 		configurations.RefreshCombatMobs()
@@ -2141,7 +2152,7 @@ Instance.new("UICorner", ServerCard).CornerRadius = UDim.new(0, 12)
 local ServerStroke = Instance.new("UIStroke", ServerCard)
 ServerStroke.Color = UIColors.BORDER
 ServerStroke.Thickness = 1
-ServerStroke.Transparency = 0.55
+ServerStroke.Transparency = 0.45
 
 local ServerTitle = Instance.new("TextLabel")
 ServerTitle.Size = UDim2.new(0.5, -12, 0, 14)
@@ -2278,7 +2289,7 @@ Instance.new("UICorner", InfoCard).CornerRadius = UDim.new(0, 12)
 local InfoStroke = Instance.new("UIStroke", InfoCard)
 InfoStroke.Color = UIColors.BORDER
 InfoStroke.Thickness = 1
-InfoStroke.Transparency = 0.35
+InfoStroke.Transparency = 0.45
 
 -- Player level + Exp current/max (no separate level progress bar)
 local LevelCaption = Instance.new("TextLabel")
@@ -2462,7 +2473,7 @@ RecentCycleLabel.Parent = InfoCard
 -- START BUTTON
 --==================================================
 StartBtn = Instance.new("TextButton")
-StartBtn.Size = UDim2.new(1, 0, 0, 42)
+StartBtn.Size = UDim2.new(1, 0, 0, 44)
 StartBtn.LayoutOrder = 3
 StartBtn.BackgroundColor3 = UIColors.ACCENT
 StartBtn.BorderSizePixel = 0
@@ -2471,10 +2482,14 @@ StartBtn.TextColor3 = Color3.new(1, 1, 1)
 StartBtn.TextSize = 15
 StartBtn.Font = Enum.Font.GothamBold
 StartBtn.Parent = ExpPage
-Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 11)
+local StartStroke = Instance.new("UIStroke", StartBtn)
+StartStroke.Color = Color3.fromRGB(140, 190, 255)
+StartStroke.Transparency = 0.65
+StartStroke.Thickness = 1
 
 local EmergencyStopButton = Instance.new("TextButton")
-EmergencyStopButton.Size = UDim2.new(1, 0, 0, 34)
+EmergencyStopButton.Size = UDim2.new(1, 0, 0, 36)
 EmergencyStopButton.LayoutOrder = 4
 EmergencyStopButton.BackgroundColor3 = UIColors.CARD
 EmergencyStopButton.BorderSizePixel = 0
@@ -2483,7 +2498,11 @@ EmergencyStopButton.TextColor3 = UIColors.MUTED
 EmergencyStopButton.TextSize = 12
 EmergencyStopButton.Font = Enum.Font.GothamBold
 EmergencyStopButton.Parent = ExpPage
-Instance.new("UICorner", EmergencyStopButton).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", EmergencyStopButton).CornerRadius = UDim.new(0, 10)
+local EmergencyStroke = Instance.new("UIStroke", EmergencyStopButton)
+EmergencyStroke.Color = UIColors.BORDER
+EmergencyStroke.Transparency = 0.55
+EmergencyStroke.Thickness = 1
 
 --==================================================
 -- TOGGLE LIST (label left, switch right)
@@ -2495,7 +2514,7 @@ ToggleGrid.LayoutOrder = 2
 ToggleGrid.BackgroundTransparency = 1
 ToggleGrid.Parent = ESPPage
 local ToggleGridLayout = Instance.new("UIListLayout", ToggleGrid)
-ToggleGridLayout.Padding = UDim.new(0, 6)
+ToggleGridLayout.Padding = UDim.new(0, 8)
 ToggleGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 function configurations.MakeToggleGrid(parent, order)
@@ -2506,7 +2525,7 @@ function configurations.MakeToggleGrid(parent, order)
 	grid.BackgroundTransparency = 1
 	grid.Parent = parent
 	local layout = Instance.new("UIListLayout", grid)
-	layout.Padding = UDim.new(0, 6)
+	layout.Padding = UDim.new(0, 8)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	return grid
 end
@@ -2584,17 +2603,17 @@ function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, des
 	local clean = tostring(text or ""):gsub("%s*:?%s*ON%s*$", ""):gsub("%s*:?%s*OFF%s*$", "")
 	local hasDesc = type(description) == "string" and description ~= ""
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, hasDesc and 58 or 48)
+	btn.Size = UDim2.new(1, 0, 0, hasDesc and 64 or 48)
 	btn.LayoutOrder = order
 	btn.BackgroundColor3 = UIColors.CARD
 	btn.BorderSizePixel = 0
 	btn.Text = ""
 	btn.AutoButtonColor = false
 	btn.Parent = parent or ToggleGrid
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
 	local stroke = Instance.new("UIStroke", btn)
 	stroke.Color = UIColors.BORDER
-	stroke.Transparency = 0.65
+	stroke.Transparency = 0.55
 	stroke.Thickness = 1
 
 	local titleLabel = Instance.new("TextLabel")
@@ -2669,7 +2688,7 @@ if configurations.PartySystem then
 
 	local serverActions = Instance.new("Frame")
 	serverActions.Name = "ServerActions"
-	serverActions.Size = UDim2.new(1, 0, 0, 48)
+	serverActions.Size = UDim2.new(1, 0, 0, 52)
 	serverActions.LayoutOrder = 2
 	serverActions.BackgroundTransparency = 1
 	serverActions.Parent = ServerPage
@@ -2736,17 +2755,17 @@ function configurations.MakeActionRow(text, order, parent, description)
 	local clean = tostring(text or "")
 	local hasDesc = type(description) == "string" and description ~= ""
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, hasDesc and 58 or 48)
+	btn.Size = UDim2.new(1, 0, 0, hasDesc and 64 or 48)
 	btn.LayoutOrder = order
 	btn.BackgroundColor3 = UIColors.CARD
 	btn.BorderSizePixel = 0
 	btn.Text = ""
 	btn.AutoButtonColor = false
 	btn.Parent = parent
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
 	local stroke = Instance.new("UIStroke", btn)
 	stroke.Color = UIColors.BORDER
-	stroke.Transparency = 0.65
+	stroke.Transparency = 0.55
 	stroke.Thickness = 1
 
 	local titleLabel = Instance.new("TextLabel")
