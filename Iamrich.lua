@@ -1,4 +1,4 @@
-local VERSION = "2.6.22"
+local VERSION = "2.6.23"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -495,7 +495,7 @@ else
 		assert(type(module) == "table" and type(module.FindRoute) == "function", "LocalRoutePlanner has no FindRoute function")
 		return module
 	end)
-	configurations.WaypointNavigator = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.3")))()
+	configurations.WaypointNavigator = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.4")))()
 	configurations.FollowSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.3")))()
 	configurations.SafeBoosterResetLoadOk, configurations.SafeBoosterResetLoadResult = pcall(function()
 		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/SafeBoosterResetSystem.lua?v=1.0.0")
@@ -515,7 +515,7 @@ else
 		return module
 	end)
 	configurations.TeleportSystemLoadOk, configurations.TeleportSystemLoadResult = pcall(function()
-		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/TeleportSystem.lua?v=1.0.0")
+		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/TeleportSystem.lua?v=1.0.1")
 		local moduleFactory, compileError = loadstring(source)
 		assert(moduleFactory, compileError)
 		local module = moduleFactory()
@@ -5932,13 +5932,13 @@ task.spawn(function()
 			configurations.WaypointNavigator.Reset()
 		else
 			if configurations.WaypointReturnEnabled and point and root and humanoid and not paused then
-				local distance = (root.Position - point).Magnitude
-				if distance > 0.75 then
-					ClaimMovement("Waypoint", humanoid, root)
-					configurations.WaypointNavigator.Update(humanoid, root, point)
-				else
+				if configurations.WaypointNavigator.IsHoldingPosition(root, point) then
 					ReleaseMovement("Waypoint", humanoid, root)
-					configurations.WaypointNavigator.Reset()
+				else
+					ClaimMovement("Waypoint", humanoid, root)
+					if configurations.WaypointNavigator.Update(humanoid, root, point) then
+						ReleaseMovement("Waypoint", humanoid, root)
+					end
 				end
 			else
 				if humanoid and root then ReleaseMovement("Waypoint", humanoid, root) end
@@ -5947,7 +5947,7 @@ task.spawn(function()
 		end
 		local waypointBusy = MovementOwner == "Combat"
 			or (configurations.WaypointReturnEnabled and point and root and humanoid and not paused
-				and (root.Position - point).Magnitude > 0.75)
+				and not configurations.WaypointNavigator.IsHoldingPosition(root, point))
 		local waypointWait = configurations.FPSBoostEnabled and not waypointBusy and 0.35 or 0.12
 		task.wait(waypointWait)
 	end

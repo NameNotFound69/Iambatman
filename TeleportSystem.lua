@@ -1,6 +1,6 @@
 -- Teleport menu adapted from Teleport.txt for Iamrich's page-based UI.
-local VERSION = "1.0.0"
-print("[TeleportSystem] Version " .. VERSION .. " (doors + waypoint teleports)")
+local VERSION = "1.0.1"
+print("[TeleportSystem] Version " .. VERSION .. " (doors + waypoint teleports, refresh icon)")
 
 return {
 	Initialize = function(configuration, services)
@@ -81,12 +81,50 @@ return {
 			refresh.Position = UDim2.new(1, -32, 0, 2)
 			refresh.BackgroundColor3 = palette.INPUT
 			refresh.BorderSizePixel = 0
-			refresh.Text = "↻"
-			refresh.TextColor3 = accent
-			refresh.TextSize = 15
-			refresh.Font = Enum.Font.GothamBold
+			refresh.Text = ""
 			refresh.Parent = header
 			Instance.new("UICorner", refresh).CornerRadius = UDim.new(0, 6)
+
+			-- Draw the refresh mark from UI primitives so it does not depend on a
+			-- font having the Unicode refresh glyph available.
+			local refreshRing = Instance.new("Frame")
+			refreshRing.Name = "RefreshRing"
+			refreshRing.Size = UDim2.fromOffset(14, 14)
+			refreshRing.Position = UDim2.new(0.5, -7, 0.5, -7)
+			refreshRing.BackgroundTransparency = 1
+			refreshRing.BorderSizePixel = 0
+			refreshRing.ZIndex = refresh.ZIndex + 1
+			refreshRing.Parent = refresh
+			Instance.new("UICorner", refreshRing).CornerRadius = UDim.new(1, 0)
+			local refreshStroke = Instance.new("UIStroke")
+			refreshStroke.Color = accent
+			refreshStroke.Thickness = 2
+			refreshStroke.Parent = refreshRing
+
+			local refreshGap = Instance.new("Frame")
+			refreshGap.Name = "ArrowGap"
+			refreshGap.Size = UDim2.fromOffset(7, 7)
+			refreshGap.Position = UDim2.new(0.5, 2, 0, 2)
+			refreshGap.BackgroundColor3 = palette.INPUT
+			refreshGap.BorderSizePixel = 0
+			refreshGap.ZIndex = refresh.ZIndex + 2
+			refreshGap.Parent = refresh
+
+			for _, arrowArm in ipairs({
+				{ Position = UDim2.new(0.5, 1, 0, 4), Rotation = 25 },
+				{ Position = UDim2.new(0.5, 1, 0, 7), Rotation = -45 },
+			}) do
+				local arm = Instance.new("Frame")
+				arm.Name = "RefreshArrow"
+				arm.Size = UDim2.fromOffset(6, 2)
+				arm.Position = arrowArm.Position
+				arm.Rotation = arrowArm.Rotation
+				arm.BackgroundColor3 = accent
+				arm.BorderSizePixel = 0
+				arm.ZIndex = refresh.ZIndex + 3
+				arm.Parent = refresh
+				Instance.new("UICorner", arm).CornerRadius = UDim.new(1, 0)
+			end
 
 			local list = Instance.new("ScrollingFrame")
 			list.Name = name .. "List"

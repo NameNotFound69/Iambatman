@@ -1,6 +1,6 @@
 -- Dedicated waypoint movement. Uses Humanoid:MoveTo and local obstacle probes only.
-local VERSION = "1.2.3"
-print("[WaypointNavigation] Version " .. VERSION .. " (jump-first stalled recovery)")
+local VERSION = "1.2.4"
+print("[WaypointNavigation] Version " .. VERSION .. " (arrival hold, jump-first stalled recovery)")
 
 return {
 	Initialize = function(_configuration, dependencies)
@@ -30,12 +30,14 @@ return {
 			LastJumpAt = 0,
 			StuckJumpUntil = 0,
 			LastStuckJumpAt = 0,
+			CompletedGoal = nil,
 		}
 
 		local SEARCH_INTERVAL = 0.45
 		local PROGRESS_INTERVAL = 1.0
 		local MOVE_REFRESH_INTERVAL = 5
 		local ARRIVAL_RADIUS = 0.75
+		local ARRIVAL_HOLD_RADIUS = 8
 		local DETOUR_REACHED_RADIUS = 3
 		local DIRECT_CLEAR_CONFIRMATION = 0.75
 		local MIN_PROGRESS = 0.4
@@ -70,6 +72,7 @@ return {
 			state.LastJumpAt = 0
 			state.StuckJumpUntil = 0
 			state.LastStuckJumpAt = 0
+			state.CompletedGoal = nil
 		end
 
 		local function makeRaycastParams(root)
@@ -212,6 +215,26 @@ return {
 			state.RouteReachesGoal = false
 		end
 
+		local function completeArrival(humanoid, root, goal)
+			if state.Active then humanoid:MoveTo(root.Position) end
+			state.Active = false
+			state.Goal = goal
+			state.CommandGoal = nil
+			state.LastCommandAt = 0
+			state.DetourGoal = nil
+			state.DetourFor = nil
+			state.LastSearchAt = 0
+			clearRoute()
+			state.RouteLastSearchAt = 0
+			state.ProgressAt = 0
+			state.ProgressGoal = nil
+			state.ProgressDistance = nil
+			state.DirectClearSince = nil
+			state.JumpUntil = 0
+			state.StuckJumpUntil = 0
+			state.CompletedGoal = goal
+		end
+
 		local function findLocalRoute(root, goal, params, now)
 			state.RouteLastSearchAt = now
 			if type(routePlanner) ~= "table" or type(routePlanner.FindRoute) ~= "function" then return false end
@@ -300,6 +323,20 @@ return {
 			clearState()
 		end
 
+		function controller.IsHoldingPosition(root, goal)
+			local completedGoal = state.CompletedGoal
+			if not root or not goal or not completedGoal then return false end
+			if flatDistance(completedGoal, goal) > 1
+				or math.abs(completedGoal.Y - goal.Y) > 1 then
+				return false
+			end
+			if (root.Position - completedGoal).Magnitude <= ARRIVAL_HOLD_RADIUS then
+				return true
+			end
+			clearState()
+			return false
+		end
+
 		function controller.Update(humanoid, root, goal)
 			if not humanoid or not root or not goal then
 				clearState()
@@ -318,9 +355,23 @@ return {
 				state.ProgressDistance = flatDistance(root.Position, goal)
 			end
 
-			if (root.Position - goal).Magnitude <= ARRIVAL_RADIUS then
-				if state.Active then humanoid:MoveTo(root.Position) end
+			if state.CompletedGoal then
+				local sameCompletedGoal = flatDistance(state.CompletedGoal, goal) <= 1
+					and math.abs(state.CompletedGoal.Y - goal.Y) <= 1
+				if sameCompletedGoal and (root.Position - state.CompletedGoal).Magnitude <= ARRIVAL_HOLD_RADIUS then
+					if state.Active then humanoid:MoveTo(root.Position) end
+					state.Active = false
+					return true, "arrived"
+				end
 				clearState()
+				state.Goal = goal
+				state.ProgressAt = now
+				state.ProgressGoal = goal
+				state.ProgressDistance = flatDistance(root.Position, goal)
+			end
+
+			if (root.Position - goal).Magnitude <= ARRIVAL_RADIUS then
+				completeArrival(humanoid, root, goal)
 				return true, "arrived"
 			end
 
