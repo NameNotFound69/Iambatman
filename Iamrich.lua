@@ -1576,23 +1576,23 @@ configurations.MakeWindowDot(0.075, Color3.fromRGB(255, 190, 46))
 configurations.MakeWindowDot(0.115, Color3.fromRGB(40, 201, 64))
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.fromScale(0.50, 0.42)
-Title.Position = UDim2.fromScale(0.155, 0.28)
+Title.Size = UDim2.fromScale(0.48, 0.44)
+Title.Position = UDim2.fromScale(0.155, 0.26)
 Title.BackgroundTransparency = 1
-Title.Text = "EXP+"
+Title.Text = "Iamrich"
 Title.TextColor3 = UIColors.TEXT
-Title.TextSize = 16
+Title.TextSize = 17
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
 local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.fromScale(0.30, 0.30)
-Subtitle.Position = UDim2.fromScale(0.42, 0.35)
+Subtitle.Size = UDim2.fromScale(0.32, 0.30)
+Subtitle.Position = UDim2.fromScale(0.40, 0.34)
 Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "Primary"
+Subtitle.Text = "v" .. VERSION
 Subtitle.TextColor3 = UIColors.MUTED
-Subtitle.TextSize = 12
+Subtitle.TextSize = 11
 Subtitle.Font = Enum.Font.Gotham
 Subtitle.TextXAlignment = Enum.TextXAlignment.Left
 Subtitle.Parent = Header
@@ -1647,7 +1647,7 @@ MiniTop.Parent = MiniBar
 local MiniTitle = Instance.new("TextLabel")
 MiniTitle.Size = UDim2.new(0.4, 0, 1, 0)
 MiniTitle.BackgroundTransparency = 1
-MiniTitle.Text = "EXP+"
+MiniTitle.Text = "Iamrich"
 MiniTitle.TextColor3 = UIColors.TEXT
 MiniTitle.TextSize = 13
 MiniTitle.Font = Enum.Font.GothamBold
@@ -1874,8 +1874,8 @@ end)
 -- Right content panel (dark like the image)
 ContentPanel = Instance.new("Frame")
 ContentPanel.Name = "ContentPanel"
-ContentPanel.Size = UDim2.fromScale(0.70, 0.88)
-ContentPanel.Position = UDim2.fromScale(0.285, 0.10)
+ContentPanel.Size = UDim2.fromScale(0.715, 0.88)
+ContentPanel.Position = UDim2.fromScale(0.270, 0.10)
 ContentPanel.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
 ContentPanel.BorderSizePixel = 0
 ContentPanel.Parent = Main
@@ -1890,10 +1890,10 @@ Content.BorderSizePixel = 0
 Content.Parent = ContentPanel
 
 local ContentPad = Instance.new("UIPadding")
-ContentPad.PaddingTop = UDim.new(0, 8)
-ContentPad.PaddingLeft = UDim.new(0, 12)
-ContentPad.PaddingRight = UDim.new(0, 12)
-ContentPad.PaddingBottom = UDim.new(0, 8)
+ContentPad.PaddingTop = UDim.new(0, 10)
+ContentPad.PaddingLeft = UDim.new(0, 14)
+ContentPad.PaddingRight = UDim.new(0, 14)
+ContentPad.PaddingBottom = UDim.new(0, 12)
 ContentPad.Parent = Content
 
 configurations.ApplyMinimized(configurations.IsMinimized)
@@ -1914,7 +1914,7 @@ function configurations.CreatePage(name, visible)
 	page.Visible = visible
 	page.Parent = Content
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 8)
+	layout.Padding = UDim.new(0, 10)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = page
 	Pages[name] = page
@@ -1933,45 +1933,46 @@ local PerformancePage = configurations.CreatePage("Performance", false)
 
 function configurations.AddPageHeading(page, title, description)
 	local heading = Instance.new("Frame")
-	heading.Size = UDim2.new(1, 0, 0, 52)
+	heading.Size = UDim2.new(1, 0, 0, 56)
 	heading.LayoutOrder = 1
 	heading.BackgroundTransparency = 1
 	heading.Parent = page
 	local titleLabel = Instance.new("TextLabel")
-	titleLabel.Size = UDim2.new(1, -8, 0, 26)
-	titleLabel.Position = UDim2.fromOffset(6, 2)
+	titleLabel.Size = UDim2.new(1, -10, 0, 28)
+	titleLabel.Position = UDim2.fromOffset(4, 2)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = title
 	titleLabel.TextColor3 = UIColors.TEXT
-	titleLabel.TextSize = 18
+	titleLabel.TextSize = 20
 	titleLabel.Font = Enum.Font.GothamBold
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	titleLabel.Parent = heading
 	local descriptionLabel = Instance.new("TextLabel")
-	descriptionLabel.Size = UDim2.new(1, -8, 0, 18)
-	descriptionLabel.Position = UDim2.fromOffset(6, 28)
+	descriptionLabel.Size = UDim2.new(1, -10, 0, 20)
+	descriptionLabel.Position = UDim2.fromOffset(4, 32)
 	descriptionLabel.BackgroundTransparency = 1
 	descriptionLabel.Text = description
 	descriptionLabel.TextColor3 = UIColors.MUTED
 	descriptionLabel.TextSize = 12
 	descriptionLabel.Font = Enum.Font.Gotham
 	descriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+	descriptionLabel.TextWrapped = true
 	descriptionLabel.Parent = heading
 	return heading
 end
 
-configurations.AddPageHeading(ExpPage, "Experience", "Track your level, EXP and active farm session")
-configurations.AddPageHeading(ESPPage, "ESP", "Show other players on screen")
-configurations.AddPageHeading(PlayerPage, "Players", "Choose a follow target and manage whitelist and player list")
-configurations.AddPageHeading(AlertsPage, "Alerts & protection", "Nearby alerts, join log and automatic block prompt")
-configurations.AddPageHeading(FarmPage, "EXP farm settings", "EXP cycle, range, timing and target behavior")
-configurations.AddPageHeading(CombatPage, "Combat & targets", "Auto attack, skills and mob targeting")
-configurations.AddPageHeading(WaypointPage, "Waypoint movement", "Pin a position and return when displaced")
-configurations.AddPageHeading(PerformancePage, "Performance", "Reduce graphics load while playing")
+configurations.AddPageHeading(ExpPage, "Overview", "Level, EXP, server status and active farm session")
+configurations.AddPageHeading(ESPPage, "ESP", "Player markers, lines and boxes on screen")
+configurations.AddPageHeading(PlayerPage, "Players", "Follow target, whitelist and player list")
+configurations.AddPageHeading(AlertsPage, "Alerts & Safety", "Nearby alerts, join log and auto-block")
+configurations.AddPageHeading(FarmPage, "EXP Farm", "Cycle, range, timing and target behavior")
+configurations.AddPageHeading(CombatPage, "Combat", "Auto attack, skills and mob targeting")
+configurations.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
+configurations.AddPageHeading(PerformancePage, "Performance", "Reduce graphics load for higher FPS")
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
-Sidebar.Size = UDim2.fromScale(0.26, 0.88)
+Sidebar.Size = UDim2.fromScale(0.24, 0.88)
 Sidebar.Position = UDim2.fromScale(0.015, 0.10)
 Sidebar.BackgroundColor3 = UIColors.SIDEBAR_BG
 Sidebar.BorderSizePixel = 0
@@ -1993,44 +1994,44 @@ SidebarScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 SidebarScroll.Parent = Sidebar
 
 local SidebarLayout = Instance.new("UIListLayout")
-SidebarLayout.Padding = UDim.new(0, 2)
+SidebarLayout.Padding = UDim.new(0, 3)
 SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 SidebarLayout.Parent = SidebarScroll
 
 local SidebarPad = Instance.new("UIPadding")
-SidebarPad.PaddingTop = UDim.new(0, 10)
+SidebarPad.PaddingTop = UDim.new(0, 8)
 SidebarPad.PaddingLeft = UDim.new(0, 8)
 SidebarPad.PaddingRight = UDim.new(0, 8)
-SidebarPad.PaddingBottom = UDim.new(0, 12)
+SidebarPad.PaddingBottom = UDim.new(0, 14)
 SidebarPad.Parent = SidebarScroll
 
 function configurations.MakeNavSection(text, order)
 	-- Section header (not clickable) — visually distinct from nav buttons
 	local wrap = Instance.new("Frame")
 	wrap.Name = "Section_" .. text
-	wrap.Size = UDim2.new(1, 0, 0, 28)
+	wrap.Size = UDim2.new(1, 0, 0, 30)
 	wrap.LayoutOrder = order
 	wrap.BackgroundTransparency = 1
 	wrap.Parent = SidebarScroll
 
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, -16, 0, 14)
-	label.Position = UDim2.fromOffset(12, 12)
+	label.Size = UDim2.new(1, -14, 0, 14)
+	label.Position = UDim2.fromOffset(10, 12)
 	label.BackgroundTransparency = 1
 	label.Text = string.upper(text)
-	label.TextColor3 = Color3.fromRGB(88, 98, 120)
+	label.TextColor3 = Color3.fromRGB(100, 112, 140)
 	label.TextSize = 10
 	label.Font = Enum.Font.GothamBold
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextTransparency = 0.15
+	label.TextTransparency = 0.05
 	label.Parent = wrap
 
 	-- subtle divider under header text
 	local line = Instance.new("Frame")
-	line.Size = UDim2.new(1, -24, 0, 1)
-	line.Position = UDim2.fromOffset(12, 26)
+	line.Size = UDim2.new(1, -20, 0, 1)
+	line.Position = UDim2.fromOffset(10, 28)
 	line.BackgroundColor3 = UIColors.BORDER
-	line.BackgroundTransparency = 0.55
+	line.BackgroundTransparency = 0.45
 	line.BorderSizePixel = 0
 	line.Parent = wrap
 	return wrap
@@ -2039,7 +2040,7 @@ end
 function configurations.MakeNavButton(text, icon, order)
 	local button = Instance.new("TextButton")
 	button.Name = "Nav_" .. text
-	button.Size = UDim2.new(1, 0, 0, 36)
+	button.Size = UDim2.new(1, 0, 0, 34)
 	button.LayoutOrder = order
 	button.BackgroundColor3 = UIColors.SEL_BG
 	button.BackgroundTransparency = 1
@@ -2047,40 +2048,42 @@ function configurations.MakeNavButton(text, icon, order)
 	button.Text = ""
 	button.AutoButtonColor = false
 	button.Parent = SidebarScroll
-	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 9)
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
 
 	local textLabel = Instance.new("TextLabel")
 	textLabel.Name = "Label"
-	textLabel.Size = UDim2.new(1, -24, 1, 0)
-	textLabel.Position = UDim2.fromOffset(14, 0)
+	textLabel.Size = UDim2.new(1, -20, 1, 0)
+	textLabel.Position = UDim2.fromOffset(12, 0)
 	textLabel.BackgroundTransparency = 1
 	textLabel.Text = text
 	textLabel.TextColor3 = UIColors.MUTED
 	textLabel.TextSize = 13
-	textLabel.Font = Enum.Font.Gotham
+	textLabel.Font = Enum.Font.GothamMedium
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
 	textLabel.Parent = button
 
 	return button
 end
 
-configurations.MakeNavSection("Farm", 1)
+-- Categories ordered for daily use: status → farm → social → movement → visuals
+configurations.MakeNavSection("Main", 1)
 local NavButtons = {
-	EXP    = configurations.MakeNavButton("Overview", nil, 2),
-	Farm   = configurations.MakeNavButton("EXP settings", nil, 3),
-	Combat = configurations.MakeNavButton("Combat", nil, 4),
+	EXP = configurations.MakeNavButton("Overview", nil, 2),
 }
-configurations.MakeNavSection("Players", 5)
-NavButtons.Player = configurations.MakeNavButton("Players", nil, 6)
-NavButtons.Alerts = configurations.MakeNavButton("Alerts", nil, 7)
-configurations.MakeNavSection("Navigation", 8)
-NavButtons.Waypoint = configurations.MakeNavButton("Waypoint", nil, 9)
+configurations.MakeNavSection("Farm", 3)
+NavButtons.Farm   = configurations.MakeNavButton("EXP Farm", nil, 4)
+NavButtons.Combat = configurations.MakeNavButton("Combat", nil, 5)
+configurations.MakeNavSection("Social", 6)
+NavButtons.Player = configurations.MakeNavButton("Players", nil, 7)
+NavButtons.Alerts = configurations.MakeNavButton("Alerts", nil, 8)
 if configurations.PartySystem then
-	NavButtons.Party = configurations.MakeNavButton("Party", nil, 10)
+	NavButtons.Party = configurations.MakeNavButton("Party", nil, 9)
 end
-configurations.MakeNavSection("Display", 11)
-NavButtons.ESP = configurations.MakeNavButton("ESP", nil, 12)
-NavButtons.Performance = configurations.MakeNavButton("Performance", nil, 13)
+configurations.MakeNavSection("Movement", 10)
+NavButtons.Waypoint = configurations.MakeNavButton("Waypoint", nil, 11)
+configurations.MakeNavSection("Visuals", 12)
+NavButtons.ESP = configurations.MakeNavButton("ESP", nil, 13)
+NavButtons.Performance = configurations.MakeNavButton("Performance", nil, 14)
 
 function configurations.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -2475,7 +2478,7 @@ ToggleGrid.LayoutOrder = 2
 ToggleGrid.BackgroundTransparency = 1
 ToggleGrid.Parent = ESPPage
 local ToggleGridLayout = Instance.new("UIListLayout", ToggleGrid)
-ToggleGridLayout.Padding = UDim.new(0, 6)
+ToggleGridLayout.Padding = UDim.new(0, 8)
 ToggleGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 function configurations.MakeToggleGrid(parent, order)
@@ -2486,7 +2489,7 @@ function configurations.MakeToggleGrid(parent, order)
 	grid.BackgroundTransparency = 1
 	grid.Parent = parent
 	local layout = Instance.new("UIListLayout", grid)
-	layout.Padding = UDim.new(0, 6)
+	layout.Padding = UDim.new(0, 8)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	return grid
 end
@@ -2564,23 +2567,23 @@ function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, des
 	local clean = tostring(text or ""):gsub("%s*:?%s*ON%s*$", ""):gsub("%s*:?%s*OFF%s*$", "")
 	local hasDesc = type(description) == "string" and description ~= ""
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, hasDesc and 58 or 48)
+	btn.Size = UDim2.new(1, 0, 0, hasDesc and 62 or 46)
 	btn.LayoutOrder = order
 	btn.BackgroundColor3 = UIColors.CARD
 	btn.BorderSizePixel = 0
 	btn.Text = ""
 	btn.AutoButtonColor = false
 	btn.Parent = parent or ToggleGrid
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
 	local stroke = Instance.new("UIStroke", btn)
 	stroke.Color = UIColors.BORDER
-	stroke.Transparency = 0.65
+	stroke.Transparency = 0.6
 	stroke.Thickness = 1
 
 	local titleLabel = Instance.new("TextLabel")
 	titleLabel.Name = "Title"
-	titleLabel.Size = UDim2.new(1, -72, 0, hasDesc and 20 or 48)
-	titleLabel.Position = UDim2.fromOffset(16, hasDesc and 10 or 0)
+	titleLabel.Size = UDim2.new(1, -76, 0, hasDesc and 22 or 46)
+	titleLabel.Position = UDim2.fromOffset(14, hasDesc and 8 or 0)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = clean
 	titleLabel.TextColor3 = UIColors.TEXT
@@ -2594,8 +2597,8 @@ function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, des
 	if hasDesc then
 		local descLabel = Instance.new("TextLabel")
 		descLabel.Name = "Desc"
-		descLabel.Size = UDim2.new(1, -72, 0, 22)
-		descLabel.Position = UDim2.fromOffset(16, 30)
+		descLabel.Size = UDim2.new(1, -76, 0, 26)
+		descLabel.Position = UDim2.fromOffset(14, 30)
 		descLabel.BackgroundTransparency = 1
 		descLabel.Text = description
 		descLabel.TextColor3 = UIColors.MUTED
