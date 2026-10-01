@@ -1,4 +1,4 @@
-local VERSION = "2.6.16"
+local VERSION = "2.6.17"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -224,6 +224,7 @@ local configuration: {[string]: any} = {
 	SelectedCombatMob = nil,
 	WaypointPosition = nil,
 	WaypointReturnEnabled = false,
+	PartyWaypointSuspended = false,
 	WaypointBillboardEnabled = true,
 	MovementBoostEnabled = true,
 	SafeBoosterResetEnabled = false,
@@ -2775,7 +2776,9 @@ local ReturnToWaypointButton = configuration.MakeToggle(
 local function UpdateWaypointInfo()
 	local point = configuration.WaypointPosition
 	UpdateWaypointMarker()
-	WaypointInfo.Text = point and "Waypoint set" or "No waypoint set"
+	WaypointInfo.Text = not point and "No waypoint set"
+		or (configuration.WaypointReturnEnabled and configuration.PartyWaypointSuspended
+			and "Return paused while searching for Party Leader" or "Waypoint set")
 	configuration.SetToggleVisual(
 		ReturnToWaypointButton,
 		"Return to waypoint",
@@ -3187,6 +3190,16 @@ function configuration.UpdateFollowButtons()
 		or (selectedId and "Target: offline" or "Choose follow target")
 	configuration.SetActionVisual(FollowSelectButton, targetLabel, selectedId ~= nil)
 	configuration.SetToggleVisual(FollowToggleButton, "Follow", configuration.FollowEnabled, ACCENT, ACCENT_DIM)
+end
+
+function configuration.RefreshPartyWaypointState()
+	local leaderUserId = tonumber(configuration.PartyLeaderUserId)
+	local leaderPresent = leaderUserId and Players:GetPlayerByUserId(leaderUserId) ~= nil
+	local shouldSuspend = configuration.PartyFollowEnabled == true
+		and leaderUserId ~= nil and not leaderPresent or false
+	if configuration.PartyWaypointSuspended == shouldSuspend then return end
+	configuration.PartyWaypointSuspended = shouldSuspend
+	UpdateWaypointInfo()
 end
 
 function configuration.SetFollowEnabled(enabled)
@@ -5382,8 +5395,10 @@ task.spawn(function()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local point = configuration.WaypointPosition
+		configuration.RefreshPartyWaypointState()
 		local paused = configuration.EmergencyStopActive
 			or configuration.FollowEnabled
+			or configuration.PartyWaypointSuspended
 			or configuration.AlertCombatPending
 			or configuration.AlertCombatHold
 			or configuration.ExpMaxCombatTarget ~= nil
