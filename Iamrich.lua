@@ -304,12 +304,12 @@ configurations.MainWidthScale = 0.72
 configurations.MainHeightScale = 0.84
 configurations.GuiScale = 1.0
 configurations.TextScale = 1.0
-configurations.PlayerPanelWidthScale = 0.42
-configurations.PlayerPanelHeightScale = 0.62
+configurations.PlayerPanelWidthScale = 0.40
+configurations.PlayerPanelHeightScale = 0.60
 configurations.WhitelistPanelWidthScale = 0.40
-configurations.WhitelistPanelHeightScale = 0.58
-configurations.JoinLogWidthScale = 0.38
-configurations.JoinLogHeightScale = 0.54
+configurations.WhitelistPanelHeightScale = 0.55
+configurations.JoinLogWidthScale = 0.20
+configurations.JoinLogHeightScale = 0.50
 configurations.ConfigFileName = ""
 configurations.ConfigSaveWarningShown = false
 configurations.ConfigRootFolder = "Iamrich"
@@ -555,8 +555,8 @@ function configurations.LoadConfig()
 	configurations.PlayerPanelHeightScale = math.clamp(ReadNumber("PlayerPanelHeightScale", configurations.PlayerPanelHeightScale, 0.35, false), 0.35, 0.9)
 	configurations.WhitelistPanelWidthScale = math.clamp(ReadNumber("WhitelistPanelWidthScale", configurations.WhitelistPanelWidthScale, 0.26, false), 0.26, 0.8)
 	configurations.WhitelistPanelHeightScale = math.clamp(ReadNumber("WhitelistPanelHeightScale", configurations.WhitelistPanelHeightScale, 0.32, false), 0.32, 0.9)
-	configurations.JoinLogWidthScale = math.clamp(ReadNumber("JoinLogWidthScale", configurations.JoinLogWidthScale, 0.38, false), 0.28, 0.8)
-	configurations.JoinLogHeightScale = math.clamp(ReadNumber("JoinLogHeightScale", configurations.JoinLogHeightScale, 0.54, false), 0.35, 0.9)
+	configurations.JoinLogWidthScale = math.clamp(ReadNumber("JoinLogWidthScale", configurations.JoinLogWidthScale, 0.20, false), 0.20, 0.8)
+	configurations.JoinLogHeightScale = math.clamp(ReadNumber("JoinLogHeightScale", configurations.JoinLogHeightScale, 0.50, false), 0.20, 0.9)
 	if type(config.AlertsEnabled) == "boolean" then configurations.AlertsEnabled = config.AlertsEnabled end
 	if type(config.JoinAlertsEnabled) == "boolean" then configurations.JoinAlertsEnabled = config.JoinAlertsEnabled end
 	if config.AutoResumeAfterAlertVersion == 1 and type(config.AutoResumeAfterAlert) == "boolean" then
@@ -1460,16 +1460,20 @@ function configurations.ApplyGuiScale()
 		return
 	end
 
-	-- Keep the window's current center in the same place when the scale changes.
+	-- UIScale is the only thing that changes the visual size.
+	-- Do not convert the window to a different scale just because the viewport changed.
 	local viewport = camera.ViewportSize
-	local center = Main.AbsolutePosition + Main.AbsoluteSize * 0.5
+	local oldCenter = Main.AbsolutePosition + Main.AbsoluteSize * 0.5
 	MainUIScale.Scale = scale
 
+	-- Keep the window centered at the same screen location while changing GuiScale.
 	local newSize = Main.AbsoluteSize
-	if viewport.X > 0 and viewport.Y > 0 then
+	if viewport.X > 0 and viewport.Y > 0 and newSize.X > 0 and newSize.Y > 0 then
+		local maxX = math.max(0, 1 - newSize.X / viewport.X)
+		local maxY = math.max(0, 1 - newSize.Y / viewport.Y)
 		Main.Position = UDim2.fromScale(
-			math.clamp((center.X - newSize.X * 0.5) / viewport.X, 0, math.max(0, 1 - newSize.X / viewport.X)),
-			math.clamp((center.Y - newSize.Y * 0.5) / viewport.Y, 0, math.max(0, 1 - newSize.Y / viewport.Y))
+			math.clamp((oldCenter.X - newSize.X * 0.5) / viewport.X, 0, maxX),
+			math.clamp((oldCenter.Y - newSize.Y * 0.5) / viewport.Y, 0, maxY)
 		)
 	end
 end
@@ -1496,21 +1500,31 @@ function configurations.ApplyResponsiveMainSize()
 	if not camera then return end
 	local viewport = camera.ViewportSize
 	if viewport.X < 1 or viewport.Y < 1 then return end
-	local uiScale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
-	local maxWidth = math.max(0.2, math.min(1600 / (viewport.X * uiScale), (1 - 16 / viewport.X) / uiScale))
-	local minWidth = math.min(820 / (viewport.X * uiScale), maxWidth)
-	local maxHeight = math.max(0.4, math.min(1050 / (viewport.Y * uiScale), (1 - 16 / viewport.Y) / uiScale))
-	local minHeight = math.min(560 / (viewport.Y * uiScale), maxHeight)
-	local width = math.clamp(configurations.MainWidthScale, minWidth, maxWidth)
-	local height = math.clamp(configurations.MainHeightScale, minHeight, maxHeight)
+
+	-- Keep the configured relative size when the screen changes.
+	-- GuiScale already handles visual scaling, so do not divide the window size by it.
+	-- Only cap the window when it physically cannot fit in the current viewport.
+	local maxWidth = math.max(0.05, math.min(0.75, 1 - 16 / viewport.X))
+	local maxHeight = math.max(0.05, math.min(0.95, 1 - 16 / viewport.Y))
+	local minWidth = math.min(0.20, maxWidth)
+	local minHeight = math.min(0.40, maxHeight)
+
+	local wantedWidth = tonumber(configurations.MainWidthScale) or 0.55
+	local wantedHeight = tonumber(configurations.MainHeightScale) or 0.70
+	local width = math.clamp(wantedWidth, minWidth, maxWidth)
+	local height = math.clamp(wantedHeight, minHeight, maxHeight)
+
 	Main.Size = UDim2.fromScale(width, height)
+
 	if not configurations.MainWindowInitialized then
 		Main.Position = UDim2.fromScale((1 - width) * 0.5, (1 - height) * 0.5)
 		configurations.MainWindowInitialized = true
 	else
+		local maxX = math.max(0, 1 - width)
+		local maxY = math.max(0, 1 - height)
 		Main.Position = UDim2.fromScale(
-			math.clamp(Main.Position.X.Scale, 0, 1 - width),
-			math.clamp(Main.Position.Y.Scale, 0, 1 - height)
+			math.clamp(Main.Position.X.Scale, 0, maxX),
+			math.clamp(Main.Position.Y.Scale, 0, maxY)
 		)
 	end
 end
@@ -1576,19 +1590,19 @@ configurations.MakeWindowDot(0.075, Color3.fromRGB(255, 190, 46))
 configurations.MakeWindowDot(0.115, Color3.fromRGB(40, 201, 64))
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.fromScale(0.48, 0.44)
-Title.Position = UDim2.fromScale(0.155, 0.26)
+Title.Size = UDim2.fromScale(0.50, 0.42)
+Title.Position = UDim2.fromScale(0.155, 0.28)
 Title.BackgroundTransparency = 1
-Title.Text = "Iamrich"
+Title.Text = "EXP+"
 Title.TextColor3 = UIColors.TEXT
-Title.TextSize = 17
+Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
 local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.fromScale(0.32, 0.30)
-Subtitle.Position = UDim2.fromScale(0.40, 0.34)
+Subtitle.Size = UDim2.fromScale(0.30, 0.30)
+Subtitle.Position = UDim2.fromScale(0.42, 0.35)
 Subtitle.BackgroundTransparency = 1
 Subtitle.Text = "v" .. VERSION
 Subtitle.TextColor3 = UIColors.MUTED
@@ -1647,7 +1661,7 @@ MiniTop.Parent = MiniBar
 local MiniTitle = Instance.new("TextLabel")
 MiniTitle.Size = UDim2.new(0.4, 0, 1, 0)
 MiniTitle.BackgroundTransparency = 1
-MiniTitle.Text = "Iamrich"
+MiniTitle.Text = "EXP+"
 MiniTitle.TextColor3 = UIColors.TEXT
 MiniTitle.TextSize = 13
 MiniTitle.Font = Enum.Font.GothamBold
@@ -1790,8 +1804,8 @@ function configurations.ApplyMinimized(state)
 			Main.Position = UDim2.fromScale(0.5 - Main.Size.X.Scale / 2, 0.5 - Main.Size.Y.Scale / 2)
 		end
 		Main.Position = UDim2.fromScale(
-			math.clamp(Main.Position.X.Scale, 0, 1 - Main.Size.X.Scale),
-			math.clamp(Main.Position.Y.Scale, 0, 1 - Main.Size.Y.Scale)
+			math.clamp(Main.Position.X.Scale, 0, math.max(0, 1 - Main.Size.X.Scale)),
+			math.clamp(Main.Position.Y.Scale, 0, math.max(0, 1 - Main.Size.Y.Scale))
 		)
 		-- Same order: Status left, minimize (−) rightmost
 		Status.Position = UDim2.new(1, -84, 0, 10)
@@ -1890,10 +1904,10 @@ Content.BorderSizePixel = 0
 Content.Parent = ContentPanel
 
 local ContentPad = Instance.new("UIPadding")
-ContentPad.PaddingTop = UDim.new(0, 10)
-ContentPad.PaddingLeft = UDim.new(0, 14)
-ContentPad.PaddingRight = UDim.new(0, 14)
-ContentPad.PaddingBottom = UDim.new(0, 12)
+ContentPad.PaddingTop = UDim.new(0, 8)
+ContentPad.PaddingLeft = UDim.new(0, 12)
+ContentPad.PaddingRight = UDim.new(0, 12)
+ContentPad.PaddingBottom = UDim.new(0, 8)
 ContentPad.Parent = Content
 
 configurations.ApplyMinimized(configurations.IsMinimized)
@@ -1914,7 +1928,7 @@ function configurations.CreatePage(name, visible)
 	page.Visible = visible
 	page.Parent = Content
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 10)
+	layout.Padding = UDim.new(0, 8)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = page
 	Pages[name] = page
@@ -1966,7 +1980,7 @@ configurations.AddPageHeading(ESPPage, "ESP", "Player markers, lines and boxes o
 configurations.AddPageHeading(PlayerPage, "Players", "Follow target, whitelist and player list")
 configurations.AddPageHeading(AlertsPage, "Alerts & Safety", "Nearby alerts, join log and auto-block")
 configurations.AddPageHeading(FarmPage, "EXP Farm", "Cycle, range, timing and target behavior")
-configurations.AddPageHeading(CombatPage, "Combat", "Auto attack, skills and mob targeting")
+configurations.AddPageHeading(CombatPage, "Combat", "Auto attack, skills, Boss and Miniboss targeting")
 configurations.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
 configurations.AddPageHeading(PerformancePage, "Performance", "Reduce graphics load for higher FPS")
 
@@ -1994,44 +2008,44 @@ SidebarScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 SidebarScroll.Parent = Sidebar
 
 local SidebarLayout = Instance.new("UIListLayout")
-SidebarLayout.Padding = UDim.new(0, 3)
+SidebarLayout.Padding = UDim.new(0, 2)
 SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 SidebarLayout.Parent = SidebarScroll
 
 local SidebarPad = Instance.new("UIPadding")
-SidebarPad.PaddingTop = UDim.new(0, 8)
+SidebarPad.PaddingTop = UDim.new(0, 10)
 SidebarPad.PaddingLeft = UDim.new(0, 8)
 SidebarPad.PaddingRight = UDim.new(0, 8)
-SidebarPad.PaddingBottom = UDim.new(0, 14)
+SidebarPad.PaddingBottom = UDim.new(0, 12)
 SidebarPad.Parent = SidebarScroll
 
 function configurations.MakeNavSection(text, order)
 	-- Section header (not clickable) — visually distinct from nav buttons
 	local wrap = Instance.new("Frame")
 	wrap.Name = "Section_" .. text
-	wrap.Size = UDim2.new(1, 0, 0, 30)
+	wrap.Size = UDim2.new(1, 0, 0, 28)
 	wrap.LayoutOrder = order
 	wrap.BackgroundTransparency = 1
 	wrap.Parent = SidebarScroll
 
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, -14, 0, 14)
-	label.Position = UDim2.fromOffset(10, 12)
+	label.Size = UDim2.new(1, -16, 0, 14)
+	label.Position = UDim2.fromOffset(12, 12)
 	label.BackgroundTransparency = 1
 	label.Text = string.upper(text)
-	label.TextColor3 = Color3.fromRGB(100, 112, 140)
+	label.TextColor3 = Color3.fromRGB(88, 98, 120)
 	label.TextSize = 10
 	label.Font = Enum.Font.GothamBold
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextTransparency = 0.05
+	label.TextTransparency = 0.15
 	label.Parent = wrap
 
 	-- subtle divider under header text
 	local line = Instance.new("Frame")
-	line.Size = UDim2.new(1, -20, 0, 1)
-	line.Position = UDim2.fromOffset(10, 28)
+	line.Size = UDim2.new(1, -24, 0, 1)
+	line.Position = UDim2.fromOffset(12, 26)
 	line.BackgroundColor3 = UIColors.BORDER
-	line.BackgroundTransparency = 0.45
+	line.BackgroundTransparency = 0.55
 	line.BorderSizePixel = 0
 	line.Parent = wrap
 	return wrap
@@ -2040,7 +2054,7 @@ end
 function configurations.MakeNavButton(text, icon, order)
 	local button = Instance.new("TextButton")
 	button.Name = "Nav_" .. text
-	button.Size = UDim2.new(1, 0, 0, 34)
+	button.Size = UDim2.new(1, 0, 0, 36)
 	button.LayoutOrder = order
 	button.BackgroundColor3 = UIColors.SEL_BG
 	button.BackgroundTransparency = 1
@@ -2048,17 +2062,17 @@ function configurations.MakeNavButton(text, icon, order)
 	button.Text = ""
 	button.AutoButtonColor = false
 	button.Parent = SidebarScroll
-	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 9)
 
 	local textLabel = Instance.new("TextLabel")
 	textLabel.Name = "Label"
-	textLabel.Size = UDim2.new(1, -20, 1, 0)
-	textLabel.Position = UDim2.fromOffset(12, 0)
+	textLabel.Size = UDim2.new(1, -24, 1, 0)
+	textLabel.Position = UDim2.fromOffset(14, 0)
 	textLabel.BackgroundTransparency = 1
 	textLabel.Text = text
 	textLabel.TextColor3 = UIColors.MUTED
 	textLabel.TextSize = 13
-	textLabel.Font = Enum.Font.GothamMedium
+	textLabel.Font = Enum.Font.Gotham
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
 	textLabel.Parent = button
 
@@ -2081,9 +2095,12 @@ if configurations.PartySystem then
 end
 configurations.MakeNavSection("Movement", 10)
 NavButtons.Waypoint = configurations.MakeNavButton("Waypoint", nil, 11)
-configurations.MakeNavSection("Visuals", 12)
-NavButtons.ESP = configurations.MakeNavButton("ESP", nil, 13)
-NavButtons.Performance = configurations.MakeNavButton("Performance", nil, 14)
+if configurations.PartySystem then
+	NavButtons.Server = configurations.MakeNavButton("Server", nil, 12)
+end
+configurations.MakeNavSection("Visuals", 13)
+NavButtons.ESP = configurations.MakeNavButton("ESP", nil, 14)
+NavButtons.Performance = configurations.MakeNavButton("Performance", nil, 15)
 
 function configurations.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -2478,7 +2495,7 @@ ToggleGrid.LayoutOrder = 2
 ToggleGrid.BackgroundTransparency = 1
 ToggleGrid.Parent = ESPPage
 local ToggleGridLayout = Instance.new("UIListLayout", ToggleGrid)
-ToggleGridLayout.Padding = UDim.new(0, 8)
+ToggleGridLayout.Padding = UDim.new(0, 6)
 ToggleGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 function configurations.MakeToggleGrid(parent, order)
@@ -2489,7 +2506,7 @@ function configurations.MakeToggleGrid(parent, order)
 	grid.BackgroundTransparency = 1
 	grid.Parent = parent
 	local layout = Instance.new("UIListLayout", grid)
-	layout.Padding = UDim.new(0, 8)
+	layout.Padding = UDim.new(0, 6)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	return grid
 end
@@ -2567,23 +2584,23 @@ function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, des
 	local clean = tostring(text or ""):gsub("%s*:?%s*ON%s*$", ""):gsub("%s*:?%s*OFF%s*$", "")
 	local hasDesc = type(description) == "string" and description ~= ""
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, hasDesc and 62 or 46)
+	btn.Size = UDim2.new(1, 0, 0, hasDesc and 58 or 48)
 	btn.LayoutOrder = order
 	btn.BackgroundColor3 = UIColors.CARD
 	btn.BorderSizePixel = 0
 	btn.Text = ""
 	btn.AutoButtonColor = false
 	btn.Parent = parent or ToggleGrid
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
 	local stroke = Instance.new("UIStroke", btn)
 	stroke.Color = UIColors.BORDER
-	stroke.Transparency = 0.6
+	stroke.Transparency = 0.65
 	stroke.Thickness = 1
 
 	local titleLabel = Instance.new("TextLabel")
 	titleLabel.Name = "Title"
-	titleLabel.Size = UDim2.new(1, -76, 0, hasDesc and 22 or 46)
-	titleLabel.Position = UDim2.fromOffset(14, hasDesc and 8 or 0)
+	titleLabel.Size = UDim2.new(1, -72, 0, hasDesc and 20 or 48)
+	titleLabel.Position = UDim2.fromOffset(16, hasDesc and 10 or 0)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = clean
 	titleLabel.TextColor3 = UIColors.TEXT
@@ -2597,8 +2614,8 @@ function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, des
 	if hasDesc then
 		local descLabel = Instance.new("TextLabel")
 		descLabel.Name = "Desc"
-		descLabel.Size = UDim2.new(1, -76, 0, 26)
-		descLabel.Position = UDim2.fromOffset(14, 30)
+		descLabel.Size = UDim2.new(1, -72, 0, 22)
+		descLabel.Position = UDim2.fromOffset(16, 30)
 		descLabel.BackgroundTransparency = 1
 		descLabel.Text = description
 		descLabel.TextColor3 = UIColors.MUTED
@@ -2644,6 +2661,61 @@ if configurations.PartySystem then
 		ACCENT_DIM = UIColors.ACCENT_DIM,
 		RED = UIColors.RED,
 	})
+
+	-- Server travel page (Rejoin / Hop) — separate from Party
+	local ServerPage = configurations.CreatePage("Server", false)
+	configurations.AddPageHeading(ServerPage, "Server travel", "Rejoin this server or hop to another public server")
+	Pages.Server = ServerPage
+
+	local serverActions = Instance.new("Frame")
+	serverActions.Name = "ServerActions"
+	serverActions.Size = UDim2.new(1, 0, 0, 48)
+	serverActions.LayoutOrder = 2
+	serverActions.BackgroundTransparency = 1
+	serverActions.Parent = ServerPage
+
+	local function MakeTravelButton(name, text, xScale, color, callback)
+		local button = Instance.new("TextButton")
+		button.Name = name
+		button.Size = UDim2.new(0.5, -6, 1, 0)
+		button.Position = UDim2.new(xScale, xScale == 0 and 0 or 6, 0, 0)
+		button.BackgroundColor3 = color
+		button.BorderSizePixel = 0
+		button.Text = text
+		button.TextColor3 = UIColors.TEXT
+		button.TextSize = 14
+		button.Font = Enum.Font.GothamBold
+		button.Parent = serverActions
+		Instance.new("UICorner", button).CornerRadius = UDim.new(0, 10)
+		local stroke = Instance.new("UIStroke", button)
+		stroke.Color = UIColors.BORDER
+		stroke.Transparency = 0.55
+		stroke.Thickness = 1
+		button.MouseButton1Click:Connect(callback)
+		return button
+	end
+	MakeTravelButton("RejoinServer", "Rejoin server", 0, UIColors.INPUT, function()
+		if configurations.PartySystem and configurations.PartySystem.RejoinServer then
+			configurations.PartySystem.RejoinServer()
+		end
+	end)
+	MakeTravelButton("HopServer", "Hop server", 0.5, UIColors.ACCENT_DIM, function()
+		if configurations.PartySystem and configurations.PartySystem.HopServer then
+			configurations.PartySystem.HopServer()
+		end
+	end)
+
+	local serverHint = Instance.new("TextLabel")
+	serverHint.Size = UDim2.new(1, 0, 0, 40)
+	serverHint.LayoutOrder = 3
+	serverHint.BackgroundTransparency = 1
+	serverHint.Text = "Rejoin returns to this JobId. Hop picks a different public server with free slots."
+	serverHint.TextColor3 = UIColors.MUTED
+	serverHint.TextSize = 12
+	serverHint.Font = Enum.Font.Gotham
+	serverHint.TextWrapped = true
+	serverHint.TextXAlignment = Enum.TextXAlignment.Left
+	serverHint.Parent = ServerPage
 end
 
 -- Action row: title + description + chevron (opens a panel / runs an action — not a switch)
@@ -2949,8 +3021,8 @@ end)
 
 local AutoAttackButton = configurations.MakeToggle("Auto attack", configurations.AutoAttackEnabled, UIColors.RED, UIColors.RED_DIM, 1, CombatGrid, "Move to and attack selected or marked mobs.")
 local AutoSkillButton = configurations.MakeToggle("Auto skill", configurations.AutoSkillEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 2, CombatGrid, "Use skills while attacking the current target.")
-local AutoBossTargetButton = configurations.MakeToggle("IsBoss target", configurations.AutoBossTargetEnabled, UIColors.RED, UIColors.RED_DIM, 4, CombatGrid, "Find mobs with a direct IsBoss child and move in to attack.")
-local AutoMiniBossTargetButton = configurations.MakeToggle("IsMiniBoss target", configurations.AutoMiniBossTargetEnabled, UIColors.RED, UIColors.RED_DIM, 5, CombatGrid, "Find mobs with a direct IsMiniBoss child and move in to attack.")
+local AutoBossTargetButton = configurations.MakeToggle("Boss", configurations.AutoBossTargetEnabled, UIColors.RED, UIColors.RED_DIM, 4, CombatGrid, "Auto-target Boss mobs and move in to attack.")
+local AutoMiniBossTargetButton = configurations.MakeToggle("Miniboss", configurations.AutoMiniBossTargetEnabled, UIColors.RED, UIColors.RED_DIM, 5, CombatGrid, "Auto-target Miniboss mobs and move in to attack.")
 
 local AutoAttackRangeCard, AutoAttackRangeInput = configurations.MakeNumberCard(
 	CombatPage, "Attack target range (studs)", function() return configurations.AutoAttackRange end, 6, 5, 500,
@@ -3204,7 +3276,7 @@ configurations.CombatInfo = Instance.new("TextLabel")
 configurations.CombatInfo.Size = UDim2.new(1, -28, 0, 49)
 configurations.CombatInfo.Position = UDim2.fromOffset(19, 23)
 configurations.CombatInfo.BackgroundTransparency = 1
-configurations.CombatInfo.Text = "Targets selected mobs or enabled IsBoss markers; moves with MoveTo and attacks while closing in."
+configurations.CombatInfo.Text = "Targets selected mobs or enabled Boss / Miniboss markers; moves with MoveTo and attacks while closing in."
 configurations.CombatInfo.TextColor3 = UIColors.TEXT
 configurations.CombatInfo.TextSize = 11
 configurations.CombatInfo.Font = Enum.Font.Gotham
@@ -3222,7 +3294,7 @@ function configurations.UpdateCombatStatus(target, targetRoot, distance, navigat
 	if not target or not targetRoot then
 		configurations.CombatInfo.Text = configurations.Farming and "Combat paused during EXP firing."
 			or ((configurations.AutoBossTargetEnabled or configurations.AutoMiniBossTargetEnabled)
-				and "Searching for IsBoss / IsMiniBoss targets..."
+				and "Searching for Boss / Miniboss targets..."
 				or (configurations.AutoAttackEnabled and "Select a mob from the list to start moving and attacking."
 					or "Auto attack is off."))
 		return
@@ -3248,13 +3320,13 @@ end)
 
 AutoBossTargetButton.MouseButton1Click:Connect(function()
 	configurations.AutoBossTargetEnabled = not configurations.AutoBossTargetEnabled
-	configurations.SetToggleVisual(AutoBossTargetButton, "IsBoss target", configurations.AutoBossTargetEnabled, UIColors.RED, UIColors.RED_DIM)
+	configurations.SetToggleVisual(AutoBossTargetButton, "Boss", configurations.AutoBossTargetEnabled, UIColors.RED, UIColors.RED_DIM)
 	configurations.SaveConfig()
 end)
 
 AutoMiniBossTargetButton.MouseButton1Click:Connect(function()
 	configurations.AutoMiniBossTargetEnabled = not configurations.AutoMiniBossTargetEnabled
-	configurations.SetToggleVisual(AutoMiniBossTargetButton, "IsMiniBoss target", configurations.AutoMiniBossTargetEnabled, UIColors.RED, UIColors.RED_DIM)
+	configurations.SetToggleVisual(AutoMiniBossTargetButton, "Miniboss", configurations.AutoMiniBossTargetEnabled, UIColors.RED, UIColors.RED_DIM)
 	configurations.SaveConfig()
 end)
 
@@ -4269,11 +4341,11 @@ configurations.MakeResizable(PlayerPanel, "PlayerPanel", 0.28, 0.35, function(wi
 	configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale = width, height
 	configurations.SaveConfig()
 end)
-configurations.MakeResizable(configurations.WhitelistPanel, "WhitelistPanel", 0.26, 0.32, function(width, height)
+configurations.MakeResizable(configurations.WhitelistPanel, "WhitelistPanel", 0.20, 0.32, function(width, height)
 	configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale = width, height
 	configurations.SaveConfig()
 end)
-configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 0.28, 0.35, function(width, height)
+configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 0.20, 0.35, function(width, height)
 	configurations.JoinLogWidthScale, configurations.JoinLogHeightScale = width, height
 	configurations.SaveConfig()
 end)
@@ -4283,22 +4355,28 @@ function configurations.ApplyResponsiveOverlaySizes()
 	if not camera then return end
 	local viewport = camera.ViewportSize
 	if viewport.X < 1 or viewport.Y < 1 then return end
-	configurations.ClampOverlaySize = function(panel, widthScale, heightScale, minWidthPx, maxWidthPx, minHeightPx, maxHeightPx)
-		local maxWidth = math.min(maxWidthPx / viewport.X, 1 - 16 / viewport.X)
-		local minWidth = math.min(minWidthPx / viewport.X, maxWidth)
-		local maxHeight = math.min(maxHeightPx / viewport.Y, 1 - 16 / viewport.Y)
-		local minHeight = math.min(minHeightPx / viewport.Y, maxHeight)
-		local width = math.clamp(widthScale, minWidth, maxWidth)
-		local height = math.clamp(heightScale, minHeight, maxHeight)
+
+	-- Keep overlay panels at their saved percentage size when the screen changes.
+	-- Do NOT use pixel-based minimums here: those caused Player Logs / Whitelist /
+	-- Join Logs to grow larger when the viewport became smaller.
+	configurations.ClampOverlaySize = function(panel, widthScale, heightScale)
+		local maxWidth = math.max(0.05, math.min(0.80, 1 - 16 / viewport.X))
+		local maxHeight = math.max(0.05, math.min(0.90, 1 - 16 / viewport.Y))
+		local wantedWidth = tonumber(widthScale) or panel.Size.X.Scale
+		local wantedHeight = tonumber(heightScale) or panel.Size.Y.Scale
+		local width = math.min(math.max(0.05, wantedWidth), maxWidth)
+		local height = math.min(math.max(0.05, wantedHeight), maxHeight)
+
 		panel.Size = UDim2.fromScale(width, height)
 		panel.Position = UDim2.fromScale(
-			math.clamp(panel.Position.X.Scale, 0, 1 - width),
-			math.clamp(panel.Position.Y.Scale, 0, 1 - height)
+			math.clamp(panel.Position.X.Scale, 0, math.max(0, 1 - width)),
+			math.clamp(panel.Position.Y.Scale, 0, math.max(0, 1 - height))
 		)
 	end
-	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale, 800, 1500, 600, 1150)
-	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale, 560, 1000, 500, 1000)
-	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthScale, configurations.JoinLogHeightScale, 780, 1500, 560, 1150)
+
+	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale)
+	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale)
+	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthScale, configurations.JoinLogHeightScale)
 end
 configurations.ApplyResponsiveOverlaySizes()
 
@@ -4622,10 +4700,10 @@ UserInputService.InputChanged:Connect(function(input)
 	local viewport = camera.ViewportSize
 	local delta = input.Position - configurations.ResizeStart
 	local uiScale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
-	local maxWidth = math.max(0.2, math.min(1600 / (viewport.X * uiScale), 1 - Main.Position.X.Scale, (1 - 16 / viewport.X) / uiScale))
-	local minWidth = math.min(820 / (viewport.X * uiScale), maxWidth)
-	local maxHeight = math.max(0.4, math.min(1050 / (viewport.Y * uiScale), 1 - Main.Position.Y.Scale, (1 - 16 / viewport.Y) / uiScale))
-	local minHeight = math.min(560 / (viewport.Y * uiScale), maxHeight)
+	local maxWidth = math.max(0.05, math.min(0.75, 1 - Main.Position.X.Scale, 1 - 16 / viewport.X))
+	local minWidth = math.min(0.20, maxWidth)
+	local maxHeight = math.max(0.05, math.min(0.95, 1 - Main.Position.Y.Scale, 1 - 16 / viewport.Y))
+	local minHeight = math.min(0.40, maxHeight)
 	configurations.MainWidthScale = math.clamp(configurations.ResizeStartSize.X + delta.X / (viewport.X * uiScale), minWidth, maxWidth)
 	if not configurations.IsMinimized then
 		configurations.MainHeightScale = math.clamp(configurations.ResizeStartSize.Y + delta.Y / (viewport.Y * uiScale), minHeight, maxHeight)

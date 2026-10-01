@@ -363,7 +363,7 @@ function PartySystem.Initialize(configuration, services)
 
 	local function BuildUI(palette)
 		local page = configuration.CreatePage("Party", false)
-		configuration.AddPageHeading(page, "Party & server travel", "Follow a leader, rejoin this server or hop to another")
+		configuration.AddPageHeading(page, "Party", "Follow a party leader across servers")
 
 		state.UI.Toggle = configuration.MakeToggle("Follow party leader", configuration.PartyFollowEnabled,
 			palette.ACCENT, palette.ACCENT_DIM, 2, page, "Join the selected leader when they are in another server.")
@@ -401,33 +401,10 @@ function PartySystem.Initialize(configuration, services)
 		state.UI.Status.TextXAlignment = Enum.TextXAlignment.Left
 		state.UI.Status.Parent = info
 
-		local serverRow = Instance.new("Frame")
-		serverRow.Size = UDim2.new(1, 0, 0, 40)
-		serverRow.LayoutOrder = 4
-		serverRow.BackgroundTransparency = 1
-		serverRow.Parent = page
-		local function MakeServerButton(name, text, xScale, widthScale, color, callback)
-			local button = Instance.new("TextButton")
-			button.Name = name
-			button.Size = UDim2.new(widthScale, -4, 1, 0)
-			button.Position = UDim2.new(xScale, xScale == 0 and 0 or 4, 0, 0)
-			button.BackgroundColor3 = color
-			button.BorderSizePixel = 0
-			button.Text = text
-			button.TextColor3 = palette.TEXT
-			button.TextSize = 12
-			button.Font = Enum.Font.GothamBold
-			button.Parent = serverRow
-			Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
-			button.MouseButton1Click:Connect(callback)
-			return button
-		end
-		MakeServerButton("RejoinServer", "Rejoin server", 0, 0.5, palette.INPUT, RejoinServer)
-		MakeServerButton("HopServer", "Hop server", 0.5, 0.5, palette.ACCENT_DIM, HopServer)
 
 		local listHeading = Instance.new("Frame")
 		listHeading.Size = UDim2.new(1, 0, 0, 32)
-		listHeading.LayoutOrder = 5
+		listHeading.LayoutOrder = 4
 		listHeading.BackgroundTransparency = 1
 		listHeading.Parent = page
 		local listTitle = Instance.new("TextLabel")
@@ -455,7 +432,7 @@ function PartySystem.Initialize(configuration, services)
 		state.UI.PlayerList = Instance.new("ScrollingFrame")
 		state.UI.PlayerList.Name = "PartyPlayerList"
 		state.UI.PlayerList.Size = UDim2.new(1, 0, 0, 164)
-		state.UI.PlayerList.LayoutOrder = 6
+		state.UI.PlayerList.LayoutOrder = 5
 		state.UI.PlayerList.BackgroundColor3 = palette.CARD
 		state.UI.PlayerList.BorderSizePixel = 0
 		state.UI.PlayerList.ScrollBarThickness = 3
@@ -477,7 +454,7 @@ function PartySystem.Initialize(configuration, services)
 		local clear = Instance.new("TextButton")
 		clear.Name = "ClearPartyLeader"
 		clear.Size = UDim2.new(1, 0, 0, 36)
-		clear.LayoutOrder = 7
+		clear.LayoutOrder = 6
 		clear.BackgroundColor3 = palette.CARD
 		clear.BorderSizePixel = 0
 		clear.Text = "Clear leader"
