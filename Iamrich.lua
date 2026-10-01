@@ -1,4 +1,4 @@
-local VERSION = "2.6.11"
+local VERSION = "2.6.13"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -215,6 +215,10 @@ local configuration: {[string]: any} = {
 	FollowTargetVisible = false,
 	SelectedFollowUserId = nil,
 	FollowEnabled = false,
+	PartyFollowEnabled = false,
+	PartyLeaderUserId = nil,
+	PartyLeaderName = nil,
+	PartyResumeFarmOnJoin = false,
 	FPSBoostEnabled = false,
 	PlayerPanelMode = "server",
 	SelectedCombatMob = nil,
@@ -414,6 +418,21 @@ configuration.FPSBoostSystem = assert(loadstring(game:HttpGet(
 configuration.FPSBoostSystem = configuration.FPSBoostSystem.Initialize(configuration, {
 	Lighting = Lighting,
 })
+configuration.PartySystemLoadOk, configuration.PartySystemLoadResult = pcall(function()
+	local source = game:HttpGet(
+		"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.0.0"
+	)
+	local moduleFactory, compileError = loadstring(source)
+	assert(moduleFactory, compileError)
+	local module = moduleFactory()
+	assert(type(module) == "table" and type(module.Initialize) == "function", "PartySystem has no Initialize function")
+	return module
+end)
+if configuration.PartySystemLoadOk then
+	configuration.PartySystem = configuration.PartySystemLoadResult
+else
+	warn("[Iamrich] PartySystem is unavailable:", configuration.PartySystemLoadResult)
+end
 
 function configuration.PrepareConfigStorage()
 	local userId = tostring(Player.UserId)
@@ -525,6 +544,13 @@ function configuration.LoadConfig()
 	elseif isLegacyFollowConfig then
 		configuration.FollowEnabled = configuration.SelectedFollowUserId ~= nil
 	end
+	if type(config.PartyFollowEnabled) == "boolean" then configuration.PartyFollowEnabled = config.PartyFollowEnabled end
+	local partyLeaderUserId = tonumber(config.PartyLeaderUserId)
+	if partyLeaderUserId and partyLeaderUserId > 0 and partyLeaderUserId % 1 == 0 then
+		configuration.PartyLeaderUserId = partyLeaderUserId
+		configuration.PartyLeaderName = type(config.PartyLeaderName) == "string" and config.PartyLeaderName or nil
+	end
+	configuration.PartyResumeFarmOnJoin = config.PartyResumeFarmOnJoin == true
 	configuration.MainWidthScale = math.clamp(ReadNumber("MainWidthScale", configuration.MainWidthScale, 0.2, false), 0.2, 0.75)
 	configuration.MainHeightScale = math.clamp(ReadNumber("MainHeightScale", configuration.MainHeightScale, 0.4, false), 0.4, 0.95)
 	local camera = workspace.CurrentCamera
@@ -604,6 +630,10 @@ function configuration.SaveConfig()
 		FollowTargetVisible = configuration.FollowTargetVisible,
 		FollowTargetUserId = configuration.SelectedFollowUserId,
 		FollowEnabled = configuration.FollowEnabled,
+		PartyFollowEnabled = configuration.PartyFollowEnabled,
+		PartyLeaderUserId = configuration.PartyLeaderUserId,
+		PartyLeaderName = configuration.PartyLeaderName,
+		PartyResumeFarmOnJoin = configuration.PartyResumeFarmOnJoin,
 		FPSBoostEnabled = configuration.FPSBoostEnabled,
 		AutoAttackEnabled = configuration.AutoAttackEnabled,
 		AutoBossTargetEnabled = configuration.AutoBossTargetEnabled,
@@ -661,6 +691,23 @@ function configuration.SetFPSBoost(enabled)
 end
 
 configuration.LoadConfig()
+if configuration.PartySystem then
+	configuration.PartySystemInitOk, configuration.PartySystemInitResult = pcall(function()
+		return configuration.PartySystem.Initialize(configuration, {
+			Players = Players,
+			Player = Player,
+			ReplicatedStorage = ReplicatedStorage,
+			TeleportService = TeleportService,
+			HttpService = HttpService,
+		})
+	end)
+	if configuration.PartySystemInitOk then
+		configuration.PartySystem = configuration.PartySystemInitResult
+	else
+		warn("[Iamrich] PartySystem failed to initialize:", configuration.PartySystemInitResult)
+		configuration.PartySystem = nil
+	end
+end
 if not configuration.SafeBoosterResetAvailable then configuration.SafeBoosterResetEnabled = false end
 if configuration.FPSBoostEnabled then configuration.FPSBoostSystem.SetEnabled(true) end
 configuration.FollowSystem.SetTargetLineVisible(configuration.FollowTargetVisible)
@@ -682,7 +729,8 @@ function configuration.RecordPlayerLog(player, eventType)
 		Username = player.Name,
 		UserId = tostring(player.UserId),
 		Whitelisted = configuration.IsWhitelisted(player),
-		SpecialThreat = configuration.SpecialGroupThreatUsers[tostring(player.UserId)] == true,
+		SpecialThreat = configuration.SpecialGroupThreatUsers[tostring(player.UserId)] == true
+			and not configuration.IsWhitelisted(player),
 	})
 	while #configuration.PlayerJoinLog > 100 do
 		table.remove(configuration.PlayerJoinLog, 1)
@@ -731,6 +779,12 @@ function configuration.MarkSpecialGroupThreat(player)
 	if not player or player == Player or player.Parent ~= Players then return false end
 	local userId = tostring(player.UserId)
 	configuration.SpecialGroupThreatUsers[userId] = true
+	if configuration.IsWhitelisted(player) then
+		if configuration.JoinLogPanel and configuration.JoinLogPanel.Visible and configuration.RefreshJoinLog then
+			configuration.RefreshJoinLog()
+		end
+		return false
+	end
 	local markedEntry = nil
 	for index = #configuration.PlayerJoinLog, 1, -1 do
 		local entry = configuration.PlayerJoinLog[index]
@@ -756,6 +810,7 @@ end
 function configuration.CheckSpecialGroupPlayer(player)
 	if not player or player == Player then return false end
 	local userId = tostring(player.UserId)
+	if configuration.IsWhitelisted(player) then return false end
 	if configuration.SpecialGroupThreatUsers[userId] then
 		configuration.StartSpecialGroupServerHop(player)
 		return true
@@ -786,6 +841,23 @@ function configuration.CheckSpecialGroupPlayer(player)
 		end
 	end)
 	return true
+end
+
+function configuration.OnWhitelistChanged(userId)
+	if configuration.JoinLogPanel and configuration.JoinLogPanel.Visible and configuration.RefreshJoinLog then
+		configuration.RefreshJoinLog()
+	end
+	if userId == nil then return end
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if tostring(otherPlayer.UserId) == tostring(userId) and not configuration.IsWhitelisted(otherPlayer) then
+			if configuration.SpecialGroupThreatUsers[tostring(userId)] then
+				configuration.MarkSpecialGroupThreat(otherPlayer)
+			else
+				configuration.CheckSpecialGroupPlayer(otherPlayer)
+			end
+			return
+		end
+	end
 end
 
 function configuration.NotifyUnwhitelistedPlayer(player, wasAlreadyHere)
@@ -1893,9 +1965,12 @@ local NavButtons = {
 configuration.MakeNavSection("Tools", 6)
 NavButtons.Alerts = configuration.MakeNavButton("Alerts", nil, 7)
 NavButtons.Player = configuration.MakeNavButton("Players", nil, 8)
-configuration.MakeNavSection("Display", 9)
-NavButtons.ESP = configuration.MakeNavButton("ESP", nil, 10)
-NavButtons.Performance = configuration.MakeNavButton("Performance", nil, 11)
+if configuration.PartySystem then
+	NavButtons.Party = configuration.MakeNavButton("Party", nil, 9)
+end
+configuration.MakeNavSection("Display", 10)
+NavButtons.ESP = configuration.MakeNavButton("ESP", nil, 11)
+NavButtons.Performance = configuration.MakeNavButton("Performance", nil, 12)
 
 function configuration.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -2443,6 +2518,19 @@ function configuration.MakeToggle(text, isOn, onColor, onBg, order, parent, desc
 	btn:SetAttribute("BaseTitle", clean)
 	btn:SetAttribute("IsOn", isOn and true or false)
 	return btn
+end
+
+if configuration.PartySystem then
+	configuration.PartySystem.BuildUI({
+		CARD = CARD,
+		INPUT = INPUT,
+		BORDER = BORDER,
+		TEXT = TEXT,
+		MUTED = MUTED,
+		ACCENT = ACCENT,
+		ACCENT_DIM = ACCENT_DIM,
+		RED = RED,
+	})
 end
 
 -- Action row: title + description + chevron (opens a panel / runs an action — not a switch)
@@ -3802,11 +3890,12 @@ function configuration.RefreshJoinLog()
 		eventLabel.BackgroundTransparency = 1
 		local eventName = entry.Event == "joined" and "JOINED"
 			or (entry.Event == "left" and "LEFT" or "HERE")
-		if entry.SpecialThreat then
+		local currentlyWhitelisted = configuration.WhitelistIds[entry.UserId] == true
+		if entry.SpecialThreat and not currentlyWhitelisted then
 			eventLabel.Text = string.format("%s  SPECIAL DANGER  @%s", entry.Time, entry.Username)
 			eventLabel.TextColor3 = RED
 		else
-			local whitelistTag = entry.Whitelisted and "  ·  WHITELIST" or ""
+			local whitelistTag = (entry.Whitelisted or currentlyWhitelisted) and "  ·  WHITELIST" or ""
 			eventLabel.Text = string.format("%s  %s  @%s%s", entry.Time, eventName, entry.Username, whitelistTag)
 			eventLabel.TextColor3 = entry.Event == "left" and RED
 				or (entry.Event == "present" and MUTED or GREEN)
@@ -3972,6 +4061,7 @@ function configuration.RefreshWhitelist()
 			configuration.WhitelistIds[userId] = nil
 			configuration.SaveConfig()
 			configuration.RefreshWhitelist()
+			configuration.OnWhitelistChanged(userId)
 		end)
 	end
 end
@@ -3999,6 +4089,7 @@ function configuration.AddWhitelistId()
 	configuration.WhitelistInput.PlaceholderText = "Enter Player UserId"
 	configuration.SaveConfig()
 	configuration.RefreshWhitelist()
+	configuration.OnWhitelistChanged(userId)
 end
 
 function configuration.AddAllServerPlayersToWhitelist()
@@ -4015,6 +4106,7 @@ function configuration.AddAllServerPlayersToWhitelist()
 	if added > 0 then
 		configuration.SaveConfig()
 		configuration.RefreshWhitelist()
+		configuration.OnWhitelistChanged()
 	end
 	configuration.NotifyUser("Whitelist", added > 0 and ("Added " .. added .. " player(s).") or "All players are already whitelisted.")
 	return added
@@ -5878,6 +5970,7 @@ task.spawn(function()
 						whitelistToggle.TextColor3 = enabled and YELLOW or MUTED
 						whitelistToggle.BackgroundColor3 = enabled and Color3.fromRGB(55, 45, 22) or INPUT
 						if configuration.WhitelistPanel.Visible then configuration.RefreshWhitelist() end
+						configuration.OnWhitelistChanged(userId)
 					end)
 
 					local blockButton = Instance.new("TextButton")
