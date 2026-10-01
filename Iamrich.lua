@@ -1233,7 +1233,7 @@ end
 
 
 --==================================================
--- COLORS (Slayers2-inspired dark blue UI)
+-- COLORS (Tailwind-inspired slate/blue tokens — Roblox Instance UI, not web CSS)
 --==================================================
 local UIColors = {
 	BG = Color3.fromRGB(14, 16, 24),
@@ -1427,54 +1427,110 @@ MainStroke.Color = UIColors.BORDER
 MainStroke.Thickness = 1
 MainStroke.Transparency = 0.35
 
+--==================================================
+-- GLOBAL UI SCALE (Tailwind-inspired tokens; applies to ALL windows)
+-- GuiScale / TextScale affect Main + floating panels together.
+--==================================================
 local MainUIScale = Instance.new("UIScale")
 MainUIScale.Name = "GuiScale"
 MainUIScale.Scale = configurations.GuiScale
 MainUIScale.Parent = Main
 
+-- Roots that receive GuiScale (UIScale) and TextScale
+configurations.ScaledRoots = { Main }
+
+function configurations.RegisterScaledRoot(root)
+	if not root or not root:IsA("GuiObject") then return end
+	for _, existing in ipairs(configurations.ScaledRoots) do
+		if existing == root then
+			-- Ensure UIScale exists
+			local scaleObj = root:FindFirstChild("GuiScale")
+			if not scaleObj then
+				scaleObj = Instance.new("UIScale")
+				scaleObj.Name = "GuiScale"
+				scaleObj.Parent = root
+			end
+			scaleObj.Scale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+			configurations.ApplyTextScale(root)
+			return
+		end
+	end
+	table.insert(configurations.ScaledRoots, root)
+	local scaleObj = root:FindFirstChild("GuiScale")
+	if not scaleObj then
+		scaleObj = Instance.new("UIScale")
+		scaleObj.Name = "GuiScale"
+		scaleObj.Parent = root
+	end
+	scaleObj.Scale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+	configurations.ApplyTextScale(root)
+end
+
 -- UI-wide text scaling. Base sizes are stored once so changing the setting
 -- repeatedly never compounds the scale or changes the original design values.
 function configurations.ApplyTextScale(root)
-	root = root or Main
 	local scale = math.clamp(tonumber(configurations.TextScale) or 1, 0.20, 2.50)
-	for _, obj in ipairs(root:GetDescendants()) do
-		if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-			if not obj.TextScaled then
-				local base = obj:GetAttribute("IamrichBaseTextSize")
-				if type(base) ~= "number" then
-					base = obj.TextSize
-					obj:SetAttribute("IamrichBaseTextSize", base)
+	local function applyTo(target)
+		if not target then return end
+		for _, obj in ipairs(target:GetDescendants()) do
+			if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+				if not obj.TextScaled then
+					local base = obj:GetAttribute("IamrichBaseTextSize")
+					if type(base) ~= "number" then
+						base = obj.TextSize
+						obj:SetAttribute("IamrichBaseTextSize", base)
+					end
+					obj.TextSize = math.max(1, math.floor(base * scale + 0.5))
 				end
-				obj.TextSize = math.max(1, math.floor(base * scale + 0.5))
 			end
+		end
+	end
+	if root then
+		applyTo(root)
+		return
+	end
+	for _, scaledRoot in ipairs(configurations.ScaledRoots) do
+		if scaledRoot and scaledRoot.Parent then
+			applyTo(scaledRoot)
 		end
 	end
 end
 
 function configurations.ApplyGuiScale()
-	if not MainUIScale or not MainUIScale.Parent then return end
 	local scale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
 	local camera = workspace.CurrentCamera
-	if not camera then
-		MainUIScale.Scale = scale
-		return
-	end
+	local viewport = camera and camera.ViewportSize
 
-	-- UIScale is the only thing that changes the visual size.
-	-- Do not convert the window to a different scale just because the viewport changed.
-	local viewport = camera.ViewportSize
-	local oldCenter = Main.AbsolutePosition + Main.AbsoluteSize * 0.5
-	MainUIScale.Scale = scale
+	for _, root in ipairs(configurations.ScaledRoots) do
+		if root and root.Parent then
+			local scaleObj = root:FindFirstChild("GuiScale")
+			if not scaleObj or not scaleObj:IsA("UIScale") then
+				scaleObj = Instance.new("UIScale")
+				scaleObj.Name = "GuiScale"
+				scaleObj.Parent = root
+			end
 
-	-- Keep the window centered at the same screen location while changing GuiScale.
-	local newSize = Main.AbsoluteSize
-	if viewport.X > 0 and viewport.Y > 0 and newSize.X > 0 and newSize.Y > 0 then
-		local maxX = math.max(0, 1 - newSize.X / viewport.X)
-		local maxY = math.max(0, 1 - newSize.Y / viewport.Y)
-		Main.Position = UDim2.fromScale(
-			math.clamp((oldCenter.X - newSize.X * 0.5) / viewport.X, 0, maxX),
-			math.clamp((oldCenter.Y - newSize.Y * 0.5) / viewport.Y, 0, maxY)
-		)
+			-- Preserve center of Main window when scaling
+			local keepCenter = (root == Main) and viewport and viewport.X > 0 and viewport.Y > 0
+			local oldCenter = nil
+			if keepCenter then
+				oldCenter = root.AbsolutePosition + root.AbsoluteSize * 0.5
+			end
+
+			scaleObj.Scale = scale
+
+			if keepCenter and oldCenter then
+				local newSize = root.AbsoluteSize
+				if newSize.X > 0 and newSize.Y > 0 then
+					local maxX = math.max(0, 1 - newSize.X / viewport.X)
+					local maxY = math.max(0, 1 - newSize.Y / viewport.Y)
+					root.Position = UDim2.fromScale(
+						math.clamp((oldCenter.X - newSize.X * 0.5) / viewport.X, 0, maxX),
+						math.clamp((oldCenter.Y - newSize.Y * 0.5) / viewport.Y, 0, maxY)
+					)
+				end
+			end
+		end
 	end
 end
 
@@ -1488,7 +1544,7 @@ end
 
 configurations.SetTextScale = function(value, save)
 	configurations.TextScale = math.clamp(tonumber(value) or 1, 0.20, 2.50)
-	configurations.ApplyTextScale(Main)
+	configurations.ApplyTextScale() -- all registered windows
 	if save ~= false and configurations.SaveConfig then
 		configurations.SaveConfig()
 	end
@@ -3441,7 +3497,7 @@ end
 
 local GuiScaleControl = configurations.MakeScaleControl(
 	PerformanceGrid,
-	"GUI size",
+	"GUI size (all windows)",
 	function() return configurations.GuiScale end,
 	configurations.SetGuiScale,
 	0.20, 2.50, 0.05, 2
@@ -3449,7 +3505,7 @@ local GuiScaleControl = configurations.MakeScaleControl(
 
 local TextScaleControl = configurations.MakeScaleControl(
 	PerformanceGrid,
-	"Text size",
+	"Text size (all windows)",
 	function() return configurations.TextScale end,
 	configurations.SetTextScale,
 	0.20, 2.50, 0.05, 3
@@ -3909,6 +3965,7 @@ PlayerPanel.BorderSizePixel = 0
 PlayerPanel.Visible = false
 PlayerPanel.Parent = ScreenGui
 Instance.new("UICorner", PlayerPanel).CornerRadius = UDim.new(0, 12)
+configurations.RegisterScaledRoot(PlayerPanel)
 local PlayerPanelStroke = Instance.new("UIStroke", PlayerPanel)
 PlayerPanelStroke.Color = UIColors.BORDER
 PlayerPanelStroke.Thickness = 1
@@ -3918,7 +3975,7 @@ PlayerPanelStroke.Transparency = 0.35
 local PlayerPanelHeader = Instance.new("Frame")
 PlayerPanelHeader.Name = "Header"
 PlayerPanelHeader.Size = UDim2.new(1, 0, 0, 44)
-PlayerPanelHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+PlayerPanelHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 PlayerPanelHeader.BorderSizePixel = 0
 PlayerPanelHeader.ZIndex = 91
 PlayerPanelHeader.Parent = PlayerPanel
@@ -3927,7 +3984,7 @@ Instance.new("UICorner", PlayerPanelHeader).CornerRadius = UDim.new(0, 12)
 local PlayerPanelHeaderFix = Instance.new("Frame")
 PlayerPanelHeaderFix.Size = UDim2.new(1, 0, 0, 16)
 PlayerPanelHeaderFix.Position = UDim2.new(0, 0, 1, -16)
-PlayerPanelHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+PlayerPanelHeaderFix.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
 PlayerPanelHeaderFix.BorderSizePixel = 0
 PlayerPanelHeaderFix.ZIndex = 91
 PlayerPanelHeaderFix.Parent = PlayerPanelHeader
@@ -3997,6 +4054,7 @@ PlayerListButton.MouseButton1Click:Connect(function()
 	PlayerPanelTitle.Text = "Players in server"
 	PlayerPanel.Visible = not PlayerPanel.Visible
 	configurations.SetActionVisual(PlayerListButton, PlayerPanel.Visible and "Close list" or "Player list", PlayerPanel.Visible)
+	if PlayerPanel.Visible then configurations.ApplyTextScale(PlayerPanel) end
 end)
 PlayerPanelClose.MouseButton1Click:Connect(function()
 	PlayerPanel.Visible = false
@@ -4031,6 +4089,7 @@ configurations.WhitelistPanel.BorderSizePixel = 0
 configurations.WhitelistPanel.Visible = false
 configurations.WhitelistPanel.Parent = ScreenGui
 Instance.new("UICorner", configurations.WhitelistPanel).CornerRadius = UDim.new(0, 12)
+configurations.RegisterScaledRoot(configurations.WhitelistPanel)
 configurations.WhitelistPanelStroke = Instance.new("UIStroke", configurations.WhitelistPanel)
 configurations.WhitelistPanelStroke.Color = UIColors.BORDER
 configurations.WhitelistPanelStroke.Thickness = 1
@@ -4039,7 +4098,7 @@ configurations.WhitelistPanelStroke.Transparency = 0.35
 configurations.WhitelistHeader = Instance.new("Frame")
 configurations.WhitelistHeader.Name = "Header"
 configurations.WhitelistHeader.Size = UDim2.new(1, 0, 0, 44)
-configurations.WhitelistHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configurations.WhitelistHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 configurations.WhitelistHeader.BorderSizePixel = 0
 configurations.WhitelistHeader.ZIndex = 91
 configurations.WhitelistHeader.Parent = configurations.WhitelistPanel
@@ -4048,7 +4107,7 @@ Instance.new("UICorner", configurations.WhitelistHeader).CornerRadius = UDim.new
 configurations.WhitelistHeaderFix = Instance.new("Frame")
 configurations.WhitelistHeaderFix.Size = UDim2.new(1, 0, 0, 16)
 configurations.WhitelistHeaderFix.Position = UDim2.new(0, 0, 1, -16)
-configurations.WhitelistHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configurations.WhitelistHeaderFix.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
 configurations.WhitelistHeaderFix.BorderSizePixel = 0
 configurations.WhitelistHeaderFix.ZIndex = 91
 configurations.WhitelistHeaderFix.Parent = configurations.WhitelistHeader
@@ -4159,6 +4218,7 @@ configurations.JoinLogPanel.BorderSizePixel = 0
 configurations.JoinLogPanel.Visible = false
 configurations.JoinLogPanel.Parent = ScreenGui
 Instance.new("UICorner", configurations.JoinLogPanel).CornerRadius = UDim.new(0, 12)
+configurations.RegisterScaledRoot(configurations.JoinLogPanel)
 configurations.JoinLogPanelStroke = Instance.new("UIStroke", configurations.JoinLogPanel)
 configurations.JoinLogPanelStroke.Color = UIColors.BORDER
 configurations.JoinLogPanelStroke.Thickness = 1
@@ -4168,7 +4228,7 @@ configurations.JoinLogHeader = Instance.new("Frame")
 configurations.JoinLogHeader.Name = "Header"
 configurations.JoinLogHeader.Size = UDim2.new(1, 0, 0, 44)
 configurations.JoinLogHeader.ZIndex = 91
-configurations.JoinLogHeader.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configurations.JoinLogHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 configurations.JoinLogHeader.BorderSizePixel = 0
 configurations.JoinLogHeader.Parent = configurations.JoinLogPanel
 Instance.new("UICorner", configurations.JoinLogHeader).CornerRadius = UDim.new(0, 12)
@@ -4177,7 +4237,7 @@ configurations.JoinLogHeaderFix = Instance.new("Frame")
 configurations.JoinLogHeaderFix.Size = UDim2.new(1, 0, 0, 16)
 configurations.JoinLogHeaderFix.Position = UDim2.new(0, 0, 1, -16)
 configurations.JoinLogHeaderFix.ZIndex = 91
-configurations.JoinLogHeaderFix.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+configurations.JoinLogHeaderFix.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
 configurations.JoinLogHeaderFix.BorderSizePixel = 0
 configurations.JoinLogHeaderFix.Parent = configurations.JoinLogHeader
 
@@ -4262,6 +4322,7 @@ function configurations.RefreshJoinLog()
 		eventLabel.TextTruncate = Enum.TextTruncate.AtEnd
 		eventLabel.Parent = row
 	end
+	configurations.ApplyTextScale(configurations.JoinLogPanel)
 end
 
 configurations.JoinLogButton.MouseButton1Click:Connect(function()
@@ -4454,6 +4515,7 @@ function configurations.RefreshWhitelist()
 			configurations.OnWhitelistChanged(userId)
 		end)
 	end
+	configurations.ApplyTextScale(configurations.WhitelistPanel)
 end
 
 WhitelistButton.MouseButton1Click:Connect(function()
@@ -4730,7 +4792,7 @@ UserInputService.InputChanged:Connect(function(input)
 	configurations.MainWindowInitialized = true
 	configurations.ApplyResponsiveMainSize()
 	configurations.ApplyGuiScale()
-	configurations.ApplyTextScale(Main)
+	configurations.ApplyTextScale()
 
 end)
 
@@ -6490,6 +6552,10 @@ task.spawn(function()
 				end
 			end
 
+			if rebuildPlayerRows then
+				configurations.ApplyTextScale(PlayerPanel)
+			end
+
 			-- Refresh changing player data in-place; keep cards and their callbacks alive.
 			if configurations.PlayerPanelMode == "server" then
 				for _, listedPlayer in ipairs(panelPlayers) do
@@ -6728,7 +6794,7 @@ task.spawn(function()
 end)
 
 configurations.ApplyGuiScale()
-configurations.ApplyTextScale(Main)
+configurations.ApplyTextScale()
 
 if not configurations.IsStudio and type(getgenv) == "function" then
 	getgenv().IamrichLoaded = true
