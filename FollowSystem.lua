@@ -1,6 +1,6 @@
 -- Direct player follow controller with a Follow-specific MoveTo route search.
-local VERSION = "1.16.0"
-print("[FollowSystem] Version " .. VERSION .. " (stable live-goal detours + crowd avoidance)")
+local VERSION = "1.16.1"
+print("[FollowSystem] Version " .. VERSION .. " (goal-progress detection + repeated jump recovery)")
 
 return {
 	Initialize = function(configuration, dependencies)
@@ -23,10 +23,11 @@ return {
 			TargetUserId = nil,
 			LastUpdateAt = 0,
 			LastProgressAt = 0,
-			ProgressPosition = nil,
+			ProgressDistance = nil,
 			RecoveryAttempts = 0,
 			RecoveryGoal = nil,
 			RecoveryUntil = 0,
+			RecoveryJumpUntil = 0,
 			LastJumpRecoveryAt = 0,
 			FollowDirection = nil,
 			LastHeadingAt = 0,
@@ -65,6 +66,10 @@ return {
 		local FOLLOW_INTERACTION_INTERVAL = 1.5
 		local FOLLOW_MOVE_INTERVAL = 0.38
 		local FOLLOW_SEARCH_INTERVAL = 0.45
+		local FOLLOW_STUCK_INTERVAL = 1.0
+		local FOLLOW_PROGRESS_THRESHOLD = 0.4
+		local FOLLOW_JUMP_REPEAT_INTERVAL = 0.3
+		local FOLLOW_JUMP_WINDOW = 1.15
 		local FOLLOW_DETOUR_REACHED_RADIUS = 3
 		local FOLLOW_DIRECT_CLEAR_CONFIRMATION = 0.6
 		local LEADER_STOP_CONFIRM_TIME = 0.65
@@ -112,10 +117,11 @@ return {
 
 		local function clearFollowState()
 			state.LastProgressAt = 0
-			state.ProgressPosition = nil
+			state.ProgressDistance = nil
 			state.RecoveryAttempts = 0
 			state.RecoveryGoal = nil
 			state.RecoveryUntil = 0
+			state.RecoveryJumpUntil = 0
 			state.LastJumpRecoveryAt = 0
 			state.FollowDirection = nil
 			state.LastHeadingAt = 0
@@ -492,37 +498,36 @@ return {
 			return goal
 		end
 
-		local function updateRecovery(root, humanoid, goal, now)
+		local function updateRecovery(root, goal, now)
+			local stalled = false
+			if now - state.LastProgressAt >= FOLLOW_STUCK_INTERVAL then
+				local distanceNow = flatDistance(root.Position, goal)
+				local previousDistance = state.ProgressDistance
+				local progress = previousDistance and previousDistance - distanceNow or math.huge
+				stalled = previousDistance ~= nil
+					and distanceNow > 3
+					and progress < FOLLOW_PROGRESS_THRESHOLD
+				state.ProgressDistance = distanceNow
+				state.LastProgressAt = now
+				if stalled then
+					state.RecoveryJumpUntil = now + FOLLOW_JUMP_WINDOW
+				else
+					state.RecoveryAttempts = 0
+					state.RecoveryJumpUntil = 0
+				end
+			end
+
 			if state.RecoveryGoal then
 				if now <= state.RecoveryUntil
 					and flatDistance(root.Position, state.RecoveryGoal) > 2.2 then
 					return state.RecoveryGoal
 				end
 				state.RecoveryGoal = nil
-				-- Recheck as soon as a recovery action ends instead of waiting for the
-				-- ordinary progress sampling interval to elapse again.
-				state.LastProgressAt = 0
 			end
-			if now - state.LastProgressAt < 1.35 then return goal end
-
-			local moved = state.ProgressPosition and flatDistance(root.Position, state.ProgressPosition) or math.huge
-			local stuck = moved < 0.55 and flatDistance(root.Position, goal) > 3
-			state.ProgressPosition = root.Position
-			state.LastProgressAt = now
-			if not stuck then
-				state.RecoveryAttempts = 0
-				return goal
-			end
+			if not stalled then return goal end
 
 			state.RecoveryAttempts += 1
 			if state.RecoveryAttempts == 1 then
-				-- A grounded jump can clear short barriers or get the character out of
-				-- a player pile. Apply a cooldown so a persistent wall does not cause hopping.
-				if humanoid.FloorMaterial ~= Enum.Material.Air
-					and (state.LastJumpRecoveryAt == 0 or now - state.LastJumpRecoveryAt >= 4.5) then
-					humanoid.Jump = true
-					state.LastJumpRecoveryAt = now
-				end
 				state.RecoveryGoal = goal
 				state.RecoveryUntil = now + 0.85
 				resetNavigation()
@@ -552,6 +557,16 @@ return {
 			state.RecoveryGoal = goal
 			state.RecoveryUntil = now + 1.2
 			return goal
+		end
+
+		local function pulseRecoveryJump(humanoid, now)
+			if now > state.RecoveryJumpUntil
+				or now - state.LastJumpRecoveryAt < FOLLOW_JUMP_REPEAT_INTERVAL
+				or humanoid.FloorMaterial == Enum.Material.Air then
+				return
+			end
+			humanoid.Jump = true
+			state.LastJumpRecoveryAt = now
 		end
 
 		local function updateFollowInteraction(root, followedCharacter, leaderRoot, spacing, now)
@@ -654,7 +669,8 @@ return {
 			state.Navigation.GoalTolerance = math.clamp(6 + leaderFlatSpeed * 0.22, 8, 16)
 			local goal = getDirectFollowGoal(leaderRoot, baseSpacing, now)
 			goal += getFormationOffset(root, leaderRoot, baseSpacing, followedPlayer, snapshots, now)
-			goal = updateRecovery(root, humanoid, goal, now)
+			goal = updateRecovery(root, goal, now)
+			pulseRecoveryJump(humanoid, now)
 			goal = updateAvoidance(root, goal, followedPlayer, snapshots, now)
 			renderTargetLine(root, goal)
 

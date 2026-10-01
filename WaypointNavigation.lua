@@ -1,6 +1,6 @@
 -- Dedicated waypoint movement. Uses Humanoid:MoveTo and local obstacle probes only.
-local VERSION = "1.2.0"
-print("[WaypointNavigation] Version " .. VERSION .. " (AIC-style ground probes + stuck recovery)")
+local VERSION = "1.2.1"
+print("[WaypointNavigation] Version " .. VERSION .. " (waypoint-distance progress + repeated jump recovery)")
 
 return {
 	Initialize = function(_configuration, dependencies)
@@ -22,15 +22,19 @@ return {
 			DirectClearSince = nil,
 			JumpUntil = 0,
 			LastJumpAt = 0,
+			StuckJumpUntil = 0,
+			LastStuckJumpAt = 0,
 		}
 
 		local SEARCH_INTERVAL = 0.45
-		local PROGRESS_INTERVAL = 1.25
+		local PROGRESS_INTERVAL = 1.0
 		local MOVE_REFRESH_INTERVAL = 5
 		local ARRIVAL_RADIUS = 0.75
 		local DETOUR_REACHED_RADIUS = 3
 		local DIRECT_CLEAR_CONFIRMATION = 0.75
-		local MIN_PROGRESS = 0.6
+		local MIN_PROGRESS = 0.4
+		local STUCK_JUMP_REPEAT_INTERVAL = 0.3
+		local STUCK_JUMP_WINDOW = 1.1
 
 		local function flatDistance(a, b)
 			local offset = b - a
@@ -53,6 +57,8 @@ return {
 			state.DirectClearSince = nil
 			state.JumpUntil = 0
 			state.LastJumpAt = 0
+			state.StuckJumpUntil = 0
+			state.LastStuckJumpAt = 0
 		end
 
 		local function makeRaycastParams(root)
@@ -182,7 +188,9 @@ return {
 		end
 
 		local function updateProgress(root, fallbackGoal, now)
-			local trackedGoal = state.CommandGoal or fallbackGoal
+			-- Judge progress against the pinned waypoint itself. Progress toward a
+			-- detour alone must not hide pacing or backtracking around the same spot.
+			local trackedGoal = fallbackGoal
 			local distanceNow = flatDistance(root.Position, trackedGoal)
 			if not state.ProgressAt or not state.ProgressGoal
 				or flatDistance(state.ProgressGoal, trackedGoal) > 1.5 then
@@ -199,8 +207,12 @@ return {
 			state.ProgressAt = now
 			state.ProgressGoal = trackedGoal
 			state.ProgressDistance = distanceNow
-			if progress >= MIN_PROGRESS or distanceNow <= DETOUR_REACHED_RADIUS then return false end
+			if progress >= MIN_PROGRESS or distanceNow <= ARRIVAL_RADIUS + 0.5 then
+				state.StuckJumpUntil = 0
+				return false
+			end
 
+			state.StuckJumpUntil = now + STUCK_JUMP_WINDOW
 			state.DetourSideBias = -(state.DetourSideBias or 1)
 			state.DetourDistance = math.min((state.DetourDistance or 8) + 4, 20)
 			state.DetourGoal = nil
@@ -208,6 +220,16 @@ return {
 			state.LastSearchAt = 0
 			state.LastCommandAt = 0
 			return true
+		end
+
+		local function pulseStuckJump(humanoid, now)
+			if now > state.StuckJumpUntil
+				or now - state.LastStuckJumpAt < STUCK_JUMP_REPEAT_INTERVAL
+				or humanoid.FloorMaterial == Enum.Material.Air then
+				return
+			end
+			humanoid.Jump = true
+			state.LastStuckJumpAt = now
 		end
 
 		local controller = {}
@@ -240,6 +262,7 @@ return {
 			end
 
 			local stalled = updateProgress(root, goal, now)
+			pulseStuckJump(humanoid, now)
 			local params = makeRaycastParams(root)
 			local obstruction = directObstruction(root, goal, params)
 			local destination = goal
@@ -311,8 +334,8 @@ return {
 				state.CommandGoal = destination
 				state.LastCommandAt = now
 				state.ProgressAt = now
-				state.ProgressGoal = destination
-				state.ProgressDistance = flatDistance(root.Position, destination)
+				state.ProgressGoal = goal
+				state.ProgressDistance = flatDistance(root.Position, goal)
 			end
 			return false, mode
 		end

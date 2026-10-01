@@ -1,4 +1,4 @@
-local VERSION = "2.6.18"
+local VERSION = "2.6.19"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -306,11 +306,11 @@ configurations.MainWidthScale = 0.72
 configurations.MainHeightScale = 0.84
 configurations.GuiScale = 1.0
 configurations.TextScale = 1.0
-configurations.PlayerPanelWidthScale = 0.40
+configurations.PlayerPanelWidthScale = 0.36
 configurations.PlayerPanelHeightScale = 0.60
 configurations.WhitelistPanelWidthScale = 0.40
 configurations.WhitelistPanelHeightScale = 0.55
-configurations.JoinLogWidthScale = 0.20
+configurations.JoinLogWidthScale = 0.38
 configurations.JoinLogHeightScale = 0.50
 configurations.ConfigFileName = ""
 configurations.ConfigSaveWarningShown = false
@@ -376,7 +376,11 @@ local function ScheduleExpRetaliationHealthWatch(mob)
 		configurations.ExpRetaliationHealthWatchers[mob] = watch
 		watch.HumanoidChildAddedConnection = mob.ChildAdded:Connect(function(child)
 			if child:IsA("Humanoid") then
-				ConnectExpRetaliationHumanoid(mob, child)
+				task.delay(0.25, function()
+					if child.Parent == mob and mob:IsDescendantOf(MobsFolder) then
+						ConnectExpRetaliationHumanoid(mob, child)
+					end
+				end)
 			end
 		end)
 	end)
@@ -446,8 +450,8 @@ if configurations.IsStudio then
 	end)
 else
 	configurations.CombatSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua?v=2.2.2")))()
-	configurations.WaypointNavigator = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.0")))()
-	configurations.FollowSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.0")))()
+	configurations.WaypointNavigator = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.1")))()
+	configurations.FollowSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.1")))()
 	configurations.SafeBoosterResetLoadOk, configurations.SafeBoosterResetLoadResult = pcall(function()
 		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/SafeBoosterResetSystem.lua?v=1.0.0")
 		local moduleFactory, compileError = loadstring(source)
@@ -626,11 +630,11 @@ function configurations.LoadConfig()
 	if config.MainHeightScale == nil and legacyHeight then
 		configurations.MainHeightScale = math.clamp(legacyHeight / math.max(1, viewport.Y), 0.4, 0.95)
 	end
-	configurations.PlayerPanelWidthScale = math.clamp(ReadNumber("PlayerPanelWidthScale", configurations.PlayerPanelWidthScale, 0.28, false), 0.28, 0.8)
+	configurations.PlayerPanelWidthScale = math.clamp(ReadNumber("PlayerPanelWidthScale", configurations.PlayerPanelWidthScale, 0.36, false), 0.28, 0.52)
 	configurations.PlayerPanelHeightScale = math.clamp(ReadNumber("PlayerPanelHeightScale", configurations.PlayerPanelHeightScale, 0.35, false), 0.35, 0.9)
 	configurations.WhitelistPanelWidthScale = math.clamp(ReadNumber("WhitelistPanelWidthScale", configurations.WhitelistPanelWidthScale, 0.26, false), 0.26, 0.8)
 	configurations.WhitelistPanelHeightScale = math.clamp(ReadNumber("WhitelistPanelHeightScale", configurations.WhitelistPanelHeightScale, 0.32, false), 0.32, 0.9)
-	configurations.JoinLogWidthScale = math.clamp(ReadNumber("JoinLogWidthScale", configurations.JoinLogWidthScale, 0.20, false), 0.20, 0.8)
+	configurations.JoinLogWidthScale = math.clamp(ReadNumber("JoinLogWidthScale", configurations.JoinLogWidthScale, 0.38, false), 0.32, 0.65)
 	configurations.JoinLogHeightScale = math.clamp(ReadNumber("JoinLogHeightScale", configurations.JoinLogHeightScale, 0.50, false), 0.20, 0.9)
 	if type(config.AlertsEnabled) == "boolean" then configurations.AlertsEnabled = config.AlertsEnabled end
 	if type(config.JoinAlertsEnabled) == "boolean" then configurations.JoinAlertsEnabled = config.JoinAlertsEnabled end
@@ -3484,7 +3488,7 @@ local AlertToggleButton = configurations.MakeToggle("Player alert", configuratio
 local AlertFlashButton = configurations.MakeToggle("Screen flash", configurations.AlertFlashEnabled, UIColors.RED, UIColors.RED_DIM, 2, AlertsGrid, "Flash the screen when an alert triggers.")
 local AutoResumeButton = configurations.MakeToggle("Auto resume", configurations.AutoResumeAfterAlert, UIColors.ACCENT, UIColors.ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
 configurations.JoinAlertButton = configurations.MakeToggle("Join alerts", configurations.JoinAlertsEnabled, UIColors.GREEN, UIColors.GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
-configurations.JoinLogButton = configurations.MakeActionRow("Join log", 5, AlertsGrid, "Open the player join and leave log.")
+configurations.JoinLogButton = configurations.MakeActionRow("Join Log", 5, AlertsGrid, "Open the player join and leave log.")
 
 -- Compact display controls used by the Performance page.
 function configurations.MakeScaleControl(parent, title, getter, setter, minValue, maxValue, step, order)
@@ -4321,7 +4325,7 @@ configurations.JoinLogTitle.Size = UDim2.new(1, -56, 0, 22)
 configurations.JoinLogTitle.Position = UDim2.fromOffset(14, 11)
 configurations.JoinLogTitle.ZIndex = 92
 configurations.JoinLogTitle.BackgroundTransparency = 1
-configurations.JoinLogTitle.Text = "Player activity"
+configurations.JoinLogTitle.Text = "Join Log"
 configurations.JoinLogTitle.TextColor3 = UIColors.TEXT
 configurations.JoinLogTitle.TextSize = 16
 configurations.JoinLogTitle.Font = Enum.Font.GothamBold
@@ -4366,7 +4370,7 @@ function configurations.RefreshJoinLog()
 		local entry = configurations.PlayerJoinLog[order]
 		local row = Instance.new("Frame")
 		row.Name = "JoinLogRow_" .. tostring(order)
-		row.Size = UDim2.new(1, -6, 0, 52)
+		row.Size = UDim2.new(1, -6, 0, 34)
 		row.LayoutOrder = #configurations.PlayerJoinLog - order + 1
 		row.ZIndex = 92
 		row.BackgroundColor3 = UIColors.CARD
@@ -4387,8 +4391,8 @@ function configurations.RefreshJoinLog()
 			or (entry.Event == "present" and UIColors.MUTED or UIColors.GREEN))
 
 		local timeBadge = Instance.new("TextLabel")
-		timeBadge.Size = UDim2.fromOffset(58, 22)
-		timeBadge.Position = UDim2.fromOffset(10, 8)
+		timeBadge.Size = UDim2.fromOffset(58, 20)
+		timeBadge.Position = UDim2.fromOffset(8, 7)
 		timeBadge.ZIndex = 93
 		timeBadge.BackgroundColor3 = UIColors.INPUT
 		timeBadge.BorderSizePixel = 0
@@ -4400,8 +4404,9 @@ function configurations.RefreshJoinLog()
 		Instance.new("UICorner", timeBadge).CornerRadius = UDim.new(0, 6)
 
 		local eventBadge = Instance.new("TextLabel")
-		eventBadge.Size = UDim2.fromOffset(isDanger and 110 or 58, 22)
-		eventBadge.Position = UDim2.fromOffset(74, 8)
+		local eventBadgeWidth = isDanger and 88 or 62
+		eventBadge.Size = UDim2.fromOffset(eventBadgeWidth, 20)
+		eventBadge.Position = UDim2.fromOffset(72, 7)
 		eventBadge.ZIndex = 93
 		eventBadge.BackgroundColor3 = isDanger and UIColors.RED_DIM
 			or (entry.Event == "left" and UIColors.RED_DIM
@@ -4415,8 +4420,9 @@ function configurations.RefreshJoinLog()
 		Instance.new("UICorner", eventBadge).CornerRadius = UDim.new(0, 6)
 
 		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Size = UDim2.new(1, -16, 0, 16)
-		nameLabel.Position = UDim2.fromOffset(10, 32)
+		local nameStart = 72 + eventBadgeWidth + 8
+		nameLabel.Size = UDim2.new(1, -(nameStart + 8), 0, 18)
+		nameLabel.Position = UDim2.fromOffset(nameStart, 8)
 		nameLabel.ZIndex = 93
 		nameLabel.BackgroundTransparency = 1
 		local whitelistTag = (entry.Whitelisted or currentlyWhitelisted) and "  ·  WL" or ""
@@ -4434,12 +4440,12 @@ end
 configurations.JoinLogButton.MouseButton1Click:Connect(function()
 	local isOpen = not configurations.JoinLogPanel.Visible
 	configurations.JoinLogPanel.Visible = isOpen
-	configurations.SetActionVisual(configurations.JoinLogButton, isOpen and "Close log" or "Join log", isOpen)
+	configurations.SetActionVisual(configurations.JoinLogButton, isOpen and "Close log" or "Join Log", isOpen)
 	if isOpen then configurations.RefreshJoinLog() end
 end)
 configurations.JoinLogCloseButton.MouseButton1Click:Connect(function()
 	configurations.JoinLogPanel.Visible = false
-	configurations.SetActionVisual(configurations.JoinLogButton, "Join log", false)
+	configurations.SetActionVisual(configurations.JoinLogButton, "Join Log", false)
 end)
 
 function configurations.MakeDraggable(panel, handle)
@@ -4476,22 +4482,34 @@ configurations.MakeDraggable(PlayerPanel, PlayerPanelHeader)
 configurations.MakeDraggable(configurations.WhitelistPanel, configurations.WhitelistHeader)
 configurations.MakeDraggable(configurations.JoinLogPanel, configurations.JoinLogHeader)
 
-function configurations.MakeResizable(panel, name, minWidth, minHeight, onReleased)
+function configurations.MakeResizable(panel, name, minWidth, minHeight, onReleased, maxWidthScale)
 	local handle = Instance.new("TextButton")
 	handle.Name = name .. "ResizeHandle"
-	handle.Size = UDim2.fromScale(0.07, 0.05)
+	handle.Size = UDim2.fromOffset(34, 34)
 	handle.AnchorPoint = Vector2.new(1, 1)
-	handle.Position = UDim2.fromScale(1, 1)
+	handle.Position = UDim2.new(1, -8, 1, -8)
 	handle.ZIndex = 95
-	handle.BackgroundColor3 = UIColors.CARD
-	handle.BackgroundTransparency = 0.1
+	handle.BackgroundColor3 = UIColors.INPUT
+	handle.BackgroundTransparency = 0.05
 	handle.BorderSizePixel = 0
-	handle.Text = "◢"
-	handle.TextColor3 = UIColors.MUTED
-	handle.TextScaled = true
+	handle.Text = "↘"
+	handle.TextColor3 = UIColors.ACCENT
+	handle.TextSize = 20
 	handle.Font = Enum.Font.GothamBold
 	handle.Parent = panel
-	Instance.new("UICorner", handle).CornerRadius = UDim.new(0, 5)
+	Instance.new("UICorner", handle).CornerRadius = UDim.new(0, 9)
+	local handleStroke = Instance.new("UIStroke", handle)
+	handleStroke.Color = UIColors.BORDER
+	handleStroke.Transparency = 0.15
+	handleStroke.Thickness = 1
+	handle.MouseEnter:Connect(function()
+		handle.BackgroundColor3 = UIColors.ACCENT_DIM
+		handle.TextColor3 = UIColors.ACCENT_SEL
+	end)
+	handle.MouseLeave:Connect(function()
+		handle.BackgroundColor3 = UIColors.INPUT
+		handle.TextColor3 = UIColors.ACCENT
+	end)
 
 	local resizing = false
 	local startPoint
@@ -4514,7 +4532,7 @@ function configurations.MakeResizable(panel, name, minWidth, minHeight, onReleas
 		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
 		if not viewport then return end
 		local delta = input.Position - startPoint
-		local maxWidth = math.max(minWidth, math.min(0.8, 1 - panel.Position.X.Scale))
+		local maxWidth = math.max(minWidth, math.min(maxWidthScale or 0.8, 1 - panel.Position.X.Scale))
 		local maxHeight = math.max(minHeight, math.min(0.9, 1 - panel.Position.Y.Scale))
 		panel.Size = UDim2.fromScale(
 			math.clamp(startWidth + delta.X / viewport.X, minWidth, maxWidth),
@@ -4526,15 +4544,15 @@ end
 configurations.MakeResizable(PlayerPanel, "PlayerPanel", 0.28, 0.35, function(width, height)
 	configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale = width, height
 	configurations.SaveConfig()
-end)
+end, 0.52)
 configurations.MakeResizable(configurations.WhitelistPanel, "WhitelistPanel", 0.20, 0.32, function(width, height)
 	configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale = width, height
 	configurations.SaveConfig()
 end)
-configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 0.20, 0.35, function(width, height)
+configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 0.32, 0.35, function(width, height)
 	configurations.JoinLogWidthScale, configurations.JoinLogHeightScale = width, height
 	configurations.SaveConfig()
-end)
+end, 0.65)
 
 function configurations.ApplyResponsiveOverlaySizes()
 	local camera = workspace.CurrentCamera
@@ -4545,8 +4563,8 @@ function configurations.ApplyResponsiveOverlaySizes()
 	-- Keep overlay panels at their saved percentage size when the screen changes.
 	-- Do NOT use pixel-based minimums here: those caused Player Logs / Whitelist /
 	-- Join Logs to grow larger when the viewport became smaller.
-	configurations.ClampOverlaySize = function(panel, widthScale, heightScale)
-		local maxWidth = math.max(0.05, math.min(0.80, 1 - 16 / viewport.X))
+	configurations.ClampOverlaySize = function(panel, widthScale, heightScale, panelMaxWidth)
+		local maxWidth = math.max(0.05, math.min(panelMaxWidth or 0.80, 1 - 16 / viewport.X))
 		local maxHeight = math.max(0.05, math.min(0.90, 1 - 16 / viewport.Y))
 		local wantedWidth = tonumber(widthScale) or panel.Size.X.Scale
 		local wantedHeight = tonumber(heightScale) or panel.Size.Y.Scale
@@ -4560,9 +4578,9 @@ function configurations.ApplyResponsiveOverlaySizes()
 		)
 	end
 
-	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale)
+	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale, 0.52)
 	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale)
-	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthScale, configurations.JoinLogHeightScale)
+	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthScale, configurations.JoinLogHeightScale, 0.65)
 end
 configurations.ApplyResponsiveOverlaySizes()
 
