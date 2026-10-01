@@ -1,6 +1,6 @@
 -- Direct player follow controller with bounded local MoveTo route planning.
-local VERSION = "1.16.2"
-print("[FollowSystem] Version " .. VERSION .. " (local route queue + goal-progress recovery)")
+local VERSION = "1.16.3"
+print("[FollowSystem] Version " .. VERSION .. " (jump-first stalled recovery)")
 
 return {
 	Initialize = function(configuration, dependencies)
@@ -74,8 +74,8 @@ return {
 		local FOLLOW_SEARCH_INTERVAL = 0.45
 		local FOLLOW_STUCK_INTERVAL = 1.0
 		local FOLLOW_PROGRESS_THRESHOLD = 0.4
-		local FOLLOW_JUMP_REPEAT_INTERVAL = 0.3
-		local FOLLOW_JUMP_WINDOW = 1.15
+		local FOLLOW_JUMP_REPEAT_INTERVAL = 0.25
+		local FOLLOW_JUMP_WINDOW = 1.6
 		local FOLLOW_DETOUR_REACHED_RADIUS = 3
 		local FOLLOW_DIRECT_CLEAR_CONFIRMATION = 0.6
 		local LEADER_STOP_CONFIRM_TIME = 0.65
@@ -346,7 +346,16 @@ return {
 				navigation.RouteSearchAt = now
 				routeDestination = nil
 			end
-			if obstruction or forceDetour then
+			local stuckJumping = now <= state.RecoveryJumpUntil
+				and humanoid.FloorMaterial ~= Enum.Material.Air
+			if stuckJumping then
+				clearFollowRoute()
+				navigation.DetourGoal = nil
+				navigation.DetourFor = nil
+				navigation.DetourClearSince = nil
+				destination = goal
+				mode = "jumping"
+			elseif obstruction or forceDetour then
 				navigation.DetourClearSince = nil
 				if not routeDestination and now - navigation.RouteSearchAt >= FOLLOW_SEARCH_INTERVAL then
 					findFollowRoute(root, goal, params, now)
@@ -653,6 +662,7 @@ return {
 				return
 			end
 			humanoid.Jump = true
+			pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end)
 			state.LastJumpRecoveryAt = now
 		end
 

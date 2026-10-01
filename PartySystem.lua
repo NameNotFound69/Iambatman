@@ -1,5 +1,7 @@
 -- Party leader following and server navigation for Iamrich.
 -- The leader teleport flow follows AIC's in-game Party ChatEvent approach.
+local VERSION = "1.1.0"
+print("[PartySystem] Version " .. VERSION .. " (public server list + direct join)")
 local PartySystem = {}
 
 function PartySystem.Initialize(configuration, services)
@@ -311,59 +313,74 @@ function PartySystem.Initialize(configuration, services)
 		return TeleportTo(jobId, "REJOINING SERVER")
 	end
 
-	local function ReadPublicServers()
+	local function ReadPublicServers(cursor)
 		local results = {}
-		local cursor = ""
-		for _ = 1, 4 do
-			local url = "https://games.roblox.com/v1/games/" .. tostring(game.PlaceId)
-				.. "/servers/Public?sortOrder=Asc&limit=100"
-			if cursor ~= "" then url ..= "&cursor=" .. HttpService:UrlEncode(cursor) end
-			local ok, body = pcall(function() return game:HttpGet(url) end)
-			if not ok then return nil, body end
-			local decodedOk, payload = pcall(function() return HttpService:JSONDecode(body) end)
-			if not decodedOk or type(payload) ~= "table" or type(payload.data) ~= "table" then
-				return nil, "The public server list response was invalid"
-			end
-			for _, server in ipairs(payload.data) do
-				local playing = tonumber(server.playing)
-				local maxPlayers = tonumber(server.maxPlayers)
-				if type(server.id) == "string" and server.id ~= game.JobId
-					and playing and maxPlayers and playing < maxPlayers then
-					table.insert(results, server.id)
-				end
-			end
-			if #results > 0 then return results end
-			cursor = type(payload.nextPageCursor) == "string" and payload.nextPageCursor or ""
-			if cursor == "" then break end
+		local url = "https://games.roblox.com/v1/games/" .. tostring(game.PlaceId)
+			.. "/servers/Public?sortOrder=Asc&limit=100"
+		if type(cursor) == "string" and cursor ~= "" then
+			url ..= "&cursor=" .. HttpService:UrlEncode(cursor)
 		end
-		return results
+		local ok, body = pcall(function() return game:HttpGet(url) end)
+		if not ok then return nil, nil, body end
+		local decodedOk, payload = pcall(function() return HttpService:JSONDecode(body) end)
+		if not decodedOk or type(payload) ~= "table" or type(payload.data) ~= "table" then
+			return nil, nil, "The public server list response was invalid"
+		end
+		for _, server in ipairs(payload.data) do
+			local playing = tonumber(server.playing)
+			local maxPlayers = tonumber(server.maxPlayers)
+			if type(server.id) == "string" and server.id ~= game.JobId
+				and playing and maxPlayers and playing < maxPlayers then
+				table.insert(results, {
+					Id = server.id,
+					Playing = playing,
+					MaxPlayers = maxPlayers,
+					Ping = tonumber(server.ping),
+					FPS = tonumber(server.fps),
+				})
+			end
+		end
+		return results, type(payload.nextPageCursor) == "string" and payload.nextPageCursor or nil
 	end
 
 	local function HopServer()
 		if state.Teleporting then return false end
 		SetStatus("FINDING SERVER")
 		task.spawn(function()
-			local servers, err = ReadPublicServers()
-			if not servers then
-				SetStatus("HOP FAILED")
-				Notify("Server hop", "Could not read the public server list: " .. tostring(err), 6)
-				return
+			local cursor
+			for _ = 1, 4 do
+				local servers, nextCursor, err = ReadPublicServers(cursor)
+				if not servers then
+					SetStatus("HOP FAILED")
+					Notify("Server hop", "Could not read the public server list: " .. tostring(err), 6)
+					return
+				end
+				if #servers > 0 then
+					local target = servers[math.random(1, #servers)].Id
+					Notify("Server hop", "Joining another public server…")
+					TeleportTo(target, "HOPPING SERVER")
+					return
+				end
+				cursor = nextCursor
+				if not cursor or cursor == "" then break end
 			end
-			if #servers == 0 then
-				SetStatus("NO OTHER SERVER")
-				Notify("Server hop", "No different public server with free space was found.", 6)
-				return
-			end
-			local target = servers[math.random(1, #servers)]
-			Notify("Server hop", "Joining another public server…")
-			TeleportTo(target, "HOPPING SERVER")
+			SetStatus("NO OTHER SERVER")
+			Notify("Server hop", "No different public server with free slots was found.", 6)
 		end)
 		return true
 	end
 
+	local function JoinServer(instanceId)
+		if type(instanceId) ~= "string" or instanceId == "" or instanceId == game.JobId then
+			Notify("Server", "That server ID is not valid or is already the current server.")
+			return false
+		end
+		return TeleportTo(instanceId, "JOINING SELECTED SERVER")
+	end
+
 	local function BuildUI(palette)
 		local page = configuration.CreatePage("Party", false)
-		configuration.AddPageHeading(page, "Party", "Follow a party leader across servers")
+		configuration.AddPageHeading(page, "Party", "Select a leader and follow them between servers")
 
 		state.UI.Toggle = configuration.MakeToggle("Follow party leader", configuration.PartyFollowEnabled,
 			palette.ACCENT, palette.ACCENT_DIM, 2, page, "Join the selected leader when they are in another server.")
@@ -400,7 +417,6 @@ function PartySystem.Initialize(configuration, services)
 		state.UI.Status.Font = Enum.Font.Gotham
 		state.UI.Status.TextXAlignment = Enum.TextXAlignment.Left
 		state.UI.Status.Parent = info
-
 
 		local listHeading = Instance.new("Frame")
 		listHeading.Size = UDim2.new(1, 0, 0, 32)
@@ -473,12 +489,223 @@ function PartySystem.Initialize(configuration, services)
 		SetStatus(state.Status)
 	end
 
+	local function BuildServerUI(palette)
+		local page = configuration.CreatePage("Server", false)
+		configuration.AddPageHeading(page, "Server", "Browse public servers or join a specific one")
+		state.UI.ServerPage = page
+
+		local actions = Instance.new("Frame")
+		actions.Name = "ServerActions"
+		actions.Size = UDim2.new(1, 0, 0, 42)
+		actions.LayoutOrder = 2
+		actions.BackgroundTransparency = 1
+		actions.Parent = page
+
+		local function makeAction(name, text, xScale, color, callback)
+			local button = Instance.new("TextButton")
+			button.Name = name
+			button.Size = UDim2.new(0.5, -5, 1, 0)
+			button.Position = UDim2.new(xScale, xScale == 0 and 0 or 5, 0, 0)
+			button.BackgroundColor3 = color
+			button.BorderSizePixel = 0
+			button.Text = text
+			button.TextColor3 = palette.TEXT
+			button.TextSize = 12
+			button.Font = Enum.Font.GothamBold
+			button.Parent = actions
+			Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
+			button.MouseButton1Click:Connect(callback)
+			return button
+		end
+
+		makeAction("RejoinServer", "Rejoin", 0, palette.INPUT, RejoinServer)
+		makeAction("HopServer", "Hop", 0.5, palette.ACCENT_DIM, HopServer)
+
+		local status = Instance.new("TextLabel")
+		status.Name = "ServerListStatus"
+		status.Size = UDim2.new(1, 0, 0, 20)
+		status.LayoutOrder = 3
+		status.BackgroundTransparency = 1
+		status.Text = "Loading public servers…"
+		status.TextColor3 = palette.MUTED
+		status.TextSize = 11
+		status.Font = Enum.Font.Gotham
+		status.TextXAlignment = Enum.TextXAlignment.Left
+		status.Parent = page
+		state.UI.ServerStatus = status
+
+		local listHeader = Instance.new("Frame")
+		listHeader.Name = "ServerListHeader"
+		listHeader.Size = UDim2.new(1, 0, 0, 32)
+		listHeader.LayoutOrder = 4
+		listHeader.BackgroundTransparency = 1
+		listHeader.Parent = page
+
+		local listTitle = Instance.new("TextLabel")
+		listTitle.Size = UDim2.new(0.55, 0, 1, 0)
+		listTitle.BackgroundTransparency = 1
+		listTitle.Text = "Public servers"
+		listTitle.TextColor3 = palette.TEXT
+		listTitle.TextSize = 12
+		listTitle.Font = Enum.Font.GothamBold
+		listTitle.TextXAlignment = Enum.TextXAlignment.Left
+		listTitle.Parent = listHeader
+
+		local refresh = Instance.new("TextButton")
+		refresh.Name = "RefreshServers"
+		refresh.Size = UDim2.new(0.4, 0, 1, 0)
+		refresh.Position = UDim2.new(0.6, 0, 0, 0)
+		refresh.BackgroundColor3 = palette.INPUT
+		refresh.BorderSizePixel = 0
+		refresh.Text = "Refresh"
+		refresh.TextColor3 = palette.TEXT
+		refresh.TextSize = 11
+		refresh.Font = Enum.Font.GothamBold
+		refresh.Parent = listHeader
+		Instance.new("UICorner", refresh).CornerRadius = UDim.new(0, 7)
+
+		local list = Instance.new("ScrollingFrame")
+		list.Name = "PublicServerList"
+		list.Size = UDim2.new(1, 0, 0, 260)
+		list.LayoutOrder = 5
+		list.BackgroundColor3 = palette.CARD
+		list.BorderSizePixel = 0
+		list.ScrollBarThickness = 4
+		list.ScrollBarImageColor3 = palette.MUTED
+		list.CanvasSize = UDim2.new()
+		list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		list.ScrollingDirection = Enum.ScrollingDirection.Y
+		list.Parent = page
+		state.UI.ServerList = list
+		Instance.new("UICorner", list).CornerRadius = UDim.new(0, 9)
+		Instance.new("UIStroke", list).Color = palette.BORDER
+		local padding = Instance.new("UIPadding")
+		padding.PaddingTop = UDim.new(0, 6)
+		padding.PaddingBottom = UDim.new(0, 6)
+		padding.PaddingLeft = UDim.new(0, 6)
+		padding.PaddingRight = UDim.new(0, 6)
+		padding.Parent = list
+		local layout = Instance.new("UIListLayout")
+		layout.Padding = UDim.new(0, 5)
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Parent = list
+
+		local loadMore = Instance.new("TextButton")
+		loadMore.Name = "LoadMoreServers"
+		loadMore.Size = UDim2.new(1, 0, 0, 36)
+		loadMore.LayoutOrder = 6
+		loadMore.BackgroundColor3 = palette.INPUT
+		loadMore.BorderSizePixel = 0
+		loadMore.Text = "Load more"
+		loadMore.TextColor3 = palette.TEXT
+		loadMore.TextSize = 11
+		loadMore.Font = Enum.Font.GothamBold
+		loadMore.Visible = false
+		loadMore.Parent = page
+		Instance.new("UICorner", loadMore).CornerRadius = UDim.new(0, 8)
+
+		local cursor = nil
+		local loading = false
+		local entryCount = 0
+		local function clearRows()
+			for _, child in ipairs(list:GetChildren()) do
+				if child ~= layout and child ~= padding then child:Destroy() end
+			end
+			entryCount = 0
+		end
+
+		local function addServerRow(server)
+			entryCount += 1
+			local row = Instance.new("Frame")
+			row.Name = "Server_" .. tostring(entryCount)
+			row.Size = UDim2.new(1, -2, 0, 54)
+			row.LayoutOrder = entryCount
+			row.BackgroundColor3 = palette.INPUT
+			row.BorderSizePixel = 0
+			row.Parent = list
+			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 7)
+
+			local detail = Instance.new("TextLabel")
+			detail.Size = UDim2.new(1, -98, 1, -8)
+			detail.Position = UDim2.fromOffset(9, 4)
+			detail.BackgroundTransparency = 1
+			local shortId = string.sub(server.Id, 1, 8) .. "…" .. string.sub(server.Id, -6)
+			local pingText = server.Ping and (tostring(server.Ping) .. " ms") or "n/a"
+			local fpsText = server.FPS and tostring(server.FPS) or "n/a"
+			detail.Text = string.format("%d/%d players  ·  Ping %s  ·  FPS %s\n%s", server.Playing, server.MaxPlayers, pingText, fpsText, shortId)
+			detail.TextColor3 = palette.TEXT
+			detail.TextSize = 10
+			detail.Font = Enum.Font.Gotham
+			detail.TextXAlignment = Enum.TextXAlignment.Left
+			detail.TextYAlignment = Enum.TextYAlignment.Center
+			detail.TextWrapped = false
+			detail.TextTruncate = Enum.TextTruncate.AtEnd
+			detail.Parent = row
+
+			local join = Instance.new("TextButton")
+			join.Name = "JoinServer"
+			join.Size = UDim2.new(0, 72, 0, 30)
+			join.Position = UDim2.new(1, -80, 0.5, -15)
+			join.BackgroundColor3 = palette.ACCENT_DIM
+			join.BorderSizePixel = 0
+			join.Text = "Join"
+			join.TextColor3 = palette.TEXT
+			join.TextSize = 11
+			join.Font = Enum.Font.GothamBold
+			join.Parent = row
+			Instance.new("UICorner", join).CornerRadius = UDim.new(0, 7)
+			join.MouseButton1Click:Connect(function()
+				JoinServer(server.Id)
+			end)
+		end
+
+		local function loadServers(reset)
+			if loading then return end
+			if reset then
+				cursor = nil
+				clearRows()
+			end
+			if not reset and (type(cursor) ~= "string" or cursor == "") then return end
+			loading = true
+			refresh.Active = false
+			loadMore.Active = false
+			status.Text = reset and "Loading public servers…" or "Loading more servers…"
+			task.spawn(function()
+				local servers, nextCursor, err = ReadPublicServers(reset and nil or cursor)
+				if not page.Parent then loading = false return end
+				loading = false
+				refresh.Active = true
+				loadMore.Active = true
+				if not servers then
+					status.Text = "Could not load servers: " .. tostring(err)
+					loadMore.Visible = false
+					return
+				end
+				for _, server in ipairs(servers) do addServerRow(server) end
+				cursor = nextCursor
+				loadMore.Visible = type(cursor) == "string" and cursor ~= ""
+				if entryCount == 0 then
+					status.Text = "No public servers with free slots were found."
+				elseif loadMore.Visible then
+					status.Text = tostring(entryCount) .. " servers loaded. More are available."
+				else
+					status.Text = tostring(entryCount) .. " servers loaded."
+				end
+			end)
+		end
+
+		refresh.MouseButton1Click:Connect(function() loadServers(true) end)
+		loadMore.MouseButton1Click:Connect(function() loadServers(false) end)
+		task.defer(function() loadServers(true) end)
+	end
+
 	local module = {
 		SetEnabled = SetEnabled,
 		SetLeader = SetLeader,
 		RejoinServer = RejoinServer,
 		HopServer = HopServer,
 		BuildUI = BuildUI,
+		BuildServerUI = BuildServerUI,
 		GetStatus = function() return state.Status end,
 	}
 

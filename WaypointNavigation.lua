@@ -1,6 +1,6 @@
 -- Dedicated waypoint movement. Uses Humanoid:MoveTo and local obstacle probes only.
-local VERSION = "1.2.2"
-print("[WaypointNavigation] Version " .. VERSION .. " (local route queue + waypoint-progress recovery)")
+local VERSION = "1.2.3"
+print("[WaypointNavigation] Version " .. VERSION .. " (jump-first stalled recovery)")
 
 return {
 	Initialize = function(_configuration, dependencies)
@@ -39,8 +39,8 @@ return {
 		local DETOUR_REACHED_RADIUS = 3
 		local DIRECT_CLEAR_CONFIRMATION = 0.75
 		local MIN_PROGRESS = 0.4
-		local STUCK_JUMP_REPEAT_INTERVAL = 0.3
-		local STUCK_JUMP_WINDOW = 1.1
+		local STUCK_JUMP_REPEAT_INTERVAL = 0.25
+		local STUCK_JUMP_WINDOW = 1.6
 
 		local function flatDistance(a, b)
 			local offset = b - a
@@ -134,6 +134,7 @@ return {
 			end
 			if (lowHit and not highHit) or stepUp then
 				humanoid.Jump = true
+				pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end)
 				state.LastJumpAt = now
 				state.JumpUntil = now + 0.6
 				state.DetourGoal = nil
@@ -290,6 +291,7 @@ return {
 				return
 			end
 			humanoid.Jump = true
+			pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end)
 			state.LastStuckJumpAt = now
 		end
 
@@ -335,7 +337,9 @@ return {
 				activeGoal.Z - root.Position.Z
 			)
 			local shouldRecover = obstruction ~= nil or stalled
-			local shouldJump = now < state.JumpUntil
+			local stuckJumping = now <= state.StuckJumpUntil
+				and humanoid.FloorMaterial ~= Enum.Material.Air
+			local shouldJump = stuckJumping or now < state.JumpUntil
 				or (shouldRecover and canJumpOver(root, humanoid, recoveryDirection, params, now))
 			local routeMatches = state.RouteFor and flatDistance(state.RouteFor, goal) <= 2
 				and math.abs(state.RouteFor.Y - goal.Y) <= 2

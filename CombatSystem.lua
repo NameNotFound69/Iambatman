@@ -1,6 +1,6 @@
 -- Direct-movement controller for selected-mob combat.
-local VERSION = "2.2.2"
-print("[CombatSystem] Version " .. VERSION .. " (MoveTo + adaptive detours)")
+local VERSION = "2.2.3"
+print("[CombatSystem] Version " .. VERSION .. " (MoveTo + jump recovery)")
 return {
 	Initialize = function(configuration, dependencies)
 		local combat = configuration.CombatSystem
@@ -30,6 +30,9 @@ return {
 			state.DetourSearchAt = nil
 			state.PursuitOrbitAngle, state.PursuitOrbitAt = nil, nil
 			state.NavigationMode = nil
+			state.ProgressAt, state.ProgressGoal, state.ProgressDistance = nil, nil, nil
+			state.StuckJumpUntil, state.LastStuckJumpAt = 0, 0
+			state.LastJumpAt = 0
 		end
 
 		function combat.GroundAlignGoal(root, goal, target)
@@ -115,7 +118,36 @@ return {
 				if state.Active then humanoid:MoveTo(root.Position) end
 				state.Active, state.Goal, state.DetourGoal = false, nil, nil
 				state.DetourFor, state.DetourSearchAt = nil, nil
+				state.ProgressAt, state.ProgressGoal, state.ProgressDistance = nil, nil, nil
+				state.StuckJumpUntil, state.LastStuckJumpAt = 0, 0
+				state.LastJumpAt = 0
 				return true, "arrived"
+			end
+
+			local flatGoalDistance = flatDistance(root.Position, goal)
+			if not state.ProgressAt or not state.ProgressGoal
+				or flatDistance(state.ProgressGoal, goal) > 2.5 then
+				state.ProgressAt = now
+				state.ProgressGoal = goal
+				state.ProgressDistance = flatGoalDistance
+			elseif now - state.ProgressAt >= 1 then
+				local progress = (state.ProgressDistance or flatGoalDistance) - flatGoalDistance
+				state.ProgressAt = now
+				state.ProgressGoal = goal
+				state.ProgressDistance = flatGoalDistance
+				if progress < 0.45 and flatGoalDistance > (stopRadius or 1.8) + 2 then
+					state.StuckJumpUntil = now + 1.6
+				else
+					state.StuckJumpUntil = 0
+				end
+			end
+
+			local stuckJumping = now <= (state.StuckJumpUntil or 0)
+				and humanoid.FloorMaterial ~= Enum.Material.Air
+			if stuckJumping and now - (state.LastStuckJumpAt or 0) >= 0.25 then
+				humanoid.Jump = true
+				pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end)
+				state.LastStuckJumpAt = now
 			end
 
 			local params = raycastParams(root, target, includeMobs)
@@ -124,14 +156,21 @@ return {
 				and workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), direction, params)
 			local destination = goal
 			local mode = "direct"
-			if obstruction then
+			if stuckJumping then
+				destination = goal
+				mode = "jumping"
+				state.DetourGoal, state.DetourFor = nil, nil
+			elseif obstruction then
 				local flat = direction.Magnitude > 0.1 and direction.Unit or Vector3.zero
 				local probe = flat * math.min(4.5, direction.Magnitude)
 				local feet = root.Position - Vector3.new(0, root.Size.Y * 0.5, 0)
 				local lowHit = workspace:Raycast(feet + Vector3.new(0, 0.6, 0), probe, params)
 				local highHit = workspace:Raycast(feet + Vector3.new(0, 3.2, 0), probe, params)
-				if lowHit and not highHit and humanoid.FloorMaterial ~= Enum.Material.Air then
+				if lowHit and not highHit and humanoid.FloorMaterial ~= Enum.Material.Air
+					and now - (state.LastJumpAt or 0) >= 0.25 then
 					humanoid.Jump = true
+					pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end)
+					state.LastJumpAt = now
 					mode = "jumping"
 					state.DetourGoal, state.DetourFor = nil, nil
 				else

@@ -1,4 +1,4 @@
-local VERSION = "2.6.20"
+local VERSION = "2.6.22"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -178,7 +178,32 @@ local function SmoothMoveTo(humanoid, root, goal, state, minInterval, stopRadius
 			state.Active = false
 			state.Goal = nil
 		end
+		state.ProgressAt, state.ProgressGoal, state.ProgressDistance = nil, nil, nil
+		state.JumpUntil, state.LastJumpAt = 0, 0
 		return true
+	end
+	if not state.Active or not state.ProgressAt or not state.ProgressGoal
+		or (state.ProgressGoal - goal).Magnitude > 3 then
+		state.ProgressAt = now
+		state.ProgressGoal = goal
+		state.ProgressDistance = dist
+		state.JumpUntil = 0
+	elseif now - state.ProgressAt >= 1 then
+		local progress = (state.ProgressDistance or dist) - dist
+		state.ProgressAt = now
+		state.ProgressGoal = goal
+		state.ProgressDistance = dist
+		if progress < 0.45 and dist > (stopRadius or 1.6) + 2 then
+			state.JumpUntil = now + 1.6
+		else
+			state.JumpUntil = 0
+		end
+	end
+	if now <= (state.JumpUntil or 0) and humanoid.FloorMaterial ~= Enum.Material.Air
+		and now - (state.LastJumpAt or 0) >= 0.25 then
+		humanoid.Jump = true
+		pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end)
+		state.LastJumpAt = now
 	end
 	local sameGoal = state.Goal and (state.Goal - goal).Magnitude < 1.25
 	local interval = minInterval or 0.22
@@ -453,8 +478,15 @@ if configurations.IsStudio then
 	configurations.PartySystemLoadOk, configurations.PartySystemLoadResult = pcall(function()
 		return require(script:WaitForChild("PartySystem.lua"))
 	end)
+	configurations.TeleportSystemLoadOk, configurations.TeleportSystemLoadResult = pcall(function()
+		local teleportModuleScript = script:FindFirstChild("TeleportSystem.lua")
+		assert(teleportModuleScript and teleportModuleScript:IsA("ModuleScript"), "TeleportSystem.lua ModuleScript is missing")
+		local teleportModule = require(teleportModuleScript)
+		assert(type(teleportModule) == "table" and type(teleportModule.Initialize) == "function", "TeleportSystem has no Initialize function")
+		return teleportModule
+	end)
 else
-	configurations.CombatSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua?v=2.2.2")))()
+	configurations.CombatSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/CombatSystem.lua?v=2.2.3")))()
 	configurations.LocalRoutePlannerLoadOk, configurations.LocalRoutePlanner = pcall(function()
 		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/LocalRoutePlanner.lua?v=1.0.0")
 		local factory, compileError = loadstring(source)
@@ -463,8 +495,8 @@ else
 		assert(type(module) == "table" and type(module.FindRoute) == "function", "LocalRoutePlanner has no FindRoute function")
 		return module
 	end)
-	configurations.WaypointNavigator = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.2")))()
-	configurations.FollowSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.2")))()
+	configurations.WaypointNavigator = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/WaypointNavigation.lua?v=1.2.3")))()
+	configurations.FollowSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FollowSystem.lua?v=1.16.3")))()
 	configurations.SafeBoosterResetLoadOk, configurations.SafeBoosterResetLoadResult = pcall(function()
 		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/SafeBoosterResetSystem.lua?v=1.0.0")
 		local moduleFactory, compileError = loadstring(source)
@@ -475,11 +507,19 @@ else
 	end)
 	configurations.FPSBoostSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.2.0")))()
 	configurations.PartySystemLoadOk, configurations.PartySystemLoadResult = pcall(function()
-		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.0.1")
+		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.1.0")
 		local moduleFactory, compileError = loadstring(source)
 		assert(moduleFactory, compileError)
 		local module = moduleFactory()
 		assert(type(module) == "table" and type(module.Initialize) == "function", "PartySystem has no Initialize function")
+		return module
+	end)
+	configurations.TeleportSystemLoadOk, configurations.TeleportSystemLoadResult = pcall(function()
+		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/TeleportSystem.lua?v=1.0.0")
+		local moduleFactory, compileError = loadstring(source)
+		assert(moduleFactory, compileError)
+		local module = moduleFactory()
+		assert(type(module) == "table" and type(module.Initialize) == "function", "TeleportSystem has no Initialize function")
 		return module
 	end)
 end
@@ -512,6 +552,23 @@ if configurations.PartySystemLoadOk then
 	configurations.PartySystem = configurations.PartySystemLoadResult
 else
 	warn("[Iamrich] PartySystem is unavailable:", configurations.PartySystemLoadResult)
+end
+if configurations.TeleportSystemLoadOk then
+	configurations.TeleportSystemInitOk, configurations.TeleportSystemInitResult = pcall(function()
+		return configurations.TeleportSystemLoadResult.Initialize(configurations, {
+			ReplicatedStorage = ReplicatedStorage,
+			Workspace = workspace,
+		})
+	end)
+	if configurations.TeleportSystemInitOk and type(configurations.TeleportSystemInitResult) == "table"
+		and type(configurations.TeleportSystemInitResult.BuildUI) == "function" then
+		configurations.TeleportSystem = configurations.TeleportSystemInitResult
+	else
+		configurations.TeleportSystem = nil
+		warn("[Iamrich] TeleportSystem failed to initialize:", configurations.TeleportSystemInitResult)
+	end
+else
+	warn("[Iamrich] TeleportSystem is unavailable:", configurations.TeleportSystemLoadResult)
 end
 
 function configurations.PrepareConfigStorage()
@@ -2246,12 +2303,15 @@ if configurations.PartySystem then
 end
 configurations.MakeNavSection("Movement", 10)
 NavButtons.Waypoint = configurations.MakeNavButton("Waypoint", nil, 11)
-if configurations.PartySystem then
-	NavButtons.Server = configurations.MakeNavButton("Server", nil, 12)
+if configurations.TeleportSystem then
+	NavButtons.Teleport = configurations.MakeNavButton("Teleport", nil, 12)
 end
-configurations.MakeNavSection("Visuals", 13)
-NavButtons.ESP = configurations.MakeNavButton("ESP", nil, 14)
-NavButtons.Performance = configurations.MakeNavButton("Performance", nil, 15)
+if configurations.PartySystem and type(configurations.PartySystem.BuildServerUI) == "function" then
+	NavButtons.Server = configurations.MakeNavButton("Server", nil, configurations.TeleportSystem and 13 or 12)
+end
+configurations.MakeNavSection("Visuals", configurations.TeleportSystem and 14 or 13)
+NavButtons.ESP = configurations.MakeNavButton("ESP", nil, configurations.TeleportSystem and 15 or 14)
+NavButtons.Performance = configurations.MakeNavButton("Performance", nil, configurations.TeleportSystem and 16 or 15)
 
 function configurations.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -2821,6 +2881,19 @@ function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, des
 	return btn
 end
 
+if configurations.TeleportSystem then
+	configurations.TeleportSystem.BuildUI({
+		CARD = UIColors.CARD,
+		INPUT = UIColors.INPUT,
+		BORDER = UIColors.BORDER,
+		TEXT = UIColors.TEXT,
+		MUTED = UIColors.MUTED,
+		ACCENT = UIColors.ACCENT,
+		ACCENT_DIM = UIColors.ACCENT_DIM,
+		RED = UIColors.RED,
+	})
+end
+
 if configurations.PartySystem then
 	configurations.PartySystem.BuildUI({
 		CARD = UIColors.CARD,
@@ -2832,61 +2905,20 @@ if configurations.PartySystem then
 		ACCENT_DIM = UIColors.ACCENT_DIM,
 		RED = UIColors.RED,
 	})
-
-	-- Server travel page (Rejoin / Hop) — separate from Party
-	local ServerPage = configurations.CreatePage("Server", false)
-	configurations.AddPageHeading(ServerPage, "Server travel", "Rejoin this server or hop to another public server")
-	Pages.Server = ServerPage
-
-	local serverActions = Instance.new("Frame")
-	serverActions.Name = "ServerActions"
-	serverActions.Size = UDim2.new(1, 0, 0, 52)
-	serverActions.LayoutOrder = 2
-	serverActions.BackgroundTransparency = 1
-	serverActions.Parent = ServerPage
-
-	local function MakeTravelButton(name, text, xScale, color, callback)
-		local button = Instance.new("TextButton")
-		button.Name = name
-		button.Size = UDim2.new(0.5, -6, 1, 0)
-		button.Position = UDim2.new(xScale, xScale == 0 and 0 or 6, 0, 0)
-		button.BackgroundColor3 = color
-		button.BorderSizePixel = 0
-		button.Text = text
-		button.TextColor3 = UIColors.TEXT
-		button.TextSize = 14
-		button.Font = Enum.Font.GothamBold
-		button.Parent = serverActions
-		Instance.new("UICorner", button).CornerRadius = UDim.new(0, 10)
-		local stroke = Instance.new("UIStroke", button)
-		stroke.Color = UIColors.BORDER
-		stroke.Transparency = 0.55
-		stroke.Thickness = 1
-		button.MouseButton1Click:Connect(callback)
-		return button
+	if type(configurations.PartySystem.BuildServerUI) == "function" then
+		configurations.PartySystem.BuildServerUI({
+		CARD = UIColors.CARD,
+		INPUT = UIColors.INPUT,
+		BORDER = UIColors.BORDER,
+		TEXT = UIColors.TEXT,
+		MUTED = UIColors.MUTED,
+		ACCENT = UIColors.ACCENT,
+		ACCENT_DIM = UIColors.ACCENT_DIM,
+		RED = UIColors.RED,
+		})
+	else
+		warn("[Iamrich] Server list UI is unavailable; update PartySystem.lua to v1.1.0 or newer.")
 	end
-	MakeTravelButton("RejoinServer", "Rejoin server", 0, UIColors.INPUT, function()
-		if configurations.PartySystem and configurations.PartySystem.RejoinServer then
-			configurations.PartySystem.RejoinServer()
-		end
-	end)
-	MakeTravelButton("HopServer", "Hop server", 0.5, UIColors.ACCENT_DIM, function()
-		if configurations.PartySystem and configurations.PartySystem.HopServer then
-			configurations.PartySystem.HopServer()
-		end
-	end)
-
-	local serverHint = Instance.new("TextLabel")
-	serverHint.Size = UDim2.new(1, 0, 0, 40)
-	serverHint.LayoutOrder = 3
-	serverHint.BackgroundTransparency = 1
-	serverHint.Text = "Rejoin returns to this JobId. Hop picks a different public server with free slots."
-	serverHint.TextColor3 = UIColors.MUTED
-	serverHint.TextSize = 12
-	serverHint.Font = Enum.Font.Gotham
-	serverHint.TextWrapped = true
-	serverHint.TextXAlignment = Enum.TextXAlignment.Left
-	serverHint.Parent = ServerPage
 end
 
 -- Action row: title + description + chevron (opens a panel / runs an action — not a switch)
@@ -3895,7 +3927,7 @@ local ExpAutoApproachButton = configurations.MakeToggle(
 	UIColors.ACCENT_DIM,
 	3,
 	FarmPage,
-	"Move toward the EXP target while farming."
+	"When off, waits within the search radius. When on, approaches the target and jumps if stuck."
 )
 ExpAutoApproachButton.MouseButton1Click:Connect(function()
 	configurations.ExpAutoApproachEnabled = not configurations.ExpAutoApproachEnabled
@@ -5520,7 +5552,7 @@ task.spawn(function()
 				StateLabel.Text = configurations.ExpAutoApproachEnabled and "Moving" or "Waiting"
 				MiniState.Text = configurations.ExpAutoApproachEnabled
 					and string.format("Too far (%.0f); walking back into %.0f studs", firingDistance, configurations.MaxDistance)
-					or string.format("Target too far (%.0f); waiting within %.0f studs", firingDistance, configurations.MaxDistance)
+				or string.format("Target too far (%.0f); Auto approach OFF (limit %.0f)", firingDistance, configurations.MaxDistance)
 				task.wait(0.08)
 				continue
 			end
