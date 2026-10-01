@@ -1,4 +1,4 @@
-local VERSION = "2.6.17"
+local VERSION = "2.6.18"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -263,6 +263,8 @@ configurations.ExpHitWatchHits = nil
 configurations.ExpHitWatchHitsConnection = nil
 configurations.ExpHitLastHits = nil
 configurations.ExpHitDamageTagWasAdded = false
+configurations.ExpRetaliationHealthWatchers = setmetatable({}, { __mode = "k" })
+configurations.ExpRetaliationPendingMobWatches = setmetatable({}, { __mode = "k" })
 configurations.LastTarget = nil
 configurations.TargetStartTime = 0
 configurations.AccumulatedTime = 0
@@ -319,6 +321,79 @@ configurations.LegacyConfigOwnerFileName = "Iamrich_LegacyConfigOwner.txt"
 configurations.MigratedLegacyConfig = false
 configurations.IsMinimized = false
 configurations.Combat = {}
+
+local function DisconnectExpRetaliationHealthWatch(mob)
+	local watch = configurations.ExpRetaliationHealthWatchers[mob]
+	if watch then
+		if watch.Connection then watch.Connection:Disconnect() end
+		if watch.HumanoidChildAddedConnection then watch.HumanoidChildAddedConnection:Disconnect() end
+		configurations.ExpRetaliationHealthWatchers[mob] = nil
+	end
+	configurations.ExpRetaliationPendingMobWatches[mob] = nil
+end
+
+local function ConnectExpRetaliationHumanoid(mob, humanoid)
+	if not humanoid or not mob:IsDescendantOf(MobsFolder) then return end
+	DisconnectExpRetaliationHealthWatch(mob)
+
+	local watch = {
+		Humanoid = humanoid,
+		LastHealth = humanoid.Health,
+	}
+	configurations.ExpRetaliationHealthWatchers[mob] = watch
+	watch.Connection = humanoid.HealthChanged:Connect(function(currentHealth)
+		local previousHealth = watch.LastHealth
+		watch.LastHealth = currentHealth
+		if previousHealth and currentHealth < previousHealth
+			and configurations.Farming
+			and not configurations.EmergencyStopActive
+			and configurations.ExpTargetRetaliationEnabled
+			and configurations.CurrentTarget == mob then
+			configurations.ExpRetaliationTarget = mob
+		end
+	end)
+end
+
+local function ScheduleExpRetaliationHealthWatch(mob)
+	if not mob or not mob:IsA("Model") or not mob:IsDescendantOf(MobsFolder)
+		or configurations.ExpRetaliationHealthWatchers[mob]
+		or configurations.ExpRetaliationPendingMobWatches[mob] then
+		return
+	end
+
+	configurations.ExpRetaliationPendingMobWatches[mob] = true
+	task.delay(0.25, function()
+		configurations.ExpRetaliationPendingMobWatches[mob] = nil
+		if not mob:IsDescendantOf(MobsFolder) then return end
+
+		local humanoid = mob:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			ConnectExpRetaliationHumanoid(mob, humanoid)
+			return
+		end
+
+		local watch = {}
+		configurations.ExpRetaliationHealthWatchers[mob] = watch
+		watch.HumanoidChildAddedConnection = mob.ChildAdded:Connect(function(child)
+			if child:IsA("Humanoid") then
+				ConnectExpRetaliationHumanoid(mob, child)
+			end
+		end)
+	end)
+end
+
+MobsFolder.ChildAdded:Connect(ScheduleExpRetaliationHealthWatch)
+MobsFolder.ChildRemoved:Connect(function(mob)
+	DisconnectExpRetaliationHealthWatch(mob)
+	if configurations.ExpRetaliationTarget == mob then
+		configurations.ExpRetaliationTarget = nil
+	end
+end)
+task.defer(function()
+	for _, mob in ipairs(MobsFolder:GetChildren()) do
+		ScheduleExpRetaliationHealthWatch(mob)
+	end
+end)
 
 function configurations.NotifyUser(title, message, duration)
 	task.spawn(function()
@@ -3841,19 +3916,19 @@ AutoExecuteButton.MouseButton1Click:Connect(function()
 end)
 
 local ExpTargetRetaliationButton = configurations.MakeToggle(
-	"EXP retaliation",
+	"Avengers Assemble",
 	configurations.ExpTargetRetaliationEnabled,
 	UIColors.RED,
 	UIColors.RED_DIM,
 	5,
 	FarmPage,
-	"Attack the EXP mob if it is hit."
+	"Attack the EXP target after its health drops."
 )
 ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
 	configurations.ExpTargetRetaliationEnabled = not configurations.ExpTargetRetaliationEnabled
 	configurations.SetToggleVisual(
 		ExpTargetRetaliationButton,
-		"EXP retaliation",
+		"Avengers Assemble",
 		configurations.ExpTargetRetaliationEnabled,
 		UIColors.RED,
 		UIColors.RED_DIM
@@ -5130,20 +5205,11 @@ task.spawn(function()
 	local watchedTarget = nil
 	local lastObservedExp = nil
 	local lastExpProgressAt = 0
-	local watchedHealthTarget = nil
-	local lastObservedTargetHealth = nil
-	local healthChangedConnection = nil
 	local adaptiveYield = 0
 	local lastCycleGain = 0
 	local lastCycleCalls = 0
 	-- Must close in once per target before the first shot; after that, keep firing while walking back.
 	local engagedFireTarget = nil
-	local function StartExpRetaliation(mob, currentHealth)
-		configurations.ExpRetaliationTarget = mob
-		lastObservedTargetHealth = currentHealth
-		StateLabel.Text = "EXP target hit"
-		MiniState.Text = "Attacking the damaged EXP target until it dies"
-	end
 	while true do
 		if not configurations.Farming or configurations.EmergencyStopActive then
 			if watchedTarget then
@@ -5175,12 +5241,6 @@ task.spawn(function()
 				continue
 			end
 			configurations.ExpRetaliationTarget = nil
-			watchedHealthTarget = nil
-			lastObservedTargetHealth = nil
-			if healthChangedConnection then
-				healthChangedConnection:Disconnect()
-				healthChangedConnection = nil
-			end
 		end
 
 		if target and configurations.Combat.IsLivingMob(target) then
@@ -5236,35 +5296,6 @@ task.spawn(function()
 			MiniState.Text = "Waiting for target EXP data"
 			task.wait(0.25)
 			continue
-		end
-
-		local targetHumanoid = target:FindFirstChildOfClass("Humanoid")
-		if watchedHealthTarget ~= target then
-			if healthChangedConnection then healthChangedConnection:Disconnect() end
-			watchedHealthTarget = target
-			lastObservedTargetHealth = targetHumanoid and targetHumanoid.Health or nil
-			healthChangedConnection = nil
-			if targetHumanoid then
-				healthChangedConnection = targetHumanoid.HealthChanged:Connect(function(currentHealth)
-					if configurations.Farming and not configurations.EmergencyStopActive
-						and configurations.ExpTargetRetaliationEnabled and lastObservedTargetHealth
-						and currentHealth < lastObservedTargetHealth then
-						StartExpRetaliation(target, currentHealth)
-					end
-					lastObservedTargetHealth = currentHealth
-				end)
-			end
-		elseif targetHumanoid then
-			if configurations.ExpTargetRetaliationEnabled
-				and lastObservedTargetHealth and targetHumanoid.Health < lastObservedTargetHealth then
-				StartExpRetaliation(target, targetHumanoid.Health)
-				task.wait(0.05)
-				continue
-			else
-				lastObservedTargetHealth = targetHumanoid.Health
-			end
-		else
-			lastObservedTargetHealth = nil
 		end
 
 		local now = os.clock()
@@ -5398,16 +5429,6 @@ task.spawn(function()
 				break
 			end
 			if exp.Value >= configurations.ExpGoal then break end
-			local firingHumanoid = target:FindFirstChildOfClass("Humanoid")
-			if configurations.ExpTargetRetaliationEnabled and watchedHealthTarget == target
-				and firingHumanoid and lastObservedTargetHealth
-				and firingHumanoid.Health < lastObservedTargetHealth then
-				StartExpRetaliation(target, firingHumanoid.Health)
-				break
-			elseif firingHumanoid then
-				lastObservedTargetHealth = firingHumanoid.Health
-			end
-
 			local firingCharacter = Player.Character
 			local firingRoot = firingCharacter and firingCharacter:FindFirstChild("HumanoidRootPart")
 			local firingMobRoot = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
