@@ -363,7 +363,7 @@ function PartySystem.Initialize(configuration, services)
 
 	local function BuildUI(palette)
 		local page = configuration.CreatePage("Party", false)
-		configuration.AddPageHeading(page, "Party", "Choose a leader and manage server travel")
+		configuration.AddPageHeading(page, "Party & server travel", "Follow a leader, rejoin this server or hop to another")
 
 		state.UI.Toggle = configuration.MakeToggle("Follow party leader", configuration.PartyFollowEnabled,
 			palette.ACCENT, palette.ACCENT_DIM, 2, page, "Join the selected leader when they are in another server.")

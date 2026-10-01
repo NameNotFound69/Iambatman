@@ -1,4 +1,4 @@
-local VERSION = "2.6.13"
+local VERSION = "2.6.14"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -420,7 +420,7 @@ configuration.FPSBoostSystem = configuration.FPSBoostSystem.Initialize(configura
 })
 configuration.PartySystemLoadOk, configuration.PartySystemLoadResult = pcall(function()
 	local source = game:HttpGet(
-		"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.0.0"
+		"https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.0.1"
 	)
 	local moduleFactory, compileError = loadstring(source)
 	assert(moduleFactory, compileError)
@@ -1853,11 +1853,11 @@ end
 
 configuration.AddPageHeading(ExpPage, "Experience", "Track your level, EXP and active farm session")
 configuration.AddPageHeading(ESPPage, "ESP", "Show other players on screen")
-configuration.AddPageHeading(PlayerPage, "Players", "Follow, block, whitelist and server list")
-configuration.AddPageHeading(AlertsPage, "Alerts", "Warn when other players come nearby")
-configuration.AddPageHeading(FarmPage, "Farm settings", "EXP cycle, range, timing and target behavior")
-configuration.AddPageHeading(CombatPage, "Combat", "Auto attack, skills and mob targeting")
-configuration.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
+configuration.AddPageHeading(PlayerPage, "Players", "Choose a follow target and manage whitelist and player list")
+configuration.AddPageHeading(AlertsPage, "Alerts & protection", "Nearby alerts, join log and automatic block prompt")
+configuration.AddPageHeading(FarmPage, "EXP farm settings", "EXP cycle, range, timing and target behavior")
+configuration.AddPageHeading(CombatPage, "Combat & targets", "Auto attack, skills and mob targeting")
+configuration.AddPageHeading(WaypointPage, "Waypoint movement", "Pin a position and return when displaced")
 configuration.AddPageHeading(PerformancePage, "Performance", "Reduce graphics load while playing")
 
 Sidebar = Instance.new("Frame")
@@ -1955,22 +1955,23 @@ function configuration.MakeNavButton(text, icon, order)
 	return button
 end
 
-configuration.MakeNavSection("Auto Farm", 1)
+configuration.MakeNavSection("Farm", 1)
 local NavButtons = {
 	EXP    = configuration.MakeNavButton("Overview", nil, 2),
-	Farm   = configuration.MakeNavButton("Farm settings", nil, 3),
+	Farm   = configuration.MakeNavButton("EXP settings", nil, 3),
 	Combat = configuration.MakeNavButton("Combat", nil, 4),
-	Waypoint = configuration.MakeNavButton("Waypoint", nil, 5),
 }
-configuration.MakeNavSection("Tools", 6)
+configuration.MakeNavSection("Players", 5)
+NavButtons.Player = configuration.MakeNavButton("Players", nil, 6)
 NavButtons.Alerts = configuration.MakeNavButton("Alerts", nil, 7)
-NavButtons.Player = configuration.MakeNavButton("Players", nil, 8)
+configuration.MakeNavSection("Navigation", 8)
+NavButtons.Waypoint = configuration.MakeNavButton("Waypoint", nil, 9)
 if configuration.PartySystem then
-	NavButtons.Party = configuration.MakeNavButton("Party", nil, 9)
+	NavButtons.Party = configuration.MakeNavButton("Party", nil, 10)
 end
-configuration.MakeNavSection("Display", 10)
-NavButtons.ESP = configuration.MakeNavButton("ESP", nil, 11)
-NavButtons.Performance = configuration.MakeNavButton("Performance", nil, 12)
+configuration.MakeNavSection("Display", 11)
+NavButtons.ESP = configuration.MakeNavButton("ESP", nil, 12)
+NavButtons.Performance = configuration.MakeNavButton("Performance", nil, 13)
 
 function configuration.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -3152,7 +3153,7 @@ local ESPToggleButton = configuration.MakeToggle("Player ESP", configuration.ESP
 local ESPLineButton = configuration.MakeToggle("ESP lines", configuration.ESPLineEnabled, ACCENT, ACCENT_DIM, 3, nil, "Draw lines to players.")
 local ESPBoxButton = configuration.MakeToggle("ESP boxes", configuration.ESPBoxEnabled, ACCENT, ACCENT_DIM, 4, nil, "Draw boxes around players.")
 local FPSBoostButton = configuration.MakeToggle("Boost FPS", configuration.FPSBoostEnabled, ACCENT, ACCENT_DIM, 1, PerformanceGrid, "Reduce visual effects while keeping scene lights and color correction.")
-local AutoBlockButton = configuration.MakeToggle("Auto block", configuration.AutoBlockEnabled, RED, RED_DIM, 5, PlayersGrid, "Show the block prompt after the EXP target is defeated.")
+local AutoBlockButton = configuration.MakeToggle("Auto block", configuration.AutoBlockEnabled, RED, RED_DIM, 6, AlertsGrid, "Show the block prompt after the EXP target is defeated.")
 local PlayerListButton = configuration.MakeActionRow("Player list", 1, PlayersGrid, "View players in this server.")
 local WhitelistButton = configuration.MakeActionRow("Whitelist", 2, PlayersGrid, "Whitelisted players do not trigger alerts or auto-block.")
 FollowSelectButton = configuration.MakeActionRow("Choose follow target", 3, PlayersGrid, "Select who to follow.")
