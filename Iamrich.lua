@@ -1,4 +1,4 @@
-local VERSION = "2.6.44"
+local VERSION = "2.6.45"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6646,8 +6646,9 @@ end
 function configurations.UpdateCreditLog()
 	local now = os.clock()
 	for tag, entry in pairs(configurations.CreditLogEntries) do
-		if not tag.Parent or tag.Parent ~= entry.Humanoid
-			or not entry.Mob or not entry.Mob:IsDescendantOf(MobsFolder) then
+		-- Keep the credit while its tag is still attached to the humanoid.
+		-- Mobs can be reparented during death/despawn before the credit tag is removed.
+		if not tag.Parent or tag.Parent ~= entry.Humanoid then
 			configurations.RemoveCreditLogEntry(tag)
 		else
 			local previousUsername = entry.Username
