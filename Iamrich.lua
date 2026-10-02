@@ -1,4 +1,4 @@
-local VERSION = "2.6.43"
+local VERSION = "2.6.44"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2265,20 +2265,17 @@ function configurations.ApplyGuiScale()
 				scaleObj.Parent = root
 			end
 
-			local keepCenter = (root == Main) and viewport and viewport.X > 0 and viewport.Y > 0
-			local oldCenter = nil
-			if keepCenter and root.AbsoluteSize.X > 0 then
-				oldCenter = root.AbsolutePosition + root.AbsoluteSize * 0.5
-			end
+			local keepPosition = viewport and viewport.X > 0 and viewport.Y > 0 and root.AbsoluteSize.X > 0
+			local oldPosition = keepPosition and root.AbsolutePosition or nil
 
 			scaleObj.Scale = scale
 
-			if keepCenter and oldCenter and root.AbsoluteSize.X > 0 then
+			if keepPosition and oldPosition and root.AbsoluteSize.X > 0 then
 				local newSize = root.AbsoluteSize
-				local px = math.clamp(oldCenter.X - newSize.X * 0.5, 8, math.max(8, viewport.X - newSize.X - 8))
-				local py = math.clamp(oldCenter.Y - newSize.Y * 0.5, 8, math.max(8, viewport.Y - newSize.Y - 8))
+				local px = math.clamp(oldPosition.X, 8, math.max(8, viewport.X - newSize.X - 8))
+				local py = math.clamp(oldPosition.Y, 8, math.max(8, viewport.Y - newSize.Y - 8))
 				root.AnchorPoint = Vector2.new(0, 0)
-				root.Position = UDim2.fromOffset(px, py)
+				root.Position = UDim2.fromOffset(px / math.max(scale, 0.01), py / math.max(scale, 0.01))
 			end
 		end
 	end
@@ -2288,7 +2285,11 @@ configurations.SetGuiScale = function(value, save)
 	configurations.GuiScale = math.clamp(tonumber(value) or 1, 0.20, 2.50)
 	configurations.ApplyGuiScale()
 	if save ~= false and configurations.SaveConfig then
-		configurations.SaveConfig()
+		if configurations.SaveWindowSizes then
+			configurations.SaveWindowSizes(true)
+		else
+			configurations.SaveConfig()
+		end
 	end
 end
 
@@ -2319,8 +2320,10 @@ function configurations.PositionToScale(guiObject, viewport)
 	-- Prefer AbsolutePosition when available (works for both Scale and Offset positions).
 	local abs = guiObject.AbsolutePosition
 	local size = guiObject.AbsoluteSize
-	local xScale = abs.X / vx
-	local yScale = abs.Y / vy
+	local scaleObject = guiObject:FindFirstChild("GuiScale")
+	local guiScale = scaleObject and scaleObject:IsA("UIScale") and math.max(scaleObject.Scale, 0.01) or 1
+	local xScale = abs.X / (vx * guiScale)
+	local yScale = abs.Y / (vy * guiScale)
 	-- Fallback if Absolute* is not ready yet (e.g. first frame before layout).
 	if size.X < 1 and size.Y < 1 then
 		xScale = guiObject.Position.X.Scale + guiObject.Position.X.Offset / vx
@@ -2352,7 +2355,7 @@ function configurations.ApplyResponsiveMainSize()
 		py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
 		Main.AnchorPoint = Vector2.new(0, 0)
 		Main.Size = UDim2.fromOffset(w, h)
-		Main.Position = UDim2.fromOffset(px, py)
+		Main.Position = UDim2.fromOffset(px / math.max(uiScale, 0.01), py / math.max(uiScale, 0.01))
 		return
 	end
 
@@ -2384,7 +2387,7 @@ function configurations.ApplyResponsiveMainSize()
 		px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
 		py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
 	end
-	Main.Position = UDim2.fromOffset(px, py)
+	Main.Position = UDim2.fromOffset(px / math.max(uiScale, 0.01), py / math.max(uiScale, 0.01))
 	configurations.MainWidthScale = w / math.max(1, viewport.X)
 	configurations.MainHeightScale = h / math.max(1, viewport.Y)
 end
@@ -2402,8 +2405,12 @@ configurations.BindResponsiveViewport = function()
 		-- Defer one frame so AbsolutePosition/Size settle after the viewport change.
 		task.defer(function()
 			configurations.ApplyResponsiveMainSize()
-			if configurations.ApplyResponsiveOverlaySizes then
-				configurations.ApplyResponsiveOverlaySizes()
+			if configurations.ApplyResponsiveOverlaySizes then configurations.ApplyResponsiveOverlaySizes() end
+			if configurations.ApplyGuiScale then configurations.ApplyGuiScale() end
+			if configurations.ApplySavedPanelPositions then configurations.ApplySavedPanelPositions() end
+		end)
+	end)
+end
 
 function configurations.ApplySavedPanelPositions()
 	local pos = configurations.PanelPositions
@@ -2411,10 +2418,44 @@ function configurations.ApplySavedPanelPositions()
 	local function apply(name, gui)
 		local p = pos[name]
 		if not p or not gui then return end
-		local x, y = tonumber(p.X), tonumber(p.Y)
-		if not x or not y then return end
-		gui.AnchorPoint = Vector2.new(0, 0)
-		gui.Position = UDim2.fromOffset(x, y)
+		local scaleObject = gui:FindFirstChild("GuiScale")
+		local guiScale = scaleObject and scaleObject:IsA("UIScale") and scaleObject.Scale or 1
+		local positionScaleX = tonumber(p.PositionScaleX)
+		local positionOffsetX = tonumber(p.PositionOffsetX)
+		local positionScaleY = tonumber(p.PositionScaleY)
+		local positionOffsetY = tonumber(p.PositionOffsetY)
+		local anchorX = tonumber(p.AnchorX)
+		local anchorY = tonumber(p.AnchorY)
+		if positionScaleX and positionOffsetX and positionScaleY and positionOffsetY then
+			gui.AnchorPoint = Vector2.new(anchorX or 0, anchorY or 0)
+			gui.Position = UDim2.new(positionScaleX, positionOffsetX, positionScaleY, positionOffsetY)
+		else
+			-- Older builds stored absolute screen pixels; convert them back to the
+			-- root's unscaled offsets so saved positions survive GUI scaling.
+			local x, y = tonumber(p.X), tonumber(p.Y)
+			if not x or not y then return end
+			gui.AnchorPoint = Vector2.new(0, 0)
+			gui.Position = UDim2.fromOffset(x / math.max(guiScale, 0.01), y / math.max(guiScale, 0.01))
+		end
+
+		local viewport = configurations.GetViewportSize and configurations.GetViewportSize()
+		local absoluteSize = gui.AbsoluteSize
+		if viewport and absoluteSize.X > 0 and absoluteSize.Y > 0 then
+			local position = gui.Position
+			local anchor = gui.AnchorPoint
+			local screenX = (position.X.Scale * viewport.X + position.X.Offset) * guiScale - anchor.X * absoluteSize.X
+			local screenY = (position.Y.Scale * viewport.Y + position.Y.Offset) * guiScale - anchor.Y * absoluteSize.Y
+			local clampedX = math.clamp(screenX, 8, math.max(8, viewport.X - absoluteSize.X - 8))
+			local clampedY = math.clamp(screenY, 8, math.max(8, viewport.Y - absoluteSize.Y - 8))
+			if clampedX ~= screenX or clampedY ~= screenY then
+				gui.Position = UDim2.new(
+					position.X.Scale,
+					(clampedX + anchor.X * absoluteSize.X) / math.max(guiScale, 0.01) - position.X.Scale * viewport.X,
+					position.Y.Scale,
+					(clampedY + anchor.Y * absoluteSize.Y) / math.max(guiScale, 0.01) - position.Y.Scale * viewport.Y
+				)
+			end
+		end
 	end
 	apply("Main", Main)
 	apply("PlayerPanel", configurations.PlayerPanel)
@@ -2422,17 +2463,7 @@ function configurations.ApplySavedPanelPositions()
 	apply("JoinLogPanel", configurations.JoinLogPanel)
 	apply("CreditLogPanel", configurations.CreditLogPanel)
 	apply("PlayerCardPanel", configurations.PlayerCardPanel)
-end
-task.defer(function()
-	if configurations.ApplySavedPanelPositions then configurations.ApplySavedPanelPositions() end
-end)
-
-			end
-			if configurations.ApplyGuiScale then
-				configurations.ApplyGuiScale()
-			end
-		end)
-	end)
+	apply("ServerInfoPanel", ServerInfoPanel)
 end
 configurations.BindResponsiveViewport()
 workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(configurations.BindResponsiveViewport)
@@ -2682,6 +2713,7 @@ function configurations.ApplyMinimized(state)
 		local viewport = configurations.GetViewportSize and configurations.GetViewportSize()
 			or (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize)
 			or Vector2.new(1280, 720)
+		local uiScale = configurations.GetEffectiveGuiScale and configurations.GetEffectiveGuiScale() or 1
 		local sx, sy = configurations.PositionToScale(Main, viewport)
 		SavedMainPosition = UDim2.fromScale(sx, sy)
 		-- Compact floating card
@@ -2689,8 +2721,8 @@ function configurations.ApplyMinimized(state)
 		Header.Size = UDim2.fromScale(1, 1)
 		Header.BackgroundColor3 = UIColors.BG
 		-- Keep near previous top-left, clamp into viewport using pixel x/y
-		local px = math.clamp(sx * viewport.X, 8, math.max(8, viewport.X - MINI_WIDTH - 8))
-		local py = math.clamp(sy * viewport.Y, 8, math.max(8, viewport.Y - MINI_HEIGHT - 8))
+		local px = math.clamp(sx * viewport.X, 8 / uiScale, math.max(8 / uiScale, viewport.X / uiScale - MINI_WIDTH - 8 / uiScale))
+		local py = math.clamp(sy * viewport.Y, 8 / uiScale, math.max(8 / uiScale, viewport.Y / uiScale - MINI_HEIGHT - 8 / uiScale))
 		Main.Position = UDim2.fromOffset(px, py)
 		-- Same order as full UI: Status left, expand (+) rightmost
 		Status.Position = UDim2.new(1, -84, 0, 8)
@@ -2709,8 +2741,8 @@ function configurations.ApplyMinimized(state)
 			local h = Main.Size.Y.Offset
 			local px = SavedMainPosition.X.Scale * viewport.X + SavedMainPosition.X.Offset
 			local py = SavedMainPosition.Y.Scale * viewport.Y + SavedMainPosition.Y.Offset
-			px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
-			py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
+			px = math.clamp(px, 8 / uiScale, math.max(8 / uiScale, viewport.X / uiScale - w - 8 / uiScale))
+			py = math.clamp(py, 8 / uiScale, math.max(8 / uiScale, viewport.Y / uiScale - h - 8 / uiScale))
 			Main.AnchorPoint = Vector2.new(0, 0)
 			Main.Position = UDim2.fromOffset(px, py)
 		end
@@ -2732,6 +2764,7 @@ end)
 -- Drag (offset-from-click: keeps the grabbed point under the cursor; safe with UIScale)
 local Dragging = false
 local DragOffset = nil -- Vector2: cursor - AbsolutePosition at press
+local MainDragScale = 1
 
 Header.InputBegan:Connect(function(input)
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1
@@ -2750,13 +2783,16 @@ Header.InputBegan:Connect(function(input)
 	Main.AnchorPoint = Vector2.new(0, 0)
 	-- Convert current visual top-left into Offset position first (no jump).
 	local abs = Main.AbsolutePosition
-	Main.Position = UDim2.fromOffset(abs.X, abs.Y)
+	local scaleObject = Main:FindFirstChild("GuiScale")
+	MainDragScale = scaleObject and scaleObject:IsA("UIScale") and math.max(scaleObject.Scale, 0.01) or 1
+	Main.Position = UDim2.fromOffset(abs.X / MainDragScale, abs.Y / MainDragScale)
 	DragOffset = Vector2.new(input.Position.X - abs.X, input.Position.Y - abs.Y)
 
 	input.Changed:Connect(function()
 		if input.UserInputState == Enum.UserInputState.End then
 			Dragging = false
 			DragOffset = nil
+			if configurations.SaveWindowSizes then configurations.SaveWindowSizes(true) end
 		end
 	end)
 end)
@@ -2782,7 +2818,7 @@ UserInputService.InputChanged:Connect(function(input)
 	y = math.clamp(y, 0, math.max(0, parentSize.Y - mainSize.Y))
 
 	Main.AnchorPoint = Vector2.new(0, 0)
-	Main.Position = UDim2.fromOffset(x, y)
+	Main.Position = UDim2.fromOffset(x / MainDragScale, y / MainDragScale)
 end)
 
 --==================================================
@@ -4467,9 +4503,9 @@ function configurations.ResetUIToDefault()
 end
 configurations.ResetWindowSizesToDefault = configurations.ResetUIToDefault
 
-function configurations.SaveWindowSizes()
+function configurations.SaveWindowSizes(silent)
 	-- Capture current on-screen sizes + positions into config, then persist.
-	if Main and Main.Size.X.Offset > 0 then
+	if Main and not configurations.IsMinimized and Main.Size.X.Offset > 0 then
 		configurations.MainWidthPx = Main.Size.X.Offset
 		configurations.MainHeightPx = Main.Size.Y.Offset
 	end
@@ -4477,8 +4513,12 @@ function configurations.SaveWindowSizes()
 	local function savePos(name, gui)
 		if gui and gui.AbsoluteSize.X > 0 then
 			configurations.PanelPositions[name] = {
-				X = gui.AbsolutePosition.X,
-				Y = gui.AbsolutePosition.Y,
+				PositionScaleX = gui.Position.X.Scale,
+				PositionOffsetX = gui.Position.X.Offset,
+				PositionScaleY = gui.Position.Y.Scale,
+				PositionOffsetY = gui.Position.Y.Offset,
+				AnchorX = gui.AnchorPoint.X,
+				AnchorY = gui.AnchorPoint.Y,
 			}
 		end
 	end
@@ -4488,6 +4528,7 @@ function configurations.SaveWindowSizes()
 	savePos("JoinLogPanel", configurations.JoinLogPanel)
 	savePos("CreditLogPanel", configurations.CreditLogPanel)
 	savePos("PlayerCardPanel", configurations.PlayerCardPanel)
+	savePos("ServerInfoPanel", ServerInfoPanel)
 
 	if configurations.PlayerPanel and configurations.PlayerPanel.Size.X.Offset > 0 then
 		configurations.PlayerPanelWidthPx = configurations.PlayerPanel.Size.X.Offset
@@ -4506,7 +4547,7 @@ function configurations.SaveWindowSizes()
 		configurations.CreditLogHeightPx = configurations.CreditLogPanel.Size.Y.Offset
 	end
 	configurations.SaveConfig()
-	configurations.NotifyUser("Display", "Window sizes saved.", 3)
+	if not silent then configurations.NotifyUser("Display", "Window sizes and positions saved.", 3) end
 end
 
 local GuiScaleControl = configurations.MakeScaleControl(
@@ -5980,13 +6021,13 @@ function configurations.RefreshCreditLog()
 		local creditedUserId = entry.UserId
 		local row = Instance.new("Frame")
 		row.Name = "CreditLogRow_" .. tostring(order)
-		row.Size = UDim2.new(1, -6, 0, 36)
+		row.Size = UDim2.new(1, -6, 0, 34)
 		row.LayoutOrder = order
 		row.ZIndex = 92
 		row.BackgroundColor3 = UIColors.CARD
 		row.BorderSizePixel = 0
 		row.Parent = configurations.CreditLogScroll
-		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
 		local rowStroke = Instance.new("UIStroke", row)
 		rowStroke.Color = UIColors.BORDER
 		rowStroke.Transparency = 0.55
@@ -5995,12 +6036,12 @@ function configurations.RefreshCreditLog()
 		local countdown = Instance.new("TextLabel")
 		countdown.Name = "Countdown"
 		countdown.Size = UDim2.fromOffset(58, 20)
-		countdown.Position = UDim2.fromOffset(8, 8)
+		countdown.Position = UDim2.fromOffset(8, 7)
 		countdown.ZIndex = 93
-		countdown.BackgroundColor3 = UIColors.GREEN_DIM
+		countdown.BackgroundColor3 = UIColors.INPUT
 		countdown.BorderSizePixel = 0
 		countdown.Text = "--:--"
-		countdown.TextColor3 = UIColors.GREEN
+		countdown.TextColor3 = UIColors.MUTED
 		countdown.TextSize = 11
 		countdown.Font = Enum.Font.GothamBold
 		countdown.Parent = row
@@ -6010,12 +6051,12 @@ function configurations.RefreshCreditLog()
 		local hitBadge = Instance.new("TextLabel")
 		hitBadge.Name = "HitBadge"
 		hitBadge.Size = UDim2.fromOffset(48, 20)
-		hitBadge.Position = UDim2.fromOffset(72, 8)
+		hitBadge.Position = UDim2.fromOffset(72, 7)
 		hitBadge.ZIndex = 93
-		hitBadge.BackgroundColor3 = UIColors.INPUT
+		hitBadge.BackgroundColor3 = UIColors.GREEN_DIM
 		hitBadge.BorderSizePixel = 0
 		hitBadge.Text = "HIT"
-		hitBadge.TextColor3 = UIColors.ACCENT
+		hitBadge.TextColor3 = UIColors.GREEN
 		hitBadge.TextSize = 11
 		hitBadge.Font = Enum.Font.GothamBold
 		hitBadge.Parent = row
@@ -6024,7 +6065,7 @@ function configurations.RefreshCreditLog()
 		local nameButton = Instance.new("TextButton")
 		nameButton.Name = "CreditedPlayer"
 		nameButton.Size = UDim2.new(1, -140, 0, 24)
-		nameButton.Position = UDim2.fromOffset(128, 6)
+		nameButton.Position = UDim2.fromOffset(128, 5)
 		nameButton.ZIndex = 93
 		nameButton.BackgroundTransparency = 1
 		nameButton.AutoButtonColor = false
@@ -6076,6 +6117,12 @@ configurations.CreditLogCloseButton.MouseButton1Click:Connect(function()
 end)
 
 function configurations.MakeDraggable(panel, handle)
+	if not panel or not handle or panel:GetAttribute("IamrichDraggableConnected") then return end
+	panel:SetAttribute("IamrichDraggableConnected", true)
+	local function getPanelScale()
+		local scaleObject = panel:FindFirstChild("GuiScale")
+		return scaleObject and scaleObject:IsA("UIScale") and math.max(scaleObject.Scale, 0.01) or 1
+	end
 	local dragging = false
 	local dragOffset -- cursor - AbsolutePosition at press
 	handle.InputBegan:Connect(function(input)
@@ -6093,13 +6140,15 @@ function configurations.MakeDraggable(panel, handle)
 		dragging = true
 		panel.AnchorPoint = Vector2.new(0, 0)
 		local abs = panel.AbsolutePosition
-		panel.Position = UDim2.fromOffset(abs.X, abs.Y)
+		local scale = getPanelScale()
+		panel.Position = UDim2.fromOffset(abs.X / scale, abs.Y / scale)
 		dragOffset = Vector2.new(input.Position.X - abs.X, input.Position.Y - abs.Y)
 
 		input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
 				dragging = false
 				dragOffset = nil
+				if configurations.SaveWindowSizes then configurations.SaveWindowSizes(true) end
 			end
 		end)
 	end)
@@ -6116,7 +6165,8 @@ function configurations.MakeDraggable(panel, handle)
 		local x = math.clamp(input.Position.X - dragOffset.X, 8, math.max(8, viewport.X - w - 8))
 		local y = math.clamp(input.Position.Y - dragOffset.Y, 8, math.max(8, viewport.Y - h - 8))
 		panel.AnchorPoint = Vector2.new(0, 0)
-		panel.Position = UDim2.fromOffset(x, y)
+		local scale = getPanelScale()
+		panel.Position = UDim2.fromOffset(x / scale, y / scale)
 	end)
 end
 
@@ -6190,19 +6240,19 @@ end
 
 configurations.MakeResizable(configurations.PlayerPanel, "PlayerPanel", 280, 300, function(width, height)
 	configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx = width, height
-	configurations.SaveConfig()
+	configurations.SaveWindowSizes(true)
 end, 640, 1200)
 configurations.MakeResizable(configurations.WhitelistPanel, "WhitelistPanel", 240, 260, function(width, height)
 	configurations.WhitelistPanelWidthPx, configurations.WhitelistPanelHeightPx = width, height
-	configurations.SaveConfig()
+	configurations.SaveWindowSizes(true)
 end, 560, 1100)
 configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 260, 260, function(width, height)
 	configurations.JoinLogWidthPx, configurations.JoinLogHeightPx = width, height
-	configurations.SaveConfig()
+	configurations.SaveWindowSizes(true)
 end, 560, 1100)
 configurations.MakeResizable(configurations.CreditLogPanel, "CreditLogPanel", 280, 280, function(width, height)
 	configurations.CreditLogWidthPx, configurations.CreditLogHeightPx = width, height
-	configurations.SaveConfig()
+	configurations.SaveWindowSizes(true)
 end, 640, 1200)
 
 function configurations.ApplyResponsiveOverlaySizes()
@@ -6227,7 +6277,7 @@ function configurations.ApplyResponsiveOverlaySizes()
 		px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
 		py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
 		panel.Size = UDim2.fromOffset(w, h)
-		panel.Position = UDim2.fromOffset(px, py)
+		panel.Position = UDim2.fromOffset(px / math.max(uiScale, 0.01), py / math.max(uiScale, 0.01))
 	end
 
 	if not configurations.PlayerPanelCardMode then
@@ -6237,7 +6287,10 @@ function configurations.ApplyResponsiveOverlaySizes()
 	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthPx, configurations.JoinLogHeightPx, 560, 1100)
 	configurations.ClampOverlaySize(configurations.CreditLogPanel, configurations.CreditLogWidthPx, configurations.CreditLogHeightPx, 640, 1200)
 end
+configurations.ApplyGuiScale()
+configurations.ApplyResponsiveMainSize()
 configurations.ApplyResponsiveOverlaySizes()
+configurations.ApplySavedPanelPositions()
 
 function configurations.RefreshWhitelist()
 	for _, child in ipairs(configurations.WhitelistScroll:GetChildren()) do
@@ -6681,7 +6734,11 @@ configurations.ResizeHandle.InputBegan:Connect(function(input)
 				configurations.Resizing = false
 				configurations.MainWidthPx = Main.Size.X.Offset
 				configurations.MainHeightPx = Main.Size.Y.Offset
-				configurations.SaveConfig()
+				if configurations.SaveWindowSizes then
+					configurations.SaveWindowSizes(true)
+				else
+					configurations.SaveConfig()
+				end
 			end
 		end)
 	end
@@ -8525,13 +8582,14 @@ task.spawn(function()
 
 						local passiveLabel = Instance.new("TextLabel")
 						passiveLabel.Name = "PassiveMode"
-						passiveLabel.Size = UDim2.new(1, -230, 0, 14)
+						passiveLabel.Size = UDim2.new(1, -170, 0, 14)
 						passiveLabel.Position = UDim2.fromOffset(74, 66)
 						passiveLabel.ZIndex = 94
 						passiveLabel.BackgroundTransparency = 1
 						local passiveMode = configurations.GetPlayerPassiveMode(otherPlayer)
 						passiveLabel.Text = "PASSIVE " .. (passiveMode == true and "ON" or (passiveMode == false and "OFF" or "—"))
-						passiveLabel.TextColor3 = passiveMode and UIColors.GREEN or UIColors.MUTED
+						passiveLabel.TextColor3 = passiveMode == true and UIColors.GREEN
+							or (passiveMode == false and UIColors.RED or UIColors.MUTED)
 						passiveLabel.TextSize = 11
 						passiveLabel.Font = Enum.Font.GothamBold
 						passiveLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -8731,6 +8789,7 @@ task.spawn(function()
 					configurations.IsPlayerESPEnabled(listedPlayer) and "e" or "-",
 					configurations.SelectedFollowUserId == tostring(listedPlayer.UserId) and "f" or "-",
 					configurations.PinnedPlayerIds[tostring(listedPlayer.UserId)] and "p" or "-",
+						tostring(configurations.GetPlayerPassiveMode(listedPlayer)),
 				}, ":"))
 			end
 			local panelSignature = table.concat(signatureParts, "|")
@@ -8790,7 +8849,7 @@ task.spawn(function()
 
 					local row = Instance.new("Frame")
 					row.Name = "PlayerRow_" .. otherPlayer.UserId
-					row.Size = UDim2.new(1, -6, 0, 168)
+					row.Size = UDim2.new(1, -6, 0, 176)
 					row.LayoutOrder = order
 					row.ZIndex = 92
 					row.BackgroundColor3 = UIColors.CARD
@@ -8829,7 +8888,7 @@ task.spawn(function()
 					displayName.Position = UDim2.fromOffset(74, 12)
 					displayName.ZIndex = 93
 					displayName.BackgroundTransparency = 1
-					displayName.Text = configurations.FormatPlayerDisplayName(otherPlayer)
+					displayName.Text = (otherPlayer.DisplayName ~= "" and otherPlayer.DisplayName) or otherPlayer.Name
 					displayName.TextColor3 = UIColors.TEXT
 					displayName.TextSize = 15
 					displayName.Font = Enum.Font.GothamBold
@@ -8865,11 +8924,27 @@ task.spawn(function()
 					detail.TextTruncate = Enum.TextTruncate.AtEnd
 					detail.Parent = row
 
+					local passiveLabel = Instance.new("TextLabel")
+					passiveLabel.Name = "PassiveMode"
+					passiveLabel.Size = UDim2.new(1, -184, 0, 14)
+					passiveLabel.Position = UDim2.fromOffset(74, 66)
+					passiveLabel.ZIndex = 93
+					passiveLabel.BackgroundTransparency = 1
+					local passiveMode = configurations.GetPlayerPassiveMode(otherPlayer)
+					passiveLabel.Text = "PASSIVE " .. (passiveMode == true and "ON" or (passiveMode == false and "OFF" or "—"))
+					passiveLabel.TextColor3 = passiveMode == true and UIColors.GREEN
+						or (passiveMode == false and UIColors.RED or UIColors.MUTED)
+					passiveLabel.TextSize = 11
+					passiveLabel.Font = Enum.Font.GothamBold
+					passiveLabel.TextXAlignment = Enum.TextXAlignment.Left
+					passiveLabel.TextTruncate = Enum.TextTruncate.AtEnd
+					passiveLabel.Parent = row
+
 					local currentHP, maximumHP = configurations.GetPlayerHealth(otherPlayer)
 					local healthLabel = Instance.new("TextLabel")
 					healthLabel.Name = "Health"
 					healthLabel.Size = UDim2.new(1, -28, 0, 18)
-					healthLabel.Position = UDim2.fromOffset(14, 76)
+					healthLabel.Position = UDim2.fromOffset(14, 84)
 					healthLabel.ZIndex = 93
 					healthLabel.BackgroundTransparency = 1
 					healthLabel.Text = currentHP and string.format("HP  %s / %s", configurations.FormatNumber(currentHP), configurations.FormatNumber(maximumHP)) or "HP  —"
@@ -8886,7 +8961,7 @@ task.spawn(function()
 					local statsLabel = Instance.new("TextLabel")
 					statsLabel.Name = "PlayerStats"
 					statsLabel.Size = UDim2.new(1, -28, 0, 18)
-					statsLabel.Position = UDim2.fromOffset(14, 96)
+					statsLabel.Position = UDim2.fromOffset(14, 104)
 					statsLabel.ZIndex = 93
 					statsLabel.BackgroundTransparency = 1
 					statsLabel.Text = configurations.FormatPlayerListStats(otherPlayer)
@@ -8901,7 +8976,7 @@ task.spawn(function()
 					local expLabel = Instance.new("TextLabel")
 					expLabel.Name = "PlayerExp"
 					expLabel.Size = UDim2.new(1, -28, 0, 16)
-					expLabel.Position = UDim2.fromOffset(14, 120)
+					expLabel.Position = UDim2.fromOffset(14, 128)
 					expLabel.ZIndex = 93
 					expLabel.BackgroundTransparency = 1
 					expLabel.Text = expCurrent and expMax and string.format("EXP  %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP  —"
@@ -8914,7 +8989,7 @@ task.spawn(function()
 					local expBarBg = Instance.new("Frame")
 					expBarBg.Name = "PlayerExpBar"
 					expBarBg.Size = UDim2.new(1, -28, 0, 8)
-					expBarBg.Position = UDim2.fromOffset(14, 142)
+					expBarBg.Position = UDim2.fromOffset(14, 150)
 					expBarBg.ZIndex = 93
 					expBarBg.BackgroundColor3 = UIColors.INPUT
 					expBarBg.BorderSizePixel = 0
