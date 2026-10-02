@@ -1,4 +1,4 @@
-local VERSION = "2.6.27"
+local VERSION = "2.6.28"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -248,6 +248,10 @@ configurations.PartyResumeFarmOnJoin = false
 configurations.FPSBoostEnabled = false
 configurations.PlayerPanelMode = "server"
 configurations.PlayerPanelTargetUserId = nil
+configurations.PlayerPanelCardMode = false
+configurations.PlayerPanelSavedSize = nil
+configurations.PlayerPanelSavedPosition = nil
+configurations.PlayerPanelSavedAnchorPoint = nil
 configurations.SelectedCombatMob = nil
 configurations.WaypointPosition = nil
 configurations.WaypointReturnEnabled = false
@@ -3733,7 +3737,7 @@ local AlertFlashButton = configurations.MakeToggle("Screen flash", configuration
 local AutoResumeButton = configurations.MakeToggle("Auto resume", configurations.AutoResumeAfterAlert, UIColors.ACCENT, UIColors.ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
 configurations.JoinAlertButton = configurations.MakeToggle("Join alerts", configurations.JoinAlertsEnabled, UIColors.GREEN, UIColors.GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
 configurations.JoinLogButton = configurations.MakeActionRow("Join Log", 5, AlertsGrid, "Open the player join and leave log.")
-configurations.CreditLogButton = configurations.MakeActionRow("Credit Log", 6, AlertsGrid, "Show players credited with hits on the current EXP target.")
+configurations.CreditLogButton = configurations.MakeActionRow("Credit Log", 10, FarmPage, "Show players credited with hits on the current EXP target.")
 
 -- Compact display controls used by the Performance page.
 function configurations.MakeScaleControl(parent, title, getter, setter, minValue, maxValue, step, order)
@@ -4464,8 +4468,36 @@ PlayerScrollLayout.Padding = UDim.new(0, 10)
 PlayerScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
 PlayerScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
+function configurations.SetPlayerPanelCardLayout(enabled)
+	local resizeHandle = PlayerPanel:FindFirstChild("PlayerPanelResizeHandle")
+	if enabled then
+		if not configurations.PlayerPanelCardMode then
+			configurations.PlayerPanelSavedSize = PlayerPanel.Size
+			configurations.PlayerPanelSavedPosition = PlayerPanel.Position
+			configurations.PlayerPanelSavedAnchorPoint = PlayerPanel.AnchorPoint
+		end
+		configurations.PlayerPanelCardMode = true
+		PlayerPanel.AnchorPoint = Vector2.new(0.5, 0)
+		PlayerPanel.Size = UDim2.new(configurations.PlayerPanelWidthScale, 0, 0, 244)
+		PlayerPanel.Position = UDim2.new(0.5, 0, 0.03, 0)
+		if resizeHandle then resizeHandle.Visible = false end
+		return
+	end
+
+	if not configurations.PlayerPanelCardMode then return end
+	PlayerPanel.Size = configurations.PlayerPanelSavedSize or UDim2.fromScale(configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale)
+	PlayerPanel.Position = configurations.PlayerPanelSavedPosition or UDim2.fromScale(0.52, 0.19)
+	PlayerPanel.AnchorPoint = configurations.PlayerPanelSavedAnchorPoint or Vector2.new(0, 0)
+	configurations.PlayerPanelCardMode = false
+	configurations.PlayerPanelSavedSize = nil
+	configurations.PlayerPanelSavedPosition = nil
+	configurations.PlayerPanelSavedAnchorPoint = nil
+	if resizeHandle then resizeHandle.Visible = true end
+end
+
 PlayerListButton.MouseButton1Click:Connect(function()
 	local wasShowingCard = configurations.PlayerPanelMode == "card"
+	if wasShowingCard then configurations.SetPlayerPanelCardLayout(false) end
 	configurations.PlayerPanelMode = "server"
 	configurations.PlayerPanelTargetUserId = nil
 	PlayerPanelTitle.Text = "Players in server"
@@ -4475,6 +4507,7 @@ PlayerListButton.MouseButton1Click:Connect(function()
 end)
 PlayerPanelClose.MouseButton1Click:Connect(function()
 	PlayerPanel.Visible = false
+	configurations.SetPlayerPanelCardLayout(false)
 	configurations.PlayerPanelMode = "server"
 	configurations.PlayerPanelTargetUserId = nil
 	PlayerPanelTitle.Text = "Players in server"
@@ -4484,18 +4517,11 @@ end)
 function configurations.OpenPlayerCardByUserId(userId)
 	local target = Players:GetPlayerByUserId(tonumber(userId) or 0)
 	if not target then return false end
+	configurations.SetPlayerPanelCardLayout(true)
 	configurations.PlayerPanelMode = "card"
 	configurations.PlayerPanelTargetUserId = tostring(target.UserId)
 	PlayerPanelTitle.Text = "Player card · @" .. target.Name
 	PlayerPanel.Visible = true
-	if configurations.JoinLogPanel then
-		configurations.JoinLogPanel.Visible = false
-		configurations.SetActionVisual(configurations.JoinLogButton, "Join Log", false)
-	end
-	if configurations.CreditLogPanel then
-		configurations.CreditLogPanel.Visible = false
-		configurations.SetActionVisual(configurations.CreditLogButton, "Credit Log", false)
-	end
 	configurations.SetActionVisual(PlayerListButton, "Player list", false)
 	return true
 end
@@ -4510,6 +4536,7 @@ function configurations.FilterPlayerPanelListing(panelPlayers)
 end
 
 FollowSelectButton.MouseButton1Click:Connect(function()
+	configurations.SetPlayerPanelCardLayout(false)
 	configurations.PlayerPanelMode = "follow"
 	configurations.PlayerPanelTargetUserId = nil
 	PlayerPanelTitle.Text = "Choose player to follow"
@@ -4519,6 +4546,7 @@ end)
 
 FollowToggleButton.MouseButton1Click:Connect(function()
 	if not configurations.SelectedFollowUserId then
+		configurations.SetPlayerPanelCardLayout(false)
 		configurations.PlayerPanelMode = "follow"
 		configurations.PlayerPanelTargetUserId = nil
 		PlayerPanelTitle.Text = "Choose player to follow"
@@ -4660,7 +4688,7 @@ configurations.WhitelistLayout.HorizontalAlignment = Enum.HorizontalAlignment.Ce
 configurations.JoinLogPanel = Instance.new("Frame")
 configurations.JoinLogPanel.Name = "PlayerJoinLogPanel"
 configurations.JoinLogPanel.Size = UDim2.fromScale(configurations.JoinLogWidthScale, configurations.JoinLogHeightScale)
-configurations.JoinLogPanel.Position = UDim2.fromScale(0.31, 0.2)
+configurations.JoinLogPanel.Position = UDim2.fromScale(0.03, 0.2)
 configurations.JoinLogPanel.ZIndex = 90
 configurations.JoinLogPanel.BackgroundColor3 = UIColors.BG
 configurations.JoinLogPanel.BorderSizePixel = 0
@@ -4814,15 +4842,6 @@ end
 
 configurations.JoinLogButton.MouseButton1Click:Connect(function()
 	local isOpen = not configurations.JoinLogPanel.Visible
-	if isOpen then
-		PlayerPanel.Visible = false
-		configurations.PlayerPanelMode = "server"
-		configurations.PlayerPanelTargetUserId = nil
-		PlayerPanelTitle.Text = "Players in server"
-		configurations.SetActionVisual(PlayerListButton, "Player list", false)
-	end
-	configurations.CreditLogPanel.Visible = false
-	configurations.SetActionVisual(configurations.CreditLogButton, "Credit Log", false)
 	configurations.JoinLogPanel.Visible = isOpen
 	configurations.SetActionVisual(configurations.JoinLogButton, isOpen and "Close log" or "Join Log", isOpen)
 	if isOpen then configurations.RefreshJoinLog() end
@@ -4835,7 +4854,7 @@ end)
 configurations.CreditLogPanel = Instance.new("Frame")
 configurations.CreditLogPanel.Name = "CreditLogPanel"
 configurations.CreditLogPanel.Size = UDim2.fromScale(configurations.CreditLogWidthScale, configurations.CreditLogHeightScale)
-configurations.CreditLogPanel.Position = UDim2.fromScale(0.31, 0.2)
+configurations.CreditLogPanel.Position = UDim2.fromScale(0.59, 0.2)
 configurations.CreditLogPanel.ZIndex = 90
 configurations.CreditLogPanel.BackgroundColor3 = UIColors.BG
 configurations.CreditLogPanel.BorderSizePixel = 0
@@ -5046,15 +5065,6 @@ end
 
 configurations.CreditLogButton.MouseButton1Click:Connect(function()
 	local isOpen = not configurations.CreditLogPanel.Visible
-	if isOpen then
-		PlayerPanel.Visible = false
-		configurations.PlayerPanelMode = "server"
-		configurations.PlayerPanelTargetUserId = nil
-		PlayerPanelTitle.Text = "Players in server"
-		configurations.SetActionVisual(PlayerListButton, "Player list", false)
-	end
-	configurations.JoinLogPanel.Visible = false
-	configurations.SetActionVisual(configurations.JoinLogButton, "Join Log", false)
 	configurations.CreditLogPanel.Visible = isOpen
 	configurations.SetActionVisual(configurations.CreditLogButton, isOpen and "Close log" or "Credit Log", isOpen)
 	if isOpen then
@@ -5202,7 +5212,9 @@ function configurations.ApplyResponsiveOverlaySizes()
 		panel.Position = UDim2.fromScale(xScale, yScale)
 	end
 
-	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale, 0.52)
+	if not configurations.PlayerPanelCardMode then
+		configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale, 0.52)
+	end
 	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale)
 	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthScale, configurations.JoinLogHeightScale, 0.65)
 	configurations.ClampOverlaySize(configurations.CreditLogPanel, configurations.CreditLogWidthScale, configurations.CreditLogHeightScale, 0.65)
