@@ -1,4 +1,4 @@
-local VERSION = "2.6.36"
+local VERSION = "2.6.38"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2323,7 +2323,7 @@ function configurations.ApplySavedPanelPositions()
 		gui.Position = UDim2.fromOffset(x, y)
 	end
 	apply("Main", Main)
-	apply("PlayerPanel", PlayerPanel)
+	apply("PlayerPanel", configurations.PlayerPanel)
 	apply("WhitelistPanel", configurations.WhitelistPanel)
 	apply("JoinLogPanel", configurations.JoinLogPanel)
 	apply("CreditLogPanel", configurations.CreditLogPanel)
@@ -4197,7 +4197,7 @@ local AlertFlashButton = configurations.MakeToggle("Screen flash", configuration
 local AutoResumeButton = configurations.MakeToggle("Auto resume", configurations.AutoResumeAfterAlert, UIColors.ACCENT, UIColors.ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
 configurations.JoinAlertButton = configurations.MakeToggle("Join alerts", configurations.JoinAlertsEnabled, UIColors.GREEN, UIColors.GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
 configurations.JoinLogButton = configurations.MakeActionRow("Join Log", 5, AlertsGrid, "Open the player join and leave log.")
-configurations.CreditLogButton = configurations.MakeActionRow("Credit Log", 10, FarmPage, "Show players credited with hits on the current EXP target.")
+configurations.CreditLogButton = configurations.MakeActionRow("Credit Log", 10, FarmPage, "Show players while their EXP mob credit tag is active.")
 
 -- Compact display controls used by the Performance page.
 function configurations.MakeScaleControl(parent, title, getter, setter, minValue, maxValue, step, order, mode)
@@ -4380,15 +4380,15 @@ function configurations.SaveWindowSizes()
 		end
 	end
 	savePos("Main", Main)
-	savePos("PlayerPanel", PlayerPanel)
+	savePos("PlayerPanel", configurations.PlayerPanel)
 	savePos("WhitelistPanel", configurations.WhitelistPanel)
 	savePos("JoinLogPanel", configurations.JoinLogPanel)
 	savePos("CreditLogPanel", configurations.CreditLogPanel)
 	savePos("PlayerCardPanel", configurations.PlayerCardPanel)
 
-	if PlayerPanel and PlayerPanel.Size.X.Offset > 0 then
-		configurations.PlayerPanelWidthPx = PlayerPanel.Size.X.Offset
-		configurations.PlayerPanelHeightPx = PlayerPanel.Size.Y.Offset
+	if configurations.PlayerPanel and configurations.PlayerPanel.Size.X.Offset > 0 then
+		configurations.PlayerPanelWidthPx = configurations.PlayerPanel.Size.X.Offset
+		configurations.PlayerPanelHeightPx = configurations.PlayerPanel.Size.Y.Offset
 	end
 	if configurations.WhitelistPanel and configurations.WhitelistPanel.Size.X.Offset > 0 then
 		configurations.WhitelistPanelWidthPx = configurations.WhitelistPanel.Size.X.Offset
@@ -5030,104 +5030,103 @@ end)
 --==================================================
 -- PLAYER / WHITELIST PANELS (unchanged structure)
 --==================================================
-local PlayerPanel = Instance.new("Frame")
-PlayerPanel.Name = "PlayerListPanel"
-PlayerPanel.Size = UDim2.fromOffset(configurations.PlayerPanelWidthPx or 340, configurations.PlayerPanelHeightPx or 420)
-PlayerPanel.Position = UDim2.fromOffset(80, 80)
-PlayerPanel.ZIndex = 90
-PlayerPanel.BackgroundColor3 = UIColors.BG
-PlayerPanel.BorderSizePixel = 0
-PlayerPanel.Visible = false
-PlayerPanel.Parent = ScreenGui
-Instance.new("UICorner", PlayerPanel).CornerRadius = UDim.new(0, 12)
-configurations.RegisterScaledRoot(PlayerPanel)
-local PlayerPanelStroke = Instance.new("UIStroke", PlayerPanel)
-PlayerPanelStroke.Color = UIColors.BORDER
-PlayerPanelStroke.Thickness = 1
-PlayerPanelStroke.Transparency = 0.35
+ configurations.PlayerPanel = Instance.new("Frame")
+configurations.PlayerPanel.Name = "PlayerListPanel"
+configurations.PlayerPanel.Size = UDim2.fromOffset(configurations.PlayerPanelWidthPx or 340, configurations.PlayerPanelHeightPx or 420)
+configurations.PlayerPanel.Position = UDim2.fromOffset(80, 80)
+configurations.PlayerPanel.ZIndex = 90
+configurations.PlayerPanel.BackgroundColor3 = UIColors.BG
+configurations.PlayerPanel.BorderSizePixel = 0
+configurations.PlayerPanel.Visible = false
+configurations.PlayerPanel.Parent = ScreenGui
+Instance.new("UICorner", configurations.PlayerPanel).CornerRadius = UDim.new(0, 12)
+configurations.RegisterScaledRoot(configurations.PlayerPanel)
+ configurations.PlayerPanelStroke = Instance.new("UIStroke", configurations.PlayerPanel)
+configurations.PlayerPanelStroke.Color = UIColors.BORDER
+configurations.PlayerPanelStroke.Thickness = 1
+configurations.PlayerPanelStroke.Transparency = 0.35
 
 -- Header bar matching main UI
-local PlayerPanelHeader = Instance.new("Frame")
-PlayerPanelHeader.Name = "Header"
-PlayerPanelHeader.Size = UDim2.new(1, 0, 0, 44)
-PlayerPanelHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
-PlayerPanelHeader.BorderSizePixel = 0
-PlayerPanelHeader.ZIndex = 91
-PlayerPanelHeader.Parent = PlayerPanel
-Instance.new("UICorner", PlayerPanelHeader).CornerRadius = UDim.new(0, 12)
+ configurations.PlayerPanelHeader = Instance.new("Frame")
+configurations.PlayerPanelHeader.Name = "Header"
+configurations.PlayerPanelHeader.Size = UDim2.new(1, 0, 0, 44)
+configurations.PlayerPanelHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
+configurations.PlayerPanelHeader.BorderSizePixel = 0
+configurations.PlayerPanelHeader.ZIndex = 91
+configurations.PlayerPanelHeader.Parent = configurations.PlayerPanel
+Instance.new("UICorner", configurations.PlayerPanelHeader).CornerRadius = UDim.new(0, 12)
 
-local PlayerPanelHeaderFix = Instance.new("Frame")
-PlayerPanelHeaderFix.Size = UDim2.new(1, 0, 0, 16)
-PlayerPanelHeaderFix.Position = UDim2.new(0, 0, 1, -16)
-PlayerPanelHeaderFix.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
-PlayerPanelHeaderFix.BorderSizePixel = 0
-PlayerPanelHeaderFix.ZIndex = 91
-PlayerPanelHeaderFix.Parent = PlayerPanelHeader
+ configurations.PlayerPanelHeaderFix = Instance.new("Frame")
+configurations.PlayerPanelHeaderFix.Size = UDim2.new(1, 0, 0, 16)
+configurations.PlayerPanelHeaderFix.Position = UDim2.new(0, 0, 1, -16)
+configurations.PlayerPanelHeaderFix.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
+configurations.PlayerPanelHeaderFix.BorderSizePixel = 0
+configurations.PlayerPanelHeaderFix.ZIndex = 91
+configurations.PlayerPanelHeaderFix.Parent = configurations.PlayerPanelHeader
 
-local PlayerPanelHeaderRule = Instance.new("Frame")
-PlayerPanelHeaderRule.Size = UDim2.new(1, -20, 0, 1)
-PlayerPanelHeaderRule.Position = UDim2.new(0, 10, 1, -1)
-PlayerPanelHeaderRule.BackgroundColor3 = UIColors.BORDER
-PlayerPanelHeaderRule.BackgroundTransparency = 0.4
-PlayerPanelHeaderRule.BorderSizePixel = 0
-PlayerPanelHeaderRule.ZIndex = 92
-PlayerPanelHeaderRule.Parent = PlayerPanelHeader
+ configurations.PlayerPanelHeaderRule = Instance.new("Frame")
+configurations.PlayerPanelHeaderRule.Size = UDim2.new(1, -20, 0, 1)
+configurations.PlayerPanelHeaderRule.Position = UDim2.new(0, 10, 1, -1)
+configurations.PlayerPanelHeaderRule.BackgroundColor3 = UIColors.BORDER
+configurations.PlayerPanelHeaderRule.BackgroundTransparency = 0.4
+configurations.PlayerPanelHeaderRule.BorderSizePixel = 0
+configurations.PlayerPanelHeaderRule.ZIndex = 92
+configurations.PlayerPanelHeaderRule.Parent = configurations.PlayerPanelHeader
 
-local PlayerPanelTitle = Instance.new("TextLabel")
-PlayerPanelTitle.Size = UDim2.new(1, -56, 0, 22)
-PlayerPanelTitle.Position = UDim2.fromOffset(14, 11)
-PlayerPanelTitle.ZIndex = 92
-PlayerPanelTitle.Active = true
-PlayerPanelTitle.BackgroundTransparency = 1
-PlayerPanelTitle.Text = "Players in server"
-PlayerPanelTitle.TextColor3 = UIColors.TEXT
-PlayerPanelTitle.TextSize = 16
-PlayerPanelTitle.Font = Enum.Font.GothamBold
-PlayerPanelTitle.TextXAlignment = Enum.TextXAlignment.Left
-PlayerPanelTitle.Parent = PlayerPanelHeader
+ configurations.PlayerPanelTitle = Instance.new("TextLabel")
+configurations.PlayerPanelTitle.Size = UDim2.new(1, -56, 0, 22)
+configurations.PlayerPanelTitle.Position = UDim2.fromOffset(14, 11)
+configurations.PlayerPanelTitle.ZIndex = 92
+configurations.PlayerPanelTitle.Active = true
+configurations.PlayerPanelTitle.BackgroundTransparency = 1
+configurations.PlayerPanelTitle.Text = "Players in server"
+configurations.PlayerPanelTitle.TextColor3 = UIColors.TEXT
+configurations.PlayerPanelTitle.TextSize = 16
+configurations.PlayerPanelTitle.Font = Enum.Font.GothamBold
+configurations.PlayerPanelTitle.TextXAlignment = Enum.TextXAlignment.Left
+configurations.PlayerPanelTitle.Parent = configurations.PlayerPanelHeader
 
-local PlayerPanelClose = Instance.new("TextButton")
-PlayerPanelClose.Size = UDim2.fromOffset(32, 32)
-PlayerPanelClose.Position = UDim2.new(1, -40, 0, 6)
-PlayerPanelClose.ZIndex = 92
-PlayerPanelClose.BackgroundColor3 = UIColors.INPUT
-PlayerPanelClose.BorderSizePixel = 0
-PlayerPanelClose.Text = "×"
-PlayerPanelClose.TextColor3 = UIColors.TEXT
-PlayerPanelClose.TextSize = 19
-PlayerPanelClose.Font = Enum.Font.GothamBold
-PlayerPanelClose.Parent = PlayerPanelHeader
-Instance.new("UICorner", PlayerPanelClose).CornerRadius = UDim.new(0, 6)
+ configurations.PlayerPanelClose = Instance.new("TextButton")
+configurations.PlayerPanelClose.Size = UDim2.fromOffset(32, 32)
+configurations.PlayerPanelClose.Position = UDim2.new(1, -40, 0, 6)
+configurations.PlayerPanelClose.ZIndex = 92
+configurations.PlayerPanelClose.BackgroundColor3 = UIColors.INPUT
+configurations.PlayerPanelClose.BorderSizePixel = 0
+configurations.PlayerPanelClose.Text = "×"
+configurations.PlayerPanelClose.TextColor3 = UIColors.TEXT
+configurations.PlayerPanelClose.TextSize = 19
+configurations.PlayerPanelClose.Font = Enum.Font.GothamBold
+configurations.PlayerPanelClose.Parent = configurations.PlayerPanelHeader
+Instance.new("UICorner", configurations.PlayerPanelClose).CornerRadius = UDim.new(0, 6)
 
 -- Search + tabs (Server / Pinned / Nearby)
-local PlayerSearchBox = Instance.new("TextBox")
-PlayerSearchBox.Name = "PlayerSearch"
-PlayerSearchBox.Size = UDim2.new(1, -20, 0, 28)
-PlayerSearchBox.Position = UDim2.fromOffset(10, 48)
-PlayerSearchBox.BackgroundColor3 = UIColors.INPUT
-PlayerSearchBox.BorderSizePixel = 0
-PlayerSearchBox.PlaceholderText = "Search name…"
-PlayerSearchBox.Text = ""
-PlayerSearchBox.TextColor3 = UIColors.TEXT
-PlayerSearchBox.PlaceholderColor3 = UIColors.MUTED
-PlayerSearchBox.TextSize = 12
-PlayerSearchBox.Font = Enum.Font.Gotham
-PlayerSearchBox.ClearTextOnFocus = false
-PlayerSearchBox.Parent = PlayerPanel
-Instance.new("UICorner", PlayerSearchBox).CornerRadius = UDim.new(0, 7)
-configurations.PlayerSearchBox = PlayerSearchBox
+ configurations.PlayerSearchBox = Instance.new("TextBox")
+configurations.PlayerSearchBox.Name = "PlayerSearch"
+configurations.PlayerSearchBox.Size = UDim2.new(1, -20, 0, 28)
+configurations.PlayerSearchBox.Position = UDim2.fromOffset(10, 48)
+configurations.PlayerSearchBox.BackgroundColor3 = UIColors.INPUT
+configurations.PlayerSearchBox.BorderSizePixel = 0
+configurations.PlayerSearchBox.PlaceholderText = "Search name…"
+configurations.PlayerSearchBox.Text = ""
+configurations.PlayerSearchBox.TextColor3 = UIColors.TEXT
+configurations.PlayerSearchBox.PlaceholderColor3 = UIColors.MUTED
+configurations.PlayerSearchBox.TextSize = 12
+configurations.PlayerSearchBox.Font = Enum.Font.Gotham
+configurations.PlayerSearchBox.ClearTextOnFocus = false
+configurations.PlayerSearchBox.Parent = configurations.PlayerPanel
+Instance.new("UICorner", configurations.PlayerSearchBox).CornerRadius = UDim.new(0, 7)
 
-local PlayerTabBar = Instance.new("Frame")
-PlayerTabBar.Name = "PlayerTabs"
-PlayerTabBar.Size = UDim2.new(1, -20, 0, 28)
-PlayerTabBar.Position = UDim2.fromOffset(10, 80)
-PlayerTabBar.BackgroundTransparency = 1
-PlayerTabBar.Parent = PlayerPanel
-local tabLayout = Instance.new("UIListLayout", PlayerTabBar)
-tabLayout.FillDirection = Enum.FillDirection.Horizontal
-tabLayout.Padding = UDim.new(0, 6)
+ configurations.PlayerTabBar = Instance.new("Frame")
+configurations.PlayerTabBar.Name = "PlayerTabs"
+configurations.PlayerTabBar.Size = UDim2.new(1, -20, 0, 28)
+configurations.PlayerTabBar.Position = UDim2.fromOffset(10, 80)
+configurations.PlayerTabBar.BackgroundTransparency = 1
+configurations.PlayerTabBar.Parent = configurations.PlayerPanel
+ configurations.tabLayout = Instance.new("UIListLayout", configurations.PlayerTabBar)
+configurations.tabLayout.FillDirection = Enum.FillDirection.Horizontal
+configurations.tabLayout.Padding = UDim.new(0, 6)
 
-local function makePlayerTab(id, label)
+function configurations.MakePlayerTab(id, label)
 	local b = Instance.new("TextButton")
 	b.Name = "Tab_" .. id
 	b.Size = UDim2.fromOffset(78, 26)
@@ -5137,13 +5136,13 @@ local function makePlayerTab(id, label)
 	b.TextColor3 = UIColors.MUTED
 	b.TextSize = 11
 	b.Font = Enum.Font.GothamBold
-	b.Parent = PlayerTabBar
+	b.Parent = configurations.PlayerTabBar
 	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
 	b.MouseButton1Click:Connect(function()
 		configurations.PlayerListTab = id
 		configurations.PlayerPanelMode = "server"
 		configurations.PlayerPanelBuildSignature = nil
-		for _, child in ipairs(PlayerTabBar:GetChildren()) do
+		for _, child in ipairs(configurations.PlayerTabBar:GetChildren()) do
 			if child:IsA("TextButton") then
 				local on = child.Name == "Tab_" .. id
 				child.BackgroundColor3 = on and UIColors.ACCENT_DIM or UIColors.INPUT
@@ -5153,12 +5152,12 @@ local function makePlayerTab(id, label)
 	end)
 	return b
 end
-makePlayerTab("server", "Server")
-makePlayerTab("pinned", "Pinned")
-makePlayerTab("nearby", "Nearby")
+configurations.MakePlayerTab("server", "Server")
+configurations.MakePlayerTab("pinned", "Pinned")
+configurations.MakePlayerTab("nearby", "Nearby")
 task.defer(function()
 	local id = configurations.PlayerListTab or "server"
-	for _, child in ipairs(PlayerTabBar:GetChildren()) do
+	for _, child in ipairs(configurations.PlayerTabBar:GetChildren()) do
 		if child:IsA("TextButton") then
 			local on = child.Name == "Tab_" .. id
 			child.BackgroundColor3 = on and UIColors.ACCENT_DIM or UIColors.INPUT
@@ -5166,35 +5165,35 @@ task.defer(function()
 		end
 	end
 end)
-PlayerSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	configurations.PlayerListFilter = PlayerSearchBox.Text
+configurations.PlayerSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	configurations.PlayerListFilter = configurations.PlayerSearchBox.Text
 	configurations.PlayerPanelBuildSignature = nil
 end)
 
-local PlayerScroll = Instance.new("ScrollingFrame")
-PlayerScroll.Size = UDim2.new(1, -20, 1, -118)
-PlayerScroll.Position = UDim2.fromOffset(10, 112)
-PlayerScroll.ZIndex = 91
-PlayerScroll.BackgroundTransparency = 1
-PlayerScroll.BorderSizePixel = 0
-PlayerScroll.ScrollBarThickness = 3
-PlayerScroll.ScrollBarImageColor3 = UIColors.MUTED
-PlayerScroll.CanvasSize = UDim2.new()
-PlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-PlayerScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-PlayerScroll.Parent = PlayerPanel
+ configurations.PlayerScroll = Instance.new("ScrollingFrame")
+configurations.PlayerScroll.Size = UDim2.new(1, -20, 1, -118)
+configurations.PlayerScroll.Position = UDim2.fromOffset(10, 112)
+configurations.PlayerScroll.ZIndex = 91
+configurations.PlayerScroll.BackgroundTransparency = 1
+configurations.PlayerScroll.BorderSizePixel = 0
+configurations.PlayerScroll.ScrollBarThickness = 3
+configurations.PlayerScroll.ScrollBarImageColor3 = UIColors.MUTED
+configurations.PlayerScroll.CanvasSize = UDim2.new()
+configurations.PlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configurations.PlayerScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+configurations.PlayerScroll.Parent = configurations.PlayerPanel
 
-local PlayerScrollPad = Instance.new("UIPadding")
-PlayerScrollPad.PaddingTop = UDim.new(0, 4)
-PlayerScrollPad.PaddingBottom = UDim.new(0, 8)
-PlayerScrollPad.PaddingLeft = UDim.new(0, 2)
-PlayerScrollPad.PaddingRight = UDim.new(0, 2)
-PlayerScrollPad.Parent = PlayerScroll
+ configurations.PlayerScrollPad = Instance.new("UIPadding")
+configurations.PlayerScrollPad.PaddingTop = UDim.new(0, 4)
+configurations.PlayerScrollPad.PaddingBottom = UDim.new(0, 8)
+configurations.PlayerScrollPad.PaddingLeft = UDim.new(0, 2)
+configurations.PlayerScrollPad.PaddingRight = UDim.new(0, 2)
+configurations.PlayerScrollPad.Parent = configurations.PlayerScroll
 
-local PlayerScrollLayout = Instance.new("UIListLayout", PlayerScroll)
-PlayerScrollLayout.Padding = UDim.new(0, 10)
-PlayerScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-PlayerScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ configurations.PlayerScrollLayout = Instance.new("UIListLayout", configurations.PlayerScroll)
+configurations.PlayerScrollLayout.Padding = UDim.new(0, 10)
+configurations.PlayerScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configurations.PlayerScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 function configurations.SetPlayerPanelCardLayout(enabled)
 	-- Card UI lives on PlayerCardPanel so the server list can stay open.
@@ -5206,118 +5205,114 @@ PlayerListButton.MouseButton1Click:Connect(function()
 	if wasShowingCard then configurations.SetPlayerPanelCardLayout(false) end
 	configurations.PlayerPanelMode = "server"
 	configurations.PlayerPanelTargetUserId = nil
-	PlayerPanelTitle.Text = "Players in server"
-	PlayerPanel.Visible = wasShowingCard or not PlayerPanel.Visible
-	configurations.SetActionVisual(PlayerListButton, PlayerPanel.Visible and "Close list" or "Player list", PlayerPanel.Visible)
-	if PlayerPanel.Visible then configurations.ApplyTextScale(PlayerPanel) end
+	configurations.PlayerPanelTitle.Text = "Players in server"
+	configurations.PlayerPanel.Visible = wasShowingCard or not configurations.PlayerPanel.Visible
+	configurations.SetActionVisual(PlayerListButton, configurations.PlayerPanel.Visible and "Close list" or "Player list", configurations.PlayerPanel.Visible)
+	if configurations.PlayerPanel.Visible then configurations.ApplyTextScale(configurations.PlayerPanel) end
 end)
-PlayerPanelClose.MouseButton1Click:Connect(function()
-	PlayerPanel.Visible = false
+configurations.PlayerPanelClose.MouseButton1Click:Connect(function()
+	configurations.PlayerPanel.Visible = false
 	configurations.SetPlayerPanelCardLayout(false)
 	configurations.PlayerPanelMode = "server"
 	configurations.PlayerPanelTargetUserId = nil
-	PlayerPanelTitle.Text = "Players in server"
+	configurations.PlayerPanelTitle.Text = "Players in server"
 	configurations.SetActionVisual(PlayerListButton, "Player list", false)
 end)
 
 -- Dedicated floating player card (can stay open alongside "Players in server")
-local PlayerCardPanel = Instance.new("Frame")
-PlayerCardPanel.Name = "PlayerCardPanel"
-PlayerCardPanel.Size = UDim2.fromOffset(360, 236)
-PlayerCardPanel.Position = UDim2.fromOffset(120, 60)
-PlayerCardPanel.ZIndex = 91
-PlayerCardPanel.BackgroundColor3 = UIColors.BG
-PlayerCardPanel.BorderSizePixel = 0
-PlayerCardPanel.Visible = false
-PlayerCardPanel.AnchorPoint = Vector2.new(0, 0)
-PlayerCardPanel.Parent = ScreenGui
-Instance.new("UICorner", PlayerCardPanel).CornerRadius = UDim.new(0, 12)
-configurations.RegisterScaledRoot(PlayerCardPanel)
-local PlayerCardStroke = Instance.new("UIStroke", PlayerCardPanel)
-PlayerCardStroke.Color = UIColors.BORDER
-PlayerCardStroke.Thickness = 1
-PlayerCardStroke.Transparency = 0.35
+ configurations.PlayerCardPanel = Instance.new("Frame")
+configurations.PlayerCardPanel.Name = "PlayerCardPanel"
+configurations.PlayerCardPanel.Size = UDim2.fromOffset(360, 236)
+configurations.PlayerCardPanel.Position = UDim2.fromOffset(120, 60)
+configurations.PlayerCardPanel.ZIndex = 91
+configurations.PlayerCardPanel.BackgroundColor3 = UIColors.BG
+configurations.PlayerCardPanel.BorderSizePixel = 0
+configurations.PlayerCardPanel.Visible = false
+configurations.PlayerCardPanel.AnchorPoint = Vector2.new(0, 0)
+configurations.PlayerCardPanel.Parent = ScreenGui
+Instance.new("UICorner", configurations.PlayerCardPanel).CornerRadius = UDim.new(0, 12)
+configurations.RegisterScaledRoot(configurations.PlayerCardPanel)
+ configurations.PlayerCardStroke = Instance.new("UIStroke", configurations.PlayerCardPanel)
+configurations.PlayerCardStroke.Color = UIColors.BORDER
+configurations.PlayerCardStroke.Thickness = 1
+configurations.PlayerCardStroke.Transparency = 0.35
 
-local PlayerCardHeader = Instance.new("Frame")
-PlayerCardHeader.Name = "Header"
-PlayerCardHeader.Size = UDim2.new(1, 0, 0, 44)
-PlayerCardHeader.ZIndex = 92
-PlayerCardHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
-PlayerCardHeader.BorderSizePixel = 0
-PlayerCardHeader.Parent = PlayerCardPanel
-Instance.new("UICorner", PlayerCardHeader).CornerRadius = UDim.new(0, 12)
-local PlayerCardHeaderFix = Instance.new("Frame")
-PlayerCardHeaderFix.Size = UDim2.new(1, 0, 0, 14)
-PlayerCardHeaderFix.Position = UDim2.new(0, 0, 1, -14)
-PlayerCardHeaderFix.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
-PlayerCardHeaderFix.BorderSizePixel = 0
-PlayerCardHeaderFix.Parent = PlayerCardHeader
+ configurations.PlayerCardHeader = Instance.new("Frame")
+configurations.PlayerCardHeader.Name = "Header"
+configurations.PlayerCardHeader.Size = UDim2.new(1, 0, 0, 44)
+configurations.PlayerCardHeader.ZIndex = 92
+configurations.PlayerCardHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
+configurations.PlayerCardHeader.BorderSizePixel = 0
+configurations.PlayerCardHeader.Parent = configurations.PlayerCardPanel
+Instance.new("UICorner", configurations.PlayerCardHeader).CornerRadius = UDim.new(0, 12)
+ configurations.PlayerCardHeaderFix = Instance.new("Frame")
+configurations.PlayerCardHeaderFix.Size = UDim2.new(1, 0, 0, 14)
+configurations.PlayerCardHeaderFix.Position = UDim2.new(0, 0, 1, -14)
+configurations.PlayerCardHeaderFix.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
+configurations.PlayerCardHeaderFix.BorderSizePixel = 0
+configurations.PlayerCardHeaderFix.Parent = configurations.PlayerCardHeader
 
-local PlayerCardTitle = Instance.new("TextLabel")
-PlayerCardTitle.Name = "Title"
-PlayerCardTitle.Size = UDim2.new(1, -56, 0, 18)
-PlayerCardTitle.Position = UDim2.fromOffset(14, 6)
-PlayerCardTitle.ZIndex = 93
-PlayerCardTitle.BackgroundTransparency = 1
-PlayerCardTitle.Text = "Player"
-PlayerCardTitle.TextColor3 = UIColors.TEXT
-PlayerCardTitle.TextSize = 14
-PlayerCardTitle.Font = Enum.Font.GothamBold
-PlayerCardTitle.TextXAlignment = Enum.TextXAlignment.Left
-PlayerCardTitle.TextTruncate = Enum.TextTruncate.AtEnd
-PlayerCardTitle.Parent = PlayerCardHeader
+ configurations.PlayerCardTitle = Instance.new("TextLabel")
+configurations.PlayerCardTitle.Name = "Title"
+configurations.PlayerCardTitle.Size = UDim2.new(1, -56, 0, 18)
+configurations.PlayerCardTitle.Position = UDim2.fromOffset(14, 6)
+configurations.PlayerCardTitle.ZIndex = 93
+configurations.PlayerCardTitle.BackgroundTransparency = 1
+configurations.PlayerCardTitle.Text = "Player"
+configurations.PlayerCardTitle.TextColor3 = UIColors.TEXT
+configurations.PlayerCardTitle.TextSize = 14
+configurations.PlayerCardTitle.Font = Enum.Font.GothamBold
+configurations.PlayerCardTitle.TextXAlignment = Enum.TextXAlignment.Left
+configurations.PlayerCardTitle.TextTruncate = Enum.TextTruncate.AtEnd
+configurations.PlayerCardTitle.Parent = configurations.PlayerCardHeader
 
-local PlayerCardSubtitle = Instance.new("TextLabel")
-PlayerCardSubtitle.Name = "Subtitle"
-PlayerCardSubtitle.Size = UDim2.new(1, -56, 0, 14)
-PlayerCardSubtitle.Position = UDim2.fromOffset(14, 24)
-PlayerCardSubtitle.ZIndex = 93
-PlayerCardSubtitle.BackgroundTransparency = 1
-PlayerCardSubtitle.Text = "@—"
-PlayerCardSubtitle.TextColor3 = UIColors.MUTED
-PlayerCardSubtitle.TextSize = 11
-PlayerCardSubtitle.Font = Enum.Font.Gotham
-PlayerCardSubtitle.TextXAlignment = Enum.TextXAlignment.Left
-PlayerCardSubtitle.TextTruncate = Enum.TextTruncate.AtEnd
-PlayerCardSubtitle.Parent = PlayerCardHeader
+ configurations.PlayerCardSubtitle = Instance.new("TextLabel")
+configurations.PlayerCardSubtitle.Name = "Subtitle"
+configurations.PlayerCardSubtitle.Size = UDim2.new(1, -56, 0, 14)
+configurations.PlayerCardSubtitle.Position = UDim2.fromOffset(14, 24)
+configurations.PlayerCardSubtitle.ZIndex = 93
+configurations.PlayerCardSubtitle.BackgroundTransparency = 1
+configurations.PlayerCardSubtitle.Text = "@—"
+configurations.PlayerCardSubtitle.TextColor3 = UIColors.MUTED
+configurations.PlayerCardSubtitle.TextSize = 11
+configurations.PlayerCardSubtitle.Font = Enum.Font.Gotham
+configurations.PlayerCardSubtitle.TextXAlignment = Enum.TextXAlignment.Left
+configurations.PlayerCardSubtitle.TextTruncate = Enum.TextTruncate.AtEnd
+configurations.PlayerCardSubtitle.Parent = configurations.PlayerCardHeader
 
-local PlayerCardClose = Instance.new("TextButton")
-PlayerCardClose.Size = UDim2.fromOffset(28, 28)
-PlayerCardClose.Position = UDim2.new(1, -36, 0, 8)
-PlayerCardClose.ZIndex = 93
-PlayerCardClose.BackgroundColor3 = UIColors.INPUT
-PlayerCardClose.BorderSizePixel = 0
-PlayerCardClose.Text = "×"
-PlayerCardClose.TextColor3 = UIColors.TEXT
-PlayerCardClose.TextSize = 16
-PlayerCardClose.Font = Enum.Font.GothamBold
-PlayerCardClose.Parent = PlayerCardHeader
-Instance.new("UICorner", PlayerCardClose).CornerRadius = UDim.new(0, 6)
+ configurations.PlayerCardClose = Instance.new("TextButton")
+configurations.PlayerCardClose.Size = UDim2.fromOffset(28, 28)
+configurations.PlayerCardClose.Position = UDim2.new(1, -36, 0, 8)
+configurations.PlayerCardClose.ZIndex = 93
+configurations.PlayerCardClose.BackgroundColor3 = UIColors.INPUT
+configurations.PlayerCardClose.BorderSizePixel = 0
+configurations.PlayerCardClose.Text = "×"
+configurations.PlayerCardClose.TextColor3 = UIColors.TEXT
+configurations.PlayerCardClose.TextSize = 16
+configurations.PlayerCardClose.Font = Enum.Font.GothamBold
+configurations.PlayerCardClose.Parent = configurations.PlayerCardHeader
+Instance.new("UICorner", configurations.PlayerCardClose).CornerRadius = UDim.new(0, 6)
 
-local PlayerCardScroll = Instance.new("ScrollingFrame")
-PlayerCardScroll.Name = "CardBody"
-PlayerCardScroll.Size = UDim2.new(1, -12, 1, -52)
-PlayerCardScroll.Position = UDim2.fromOffset(6, 48)
-PlayerCardScroll.ZIndex = 92
-PlayerCardScroll.BackgroundTransparency = 1
-PlayerCardScroll.BorderSizePixel = 0
-PlayerCardScroll.ScrollBarThickness = 3
-PlayerCardScroll.ScrollBarImageColor3 = UIColors.MUTED
-PlayerCardScroll.CanvasSize = UDim2.new()
-PlayerCardScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-PlayerCardScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-PlayerCardScroll.Parent = PlayerCardPanel
-Instance.new("UIListLayout", PlayerCardScroll).Padding = UDim.new(0, 6)
+ configurations.PlayerCardScroll = Instance.new("ScrollingFrame")
+configurations.PlayerCardScroll.Name = "CardBody"
+configurations.PlayerCardScroll.Size = UDim2.new(1, -12, 1, -52)
+configurations.PlayerCardScroll.Position = UDim2.fromOffset(6, 48)
+configurations.PlayerCardScroll.ZIndex = 92
+configurations.PlayerCardScroll.BackgroundTransparency = 1
+configurations.PlayerCardScroll.BorderSizePixel = 0
+configurations.PlayerCardScroll.ScrollBarThickness = 3
+configurations.PlayerCardScroll.ScrollBarImageColor3 = UIColors.MUTED
+configurations.PlayerCardScroll.CanvasSize = UDim2.new()
+configurations.PlayerCardScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configurations.PlayerCardScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+configurations.PlayerCardScroll.Parent = configurations.PlayerCardPanel
+Instance.new("UIListLayout", configurations.PlayerCardScroll).Padding = UDim.new(0, 6)
 
-configurations.PlayerCardPanel = PlayerCardPanel
-configurations.PlayerCardScroll = PlayerCardScroll
-configurations.PlayerCardTitle = PlayerCardTitle
-configurations.PlayerCardSubtitle = PlayerCardSubtitle
 configurations.PlayerCardTargetUserId = nil
 configurations.PlayerCardBuildSignature = nil
 
-PlayerCardClose.MouseButton1Click:Connect(function()
-	PlayerCardPanel.Visible = false
+configurations.PlayerCardClose.MouseButton1Click:Connect(function()
+	configurations.PlayerCardPanel.Visible = false
 	configurations.PlayerCardTargetUserId = nil
 	configurations.PlayerCardBuildSignature = nil
 	configurations.PlayerPanelTargetUserId = nil
@@ -5331,11 +5326,11 @@ function configurations.OpenPlayerCardByUserId(userId)
 	configurations.PlayerPanelTargetUserId = tostring(target.UserId)
 	configurations.PlayerPanelCardMode = true
 	configurations.PlayerCardBuildSignature = nil
-	PlayerCardTitle.Text = (target.DisplayName ~= "" and target.DisplayName) or target.Name
-	PlayerCardSubtitle.Text = "@" .. target.Name
-	PlayerCardPanel.Visible = true
+	configurations.PlayerCardTitle.Text = (target.DisplayName ~= "" and target.DisplayName) or target.Name
+	configurations.PlayerCardSubtitle.Text = "@" .. target.Name
+	configurations.PlayerCardPanel.Visible = true
 	-- Keep Players-in-server open if it already is — both can show together.
-	if configurations.ApplyTextScale then configurations.ApplyTextScale(PlayerCardPanel) end
+	if configurations.ApplyTextScale then configurations.ApplyTextScale(configurations.PlayerCardPanel) end
 	return true
 end
 
@@ -5348,8 +5343,8 @@ FollowSelectButton.MouseButton1Click:Connect(function()
 	configurations.SetPlayerPanelCardLayout(false)
 	configurations.PlayerPanelMode = "follow"
 	configurations.PlayerPanelTargetUserId = nil
-	PlayerPanelTitle.Text = "Choose player to follow"
-	PlayerPanel.Visible = true
+	configurations.PlayerPanelTitle.Text = "Choose player to follow"
+	configurations.PlayerPanel.Visible = true
 	configurations.SetActionVisual(PlayerListButton, "Player list", false)
 end)
 
@@ -5358,8 +5353,8 @@ FollowToggleButton.MouseButton1Click:Connect(function()
 		configurations.SetPlayerPanelCardLayout(false)
 		configurations.PlayerPanelMode = "follow"
 		configurations.PlayerPanelTargetUserId = nil
-		PlayerPanelTitle.Text = "Choose player to follow"
-		PlayerPanel.Visible = true
+		configurations.PlayerPanelTitle.Text = "Choose player to follow"
+		configurations.PlayerPanel.Visible = true
 		return
 	end
 	configurations.SetFollowEnabled(not configurations.FollowEnabled)
@@ -5760,12 +5755,12 @@ configurations.CreditLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Le
 configurations.CreditLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
 configurations.CreditLogLayout.Parent = configurations.CreditLogScroll
 
-local CreditLogGridPad = Instance.new("UIPadding")
-CreditLogGridPad.PaddingTop = UDim.new(0, 2)
-CreditLogGridPad.PaddingLeft = UDim.new(0, 2)
-CreditLogGridPad.PaddingRight = UDim.new(0, 2)
-CreditLogGridPad.PaddingBottom = UDim.new(0, 2)
-CreditLogGridPad.Parent = configurations.CreditLogScroll
+configurations.CreditLogGridPad = Instance.new("UIPadding")
+configurations.CreditLogGridPad.PaddingTop = UDim.new(0, 2)
+configurations.CreditLogGridPad.PaddingLeft = UDim.new(0, 2)
+configurations.CreditLogGridPad.PaddingRight = UDim.new(0, 2)
+configurations.CreditLogGridPad.PaddingBottom = UDim.new(0, 2)
+configurations.CreditLogGridPad.Parent = configurations.CreditLogScroll
 
 function configurations.RefreshCreditLog()
 	for _, entry in pairs(configurations.CreditLogEntries) do
@@ -5812,13 +5807,12 @@ function configurations.RefreshCreditLog()
 
 	local rows = {}
 	for _, entry in pairs(configurations.CreditLogEntries) do
-		if configurations.CreditLogHiddenUsers[entry.UserId] ~= true
-			and (not entry.ExpireAt or entry.ExpireAt > os.clock()) then
+		if configurations.CreditLogHiddenUsers[entry.UserId] ~= true then
 			table.insert(rows, entry)
 		end
 	end
 	table.sort(rows, function(a, b)
-		return (a.ExpireAt or math.huge) < (b.ExpireAt or math.huge)
+		return (a.CreatedAt or 0) > (b.CreatedAt or 0)
 	end)
 	for order, entry in ipairs(rows) do
 		local creditedUserId = entry.UserId
@@ -5944,8 +5938,8 @@ function configurations.MakeDraggable(panel, handle)
 	end)
 end
 
-configurations.MakeDraggable(PlayerPanel, PlayerPanelHeader)
-configurations.MakeDraggable(PlayerCardPanel, PlayerCardHeader)
+configurations.MakeDraggable(configurations.PlayerPanel, configurations.PlayerPanelHeader)
+configurations.MakeDraggable(configurations.PlayerCardPanel, configurations.PlayerCardHeader)
 configurations.MakeDraggable(configurations.WhitelistPanel, configurations.WhitelistHeader)
 configurations.MakeDraggable(configurations.JoinLogPanel, configurations.JoinLogHeader)
 configurations.MakeDraggable(configurations.CreditLogPanel, configurations.CreditLogHeader)
@@ -6012,7 +6006,7 @@ function configurations.MakeResizable(panel, name, minWidthPx, minHeightPx, onRe
 	end)
 end
 
-configurations.MakeResizable(PlayerPanel, "PlayerPanel", 280, 300, function(width, height)
+configurations.MakeResizable(configurations.PlayerPanel, "PlayerPanel", 280, 300, function(width, height)
 	configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx = width, height
 	configurations.SaveConfig()
 end, 640, 1200)
@@ -6055,7 +6049,7 @@ function configurations.ApplyResponsiveOverlaySizes()
 	end
 
 	if not configurations.PlayerPanelCardMode then
-		configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx, 640, 1200)
+		configurations.ClampOverlaySize(configurations.PlayerPanel, configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx, 640, 1200)
 	end
 	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthPx, configurations.WhitelistPanelHeightPx, 560, 1100)
 	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthPx, configurations.JoinLogHeightPx, 560, 1100)
@@ -6372,12 +6366,21 @@ function configurations.TrackCreditLogTag(tag)
 	if not userId then return false end
 	local entry = configurations.CreditLogEntries[tag]
 	if not entry then
-		entry = { Tag = tag, UserId = userId, Username = tag.Value, CreatedAt = os.clock(), ExpireAt = nil }
+		local humanoid = tag.Parent
+		local mob = humanoid and humanoid.Parent
+		entry = {
+			Tag = tag,
+			UserId = userId,
+			Username = tag.Value ~= "" and tag.Value or ("User " .. userId),
+			CreatedAt = os.clock(),
+			Humanoid = humanoid,
+			Mob = mob,
+		}
 		configurations.CreditLogEntries[tag] = entry
 		configurations.CreditLogDirty = true
 	end
 	local previousUsername = entry.Username
-	entry.Username = tag.Value ~= "" and tag.Value or entry.Username
+	entry.Username = tag.Value ~= "" and tag.Value or ("User " .. userId)
 	configurations.CreditLogKnownPlayers[userId] = entry.Username
 	if previousUsername ~= entry.Username then configurations.CreditLogDirty = true end
 	return true
@@ -6391,9 +6394,6 @@ function configurations.WatchCreditLogTarget(target)
 	if configurations.CreditLogChildRemovedConnection then configurations.CreditLogChildRemovedConnection:Disconnect() end
 	configurations.CreditLogChildAddedConnection = nil
 	configurations.CreditLogChildRemovedConnection = nil
-	for tag in pairs(configurations.CreditLogEntries) do
-		configurations.RemoveCreditLogEntry(tag)
-	end
 	configurations.CreditLogTarget = target
 	configurations.CreditLogHumanoid = humanoid
 	if not humanoid then return end
@@ -6409,36 +6409,20 @@ function configurations.WatchCreditLogTarget(target)
 end
 
 function configurations.UpdateCreditLog()
-	local now = os.clock()
 	for tag, entry in pairs(configurations.CreditLogEntries) do
-		if not tag.Parent or tag.Parent ~= configurations.CreditLogHumanoid
-			or (tag.Value == "" and (entry.Username ~= "" or now - (entry.CreatedAt or now) > 1)) then
+		if not tag.Parent or tag.Parent ~= entry.Humanoid
+			or not entry.Mob or not entry.Mob:IsDescendantOf(MobsFolder) then
 			configurations.RemoveCreditLogEntry(tag)
 		else
 			local previousUsername = entry.Username
-			entry.Username = tag.Value ~= "" and tag.Value or entry.Username
+			entry.Username = tag.Value ~= "" and tag.Value or ("User " .. entry.UserId)
 			configurations.CreditLogKnownPlayers[entry.UserId] = entry.Username
 			if previousUsername ~= entry.Username then configurations.CreditLogDirty = true end
-			local startObject = tag:FindFirstChild("StartTime")
-			local endObject = tag:FindFirstChild("EndTime")
-			local startTime = startObject and tonumber(startObject.Value)
-			local endTime = endObject and tonumber(endObject.Value)
-			if startTime ~= entry.LastStartTime or endTime ~= entry.LastEndTime then
-				entry.LastStartTime = startTime
-				entry.LastEndTime = endTime
-				-- The tag's StartTime/EndTime delta is the credit lifetime requested for this log.
-				entry.ExpireAt = startTime and endTime and now + math.max(0, endTime - startTime) or nil
-				configurations.CreditLogDirty = true
-			end
 			if entry.NameButton and entry.NameButton.Parent and entry.NameButton.Text ~= "HIT · @" .. entry.Username then
 				entry.NameButton.Text = "HIT · @" .. entry.Username
 			end
 			if entry.CountdownLabel and entry.CountdownLabel.Parent then
-				local remaining = entry.ExpireAt and math.max(0, math.ceil(entry.ExpireAt - now)) or nil
-				entry.CountdownLabel.Text = remaining and string.format("CREDIT · %02d:%02d", math.floor(remaining / 60), remaining % 60) or "CREDIT · WAITING"
-			end
-			if entry.ExpireAt and now >= entry.ExpireAt then
-				configurations.RemoveCreditLogEntry(tag)
+				entry.CountdownLabel.Text = "CREDIT · ACTIVE"
 			end
 		end
 	end
@@ -6472,10 +6456,10 @@ configurations.ResizeHandle.TextSize = 15
 configurations.ResizeHandle.Font = Enum.Font.GothamBold
 configurations.ResizeHandle.Parent = Main
 Instance.new("UICorner", configurations.ResizeHandle).CornerRadius = UDim.new(0, 8)
-local mainResizeStroke = Instance.new("UIStroke", configurations.ResizeHandle)
-mainResizeStroke.Color = UIColors.BORDER
-mainResizeStroke.Transparency = 0.15
-mainResizeStroke.Thickness = 1
+configurations.MainResizeStroke = Instance.new("UIStroke", configurations.ResizeHandle)
+configurations.MainResizeStroke.Color = UIColors.BORDER
+configurations.MainResizeStroke.Transparency = 0.15
+configurations.MainResizeStroke.Thickness = 1
 configurations.ResizeHandle.MouseEnter:Connect(function()
 	configurations.ResizeHandle.BackgroundColor3 = UIColors.ACCENT_DIM
 	configurations.ResizeHandle.TextColor3 = UIColors.ACCENT_SEL
@@ -8216,7 +8200,7 @@ task.spawn(function()
 			end
 		end
 
-		if (PlayerPanel.Visible or (PlayerCardPanel and PlayerCardPanel.Visible)) and os.clock() - lastPlayerRefresh >= 0.5 then
+		if (configurations.PlayerPanel.Visible or (configurations.PlayerCardPanel and configurations.PlayerCardPanel.Visible)) and os.clock() - lastPlayerRefresh >= 0.5 then
 			lastPlayerRefresh = os.clock()
 			local panelPlayers = configurations.FilterPlayerPanelListing(Players:GetPlayers())
 			-- Tabs + search filter for Players-in-server panel
@@ -8245,15 +8229,15 @@ task.spawn(function()
 				panelPlayers = filtered
 			end
 			-- Floating player card: single target, independent of the server list panel.
-			if PlayerCardPanel and PlayerCardPanel.Visible and configurations.PlayerCardTargetUserId then
+			if configurations.PlayerCardPanel and configurations.PlayerCardPanel.Visible and configurations.PlayerCardTargetUserId then
 				local cardTarget = Players:GetPlayerByUserId(tonumber(configurations.PlayerCardTargetUserId) or 0)
 				if not cardTarget then
-					PlayerCardPanel.Visible = false
+					configurations.PlayerCardPanel.Visible = false
 					configurations.PlayerCardTargetUserId = nil
 					configurations.PlayerCardBuildSignature = nil
 				else
-					PlayerCardTitle.Text = cardTarget.DisplayName ~= "" and cardTarget.DisplayName or cardTarget.Name
-					PlayerCardSubtitle.Text = "@" .. cardTarget.Name
+					configurations.PlayerCardTitle.Text = cardTarget.DisplayName ~= "" and cardTarget.DisplayName or cardTarget.Name
+					configurations.PlayerCardSubtitle.Text = "@" .. cardTarget.Name
 					local cardSig = table.concat({
 						tostring(cardTarget.UserId),
 						configurations.IsWhitelisted(cardTarget) and "w" or "-",
@@ -8263,7 +8247,7 @@ task.spawn(function()
 					local rebuildCard = cardSig ~= configurations.PlayerCardBuildSignature
 					if rebuildCard then
 						configurations.PlayerCardBuildSignature = cardSig
-						for _, child in ipairs(PlayerCardScroll:GetChildren()) do
+						for _, child in ipairs(configurations.PlayerCardScroll:GetChildren()) do
 							if child.Name:match("^PlayerRow_") then child:Destroy() end
 						end
 						-- Reuse the same row builder by temporarily pointing PlayerScroll → card scroll is hard;
@@ -8276,7 +8260,7 @@ task.spawn(function()
 						row.ZIndex = 93
 						row.BackgroundColor3 = UIColors.CARD
 						row.BorderSizePixel = 0
-						row.Parent = PlayerCardScroll
+						row.Parent = configurations.PlayerCardScroll
 						Instance.new("UICorner", row).CornerRadius = UDim.new(0, 12)
 						local rowStroke = Instance.new("UIStroke", row)
 						rowStroke.Color = UIColors.BORDER
@@ -8475,10 +8459,10 @@ task.spawn(function()
 								end)
 							end)
 						end
-						configurations.ApplyTextScale(PlayerCardPanel)
+						configurations.ApplyTextScale(configurations.PlayerCardPanel)
 					else
 						-- Live-update distance / HP / EXP on existing card row
-						local row = PlayerCardScroll:FindFirstChild("PlayerRow_" .. cardTarget.UserId)
+						local row = configurations.PlayerCardScroll:FindFirstChild("PlayerRow_" .. cardTarget.UserId)
 						if row then
 							local char = cardTarget.Character
 							local otherRoot = char and char:FindFirstChild("HumanoidRootPart")
@@ -8514,7 +8498,7 @@ task.spawn(function()
 				end
 			end
 
-			if PlayerPanel.Visible then
+			if configurations.PlayerPanel.Visible then
 			if configurations.PlayerPanelMode == "server" or configurations.PlayerPanelMode == "follow" or configurations.PlayerPanelMode == "card" then
 				table.sort(panelPlayers, function(a, b)
 					if a == Player then return b ~= Player end
@@ -8539,7 +8523,7 @@ task.spawn(function()
 			local rebuildPlayerRows = panelSignature ~= configurations.PlayerPanelBuildSignature
 			if rebuildPlayerRows then
 				configurations.PlayerPanelBuildSignature = panelSignature
-				for _, child in ipairs(PlayerScroll:GetChildren()) do
+				for _, child in ipairs(configurations.PlayerScroll:GetChildren()) do
 					if child.Name:match("^PlayerRow_") then
 						child:Destroy()
 					end
@@ -8565,16 +8549,16 @@ task.spawn(function()
 						row.Font = Enum.Font.GothamBold
 						row.TextXAlignment = Enum.TextXAlignment.Left
 						row.TextTruncate = Enum.TextTruncate.AtEnd
-						row.Parent = PlayerScroll
+						row.Parent = configurations.PlayerScroll
 						Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
 						row.MouseButton1Click:Connect(function()
 							configurations.SelectedFollowUserId = tostring(selectedPlayer.UserId)
 							configurations.SaveConfig()
 							configurations.UpdateFollowButtons()
-							PlayerPanel.Visible = false
+							configurations.PlayerPanel.Visible = false
 							configurations.PlayerPanelMode = "server"
 							configurations.PlayerPanelTargetUserId = nil
-							PlayerPanelTitle.Text = "Players in server"
+							configurations.PlayerPanelTitle.Text = "Players in server"
 							lastPlayerRefresh = 0
 						end)
 						continue
@@ -8597,7 +8581,7 @@ task.spawn(function()
 					row.ZIndex = 92
 					row.BackgroundColor3 = UIColors.CARD
 					row.BorderSizePixel = 0
-					row.Parent = PlayerScroll
+					row.Parent = configurations.PlayerScroll
 					Instance.new("UICorner", row).CornerRadius = UDim.new(0, 12)
 					local rowStroke = Instance.new("UIStroke", row)
 					rowStroke.Color = UIColors.BORDER
@@ -8827,13 +8811,13 @@ task.spawn(function()
 			end
 
 			if rebuildPlayerRows then
-				configurations.ApplyTextScale(PlayerPanel)
+				configurations.ApplyTextScale(configurations.PlayerPanel)
 			end
 
 			-- Refresh changing player data in-place; keep cards and their callbacks alive.
 			if configurations.PlayerPanelMode == "server" or configurations.PlayerPanelMode == "card" then
 				for _, listedPlayer in ipairs(panelPlayers) do
-					local row = PlayerScroll:FindFirstChild("PlayerRow_" .. listedPlayer.UserId)
+					local row = configurations.PlayerScroll:FindFirstChild("PlayerRow_" .. listedPlayer.UserId)
 					if row and row:IsA("Frame") then
 						local displayNameLabel = row:FindFirstChild("DisplayName")
 						if displayNameLabel then
