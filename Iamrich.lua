@@ -1,4 +1,4 @@
-local VERSION = "2.6.32"
+local VERSION = "2.6.33"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1752,9 +1752,20 @@ ScreenGui.Parent = Player:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
 -- Fixed design size (Fluent-style). GuiScale zooms; does not stretch with the screen.
+-- Always AnchorPoint (0,0) so drag never jumps when converting from center anchor.
 Main.Size = UDim2.fromOffset(configurations.MainWidthPx or 520, configurations.MainHeightPx or 560)
-Main.Position = UDim2.fromScale(0.5, 0.5)
-Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.AnchorPoint = Vector2.new(0, 0)
+do
+	local cam = workspace.CurrentCamera
+	local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
+	local w = configurations.MainWidthPx or 520
+	local h = configurations.MainHeightPx or 560
+	local scale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+	Main.Position = UDim2.fromOffset(
+		math.max(8, (vp.X - w * scale) * 0.5),
+		math.max(8, (vp.Y - h * scale) * 0.5)
+	)
+end
 Main.ZIndex = 90
 Main.BackgroundColor3 = UIColors.BG
 Main.BorderSizePixel = 0
@@ -2299,61 +2310,57 @@ MinimizeBtn.MouseButton1Click:Connect(function()
 	configurations.SaveConfig()
 end)
 
--- Drag
+-- Drag (offset-from-click: keeps the grabbed point under the cursor; safe with UIScale)
 local Dragging = false
-local DragStart = nil
-local StartPos = nil
+local DragOffset = nil -- Vector2: cursor - AbsolutePosition at press
 
 Header.InputBegan:Connect(function(input)
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1
 		and input.UserInputType ~= Enum.UserInputType.Touch then
 		return
 	end
+	-- Don't start a window drag when interacting with header buttons.
+	local guiObjects = Player.PlayerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
+	for _, obj in ipairs(guiObjects) do
+		if obj:IsA("GuiButton") and obj:IsDescendantOf(Header) and obj ~= Header then
+			return
+		end
+	end
 
 	Dragging = true
-	DragStart = input.Position
-	StartPos = Main.AbsolutePosition
+	Main.AnchorPoint = Vector2.new(0, 0)
+	-- Convert current visual top-left into Offset position first (no jump).
+	local abs = Main.AbsolutePosition
+	Main.Position = UDim2.fromOffset(abs.X, abs.Y)
+	DragOffset = Vector2.new(input.Position.X - abs.X, input.Position.Y - abs.Y)
 
 	input.Changed:Connect(function()
 		if input.UserInputState == Enum.UserInputState.End then
 			Dragging = false
+			DragOffset = nil
 		end
 	end)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-	if not Dragging then
+	if not Dragging or not DragOffset then
 		return
 	end
-
 	if input.UserInputType ~= Enum.UserInputType.MouseMovement
 		and input.UserInputType ~= Enum.UserInputType.Touch then
 		return
 	end
 
 	local parent = Main.Parent
-	if not parent then
-		return
-	end
-
+	if not parent then return end
 	local parentSize = parent.AbsoluteSize
 	local mainSize = Main.AbsoluteSize
-	local delta = input.Position - DragStart
+	if mainSize.X < 1 or mainSize.Y < 1 then return end
 
-	local x = StartPos.X + delta.X
-	local y = StartPos.Y + delta.Y
-
-	x = math.clamp(
-		x,
-		0,
-		math.max(0, parentSize.X - mainSize.X)
-	)
-
-	y = math.clamp(
-		y,
-		0,
-		math.max(0, parentSize.Y - mainSize.Y)
-	)
+	local x = input.Position.X - DragOffset.X
+	local y = input.Position.Y - DragOffset.Y
+	x = math.clamp(x, 0, math.max(0, parentSize.X - mainSize.X))
+	y = math.clamp(y, 0, math.max(0, parentSize.Y - mainSize.Y))
 
 	Main.AnchorPoint = Vector2.new(0, 0)
 	Main.Position = UDim2.fromOffset(x, y)
@@ -5319,31 +5326,46 @@ end)
 
 function configurations.MakeDraggable(panel, handle)
 	local dragging = false
-	local dragStart
-	local startAbs
+	local dragOffset -- cursor - AbsolutePosition at press
 	handle.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startAbs = panel.AbsolutePosition
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-				end
-			end)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+			return
 		end
+		-- Skip when pressing a button on the handle (e.g. close).
+		local objs = Player.PlayerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
+		for _, obj in ipairs(objs) do
+			if obj:IsA("GuiButton") and obj:IsDescendantOf(handle) and obj ~= handle then
+				return
+			end
+		end
+
+		dragging = true
+		panel.AnchorPoint = Vector2.new(0, 0)
+		local abs = panel.AbsolutePosition
+		panel.Position = UDim2.fromOffset(abs.X, abs.Y)
+		dragOffset = Vector2.new(input.Position.X - abs.X, input.Position.Y - abs.Y)
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+				dragOffset = nil
+			end
+		end)
 	end)
 	UserInputService.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
-			if not viewport or viewport.X < 1 or viewport.Y < 1 then return end
-			local delta = input.Position - dragStart
-			local w = panel.AbsoluteSize.X
-			local h = panel.AbsoluteSize.Y
-			local x = math.clamp(startAbs.X + delta.X, 8, math.max(8, viewport.X - w - 8))
-			local y = math.clamp(startAbs.Y + delta.Y, 8, math.max(8, viewport.Y - h - 8))
-			panel.Position = UDim2.fromOffset(x, y)
+		if not dragging or not dragOffset then return end
+		if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+			return
 		end
+		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
+		if not viewport or viewport.X < 1 or viewport.Y < 1 then return end
+		local w = panel.AbsoluteSize.X
+		local h = panel.AbsoluteSize.Y
+		if w < 1 or h < 1 then return end
+		local x = math.clamp(input.Position.X - dragOffset.X, 8, math.max(8, viewport.X - w - 8))
+		local y = math.clamp(input.Position.Y - dragOffset.Y, 8, math.max(8, viewport.Y - h - 8))
+		panel.AnchorPoint = Vector2.new(0, 0)
+		panel.Position = UDim2.fromOffset(x, y)
 	end)
 end
 
