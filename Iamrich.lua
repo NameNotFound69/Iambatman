@@ -1,4 +1,4 @@
-local VERSION = "2.6.29"
+local VERSION = "2.6.30"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4550,14 +4550,14 @@ function configurations.SetPlayerPanelCardLayout(enabled)
 		end
 		configurations.PlayerPanelCardMode = true
 		PlayerPanel.AnchorPoint = Vector2.new(0.5, 0)
-		PlayerPanel.Size = UDim2.new(configurations.PlayerPanelWidthScale, 0, 0, 244)
+		PlayerPanel.Size = UDim2.fromOffset(configurations.PlayerPanelWidthPx or 340, 244)
 		PlayerPanel.Position = UDim2.new(0.5, 0, 0.03, 0)
 		if resizeHandle then resizeHandle.Visible = false end
 		return
 	end
 
 	if not configurations.PlayerPanelCardMode then return end
-	PlayerPanel.Size = configurations.PlayerPanelSavedSize or UDim2.fromScale(configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale)
+	PlayerPanel.Size = configurations.PlayerPanelSavedSize or UDim2.fromOffset(configurations.PlayerPanelWidthPx or 340, configurations.PlayerPanelHeightPx or 420)
 	PlayerPanel.Position = configurations.PlayerPanelSavedPosition or UDim2.fromScale(0.52, 0.19)
 	PlayerPanel.AnchorPoint = configurations.PlayerPanelSavedAnchorPoint or Vector2.new(0, 0)
 	configurations.PlayerPanelCardMode = false
@@ -5301,38 +5301,12 @@ function configurations.ApplyResponsiveOverlaySizes()
 		panel.Position = UDim2.fromOffset(px, py)
 	end
 
-	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx, 560, 700)
+	if not configurations.PlayerPanelCardMode then
+		configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx, 560, 700)
+	end
 	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthPx, configurations.WhitelistPanelHeightPx, 520, 640)
 	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthPx, configurations.JoinLogHeightPx, 560, 640)
 	configurations.ClampOverlaySize(configurations.CreditLogPanel, configurations.CreditLogWidthPx, configurations.CreditLogHeightPx, 560, 700)
-end
-configurations.ApplyResponsiveOverlaySizes()
-	local viewport = configurations.GetViewportSize and configurations.GetViewportSize() or (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize)
-	if not viewport or viewport.X < 1 or viewport.Y < 1 then return end
-
-	-- Keep overlay panels at their saved percentage size when the screen changes.
-	-- Convert AbsolutePosition → Scale so panels dragged with Offset still stay on-screen.
-	configurations.ClampOverlaySize = function(panel, widthScale, heightScale, panelMaxWidth)
-		if not panel or not panel.Parent then return end
-		local maxWidth = math.max(0.05, math.min(panelMaxWidth or 0.80, 1 - 16 / viewport.X))
-		local maxHeight = math.max(0.05, math.min(0.90, 1 - 16 / viewport.Y))
-		local wantedWidth = tonumber(widthScale) or panel.Size.X.Scale
-		local wantedHeight = tonumber(heightScale) or panel.Size.Y.Scale
-		local width = math.min(math.max(0.05, wantedWidth), maxWidth)
-		local height = math.min(math.max(0.05, wantedHeight), maxHeight)
-
-		local xScale, yScale = configurations.PositionToScale(panel, viewport)
-		panel.Size = UDim2.fromScale(width, height)
-		xScale, yScale = configurations.ClampPositionScale(xScale, yScale, width, height)
-		panel.Position = UDim2.fromScale(xScale, yScale)
-	end
-
-	if not configurations.PlayerPanelCardMode then
-		configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale, 0.52)
-	end
-	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale)
-	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthScale, configurations.JoinLogHeightScale, 0.65)
-	configurations.ClampOverlaySize(configurations.CreditLogPanel, configurations.CreditLogWidthScale, configurations.CreditLogHeightScale, 0.65)
 end
 configurations.ApplyResponsiveOverlaySizes()
 
