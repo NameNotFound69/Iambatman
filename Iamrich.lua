@@ -1,4 +1,4 @@
-local VERSION = "2.6.24"
+local VERSION = "2.6.25"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -307,6 +307,9 @@ configurations.AlertsEnabled = true
 configurations.JoinAlertsEnabled = false
 configurations.AlertFlashEnabled = true
 configurations.AutoBlockEnabled = true
+configurations.FinishExpAfterBlockEnabled = false
+configurations.AutoBlockPostTarget = nil
+configurations.AutoBlockPostUserId = nil
 configurations.AlertCombatPending = false
 configurations.AlertCombatTarget = nil
 configurations.AlertCombatHold = false
@@ -750,6 +753,7 @@ function configurations.LoadConfig()
 	end
 	if type(config.AlertFlashEnabled) == "boolean" then configurations.AlertFlashEnabled = config.AlertFlashEnabled end
 	if type(config.AutoBlockEnabled) == "boolean" then configurations.AutoBlockEnabled = config.AutoBlockEnabled end
+	if type(config.FinishExpAfterBlockEnabled) == "boolean" then configurations.FinishExpAfterBlockEnabled = config.FinishExpAfterBlockEnabled end
 	if type(config.MovementBoostEnabled) == "boolean" then configurations.MovementBoostEnabled = config.MovementBoostEnabled end
 	if type(config.SafeBoosterResetEnabled) == "boolean" then configurations.SafeBoosterResetEnabled = config.SafeBoosterResetEnabled end
 	if type(config.AutoAttackEnabled) == "boolean" then configurations.AutoAttackEnabled = config.AutoAttackEnabled end
@@ -913,6 +917,7 @@ function configurations.SaveConfig()
 		AutoResumeAfterAlertVersion = 1,
 		AlertFlashEnabled = configurations.AlertFlashEnabled,
 		AutoBlockEnabled = configurations.AutoBlockEnabled,
+		FinishExpAfterBlockEnabled = configurations.FinishExpAfterBlockEnabled,
 		MovementBoostEnabled = configurations.MovementBoostEnabled,
 		SafeBoosterResetEnabled = configurations.SafeBoosterResetEnabled,
 		ESPEnabled = configurations.ESPEnabled,
@@ -2274,8 +2279,8 @@ end
 
 configurations.AddPageHeading(ExpPage, "Overview", "Level, EXP, server status and active farm session")
 configurations.AddPageHeading(ESPPage, "ESP", "Player markers, lines and boxes on screen")
-configurations.AddPageHeading(PlayerPage, "Players", "Follow target, whitelist and player list")
-configurations.AddPageHeading(AlertsPage, "Alerts & Safety", "Nearby alerts, join log and auto-block")
+configurations.AddPageHeading(PlayerPage, "Players", "Follow, whitelist, server players and block settings")
+configurations.AddPageHeading(AlertsPage, "Alerts & Safety", "Nearby alerts and join log")
 configurations.AddPageHeading(FarmPage, "EXP Farm", "Cycle, range, timing and target behavior")
 configurations.AddPageHeading(CombatPage, "Combat", "Auto attack, skills, Boss and Miniboss targeting")
 configurations.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
@@ -3734,11 +3739,20 @@ local ESPToggleButton = configurations.MakeToggle("Player ESP", configurations.E
 local ESPLineButton = configurations.MakeToggle("ESP lines", configurations.ESPLineEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 3, nil, "Draw lines to players.")
 local ESPBoxButton = configurations.MakeToggle("ESP boxes", configurations.ESPBoxEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 4, nil, "Draw boxes around players.")
 local FPSBoostButton = configurations.MakeToggle("Boost FPS", configurations.FPSBoostEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 1, PerformanceGrid, "Reduce visual effects while keeping scene lights and color correction.")
-local AutoBlockButton = configurations.MakeToggle("Auto block", configurations.AutoBlockEnabled, UIColors.RED, UIColors.RED_DIM, 6, AlertsGrid, "Show the block prompt after the EXP target is defeated.")
+local AutoBlockButton = configurations.MakeToggle("Auto block", configurations.AutoBlockEnabled, UIColors.RED, UIColors.RED_DIM, 5, PlayersGrid, "Open Roblox's Block prompt for non-whitelisted players.")
 local PlayerListButton = configurations.MakeActionRow("Player list", 1, PlayersGrid, "View players in this server.")
 local WhitelistButton = configurations.MakeActionRow("Whitelist", 2, PlayersGrid, "Whitelisted players do not trigger alerts or auto-block.")
 FollowSelectButton = configurations.MakeActionRow("Choose follow target", 3, PlayersGrid, "Select who to follow.")
 FollowToggleButton = configurations.MakeToggle("Follow", configurations.FollowEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 4, PlayersGrid, "Follow the selected player; turn off to pause.")
+configurations.FinishExpAfterBlockButton = configurations.MakeToggle(
+	"Attack after block",
+	configurations.FinishExpAfterBlockEnabled,
+	UIColors.RED,
+	UIColors.RED_DIM,
+	6,
+	PlayersGrid,
+	"With Auto block on, confirm Block first, then finish the locked EXP mob before hopping."
+)
 
 function configurations.UpdateFollowButtons()
 	local selectedId = configurations.SelectedFollowUserId
@@ -3833,6 +3847,24 @@ AutoBlockButton.MouseButton1Click:Connect(function()
 		configurations.AlertCombatBlockReady = false
 		configurations.AlertBlockPromptShown = false
 		configurations.AlertBlockTarget = nil
+		configurations.AutoBlockPostTarget = nil
+		configurations.AutoBlockPostUserId = nil
+	end
+	configurations.SaveConfig()
+end)
+
+configurations.FinishExpAfterBlockButton.MouseButton1Click:Connect(function()
+	configurations.FinishExpAfterBlockEnabled = not configurations.FinishExpAfterBlockEnabled
+	configurations.SetToggleVisual(
+		configurations.FinishExpAfterBlockButton,
+		"Attack after block",
+		configurations.FinishExpAfterBlockEnabled,
+		UIColors.RED,
+		UIColors.RED_DIM
+	)
+	if not configurations.FinishExpAfterBlockEnabled then
+		configurations.AutoBlockPostTarget = nil
+		configurations.AutoBlockPostUserId = nil
 	end
 	configurations.SaveConfig()
 end)
@@ -5386,6 +5418,12 @@ function configurations.Combat.GetSelectedCombatMob(localRoot)
 		if maxDistance and distance > maxDistance then return nil end
 		return mob, root, distance
 	end
+	-- A deferred post-Block kill must stay locked even when Auto Execute is off.
+	if configurations.PendingServerHop then
+		local mob, root, distance = resolve(configurations.ServerHopKillTarget)
+		if mob then return mob, root, distance end
+		return nil
+	end
 	-- Auto Execute takes priority over list selection and locks the EXP mob to finish.
 	if configurations.AutoExecuteEnabled then
 		if configurations.AlertCombatPending then
@@ -6426,12 +6464,26 @@ task.spawn(function()
 				configurations.AlertResumeRequired = false
 				configurations.AlertWasFarming = configurations.Farming
 				configurations.AlertBlockPromptShown = false
+				configurations.AutoBlockPostTarget = nil
+				configurations.AutoBlockPostUserId = nil
 				configurations.AlertCombatPending = true
 				configurations.AlertBlockTarget = nearbyPlayer
-				local mob = configurations.AutoExecuteEnabled and configurations.Combat.GetExpExecutionTarget() or nil
+				local mob = (configurations.AutoExecuteEnabled
+					or (configurations.AutoBlockEnabled and configurations.FinishExpAfterBlockEnabled))
+					and configurations.Combat.GetExpExecutionTarget() or nil
 				if not configurations.Combat.IsLivingMob(mob) then mob = nil end
 				configurations.AlertCombatTarget = mob
-				if mob then
+				if mob and configurations.AutoBlockEnabled and configurations.FinishExpAfterBlockEnabled then
+					-- When enabled, present Block first and preserve this EXP target for the post-Block finish.
+					configurations.AutoBlockPostTarget = mob
+					configurations.AutoBlockPostUserId = nearbyPlayer.UserId
+					configurations.AlertCombatPending = false
+					configurations.AlertCombatTarget = nil
+					configurations.AlertCombatHold = true
+					configurations.AlertCombatBlockReady = true
+					StateLabel.Text = "Block"
+					MiniState.Text = "Confirm Block first; then finishing the locked EXP target before hop"
+				elseif mob then
 					StateLabel.Text = "Alert"
 					MiniState.Text = "Attacking locked EXP target before Block"
 				else
@@ -6457,7 +6509,9 @@ task.spawn(function()
 					MiniState.Text = "Attacking locked EXP target before Block"
 				elseif configurations.AlertCombatBlockReady then
 					StateLabel.Text = "Block"
-					MiniState.Text = "No EXP target; opening Block prompt"
+					MiniState.Text = configurations.AutoBlockPostTarget
+						and "Confirm Block; then finishing the locked EXP target"
+						or "No EXP target; opening Block prompt"
 				elseif configurations.AlertCombatHold then
 					StateLabel.Text = "Alert hold"
 					MiniState.Text = "No EXP target; waiting for player to leave"
@@ -6508,6 +6562,11 @@ task.spawn(function()
 			and os.clock() - lastAutoBlockCheck >= 1 then
 			lastAutoBlockCheck = os.clock()
 			local blockedUsers = configurations.GetBlockedUserSet()
+			if configurations.AutoBlockPostUserId and not trackedPlayerInRange
+				and not (blockedUsers and blockedUsers[tostring(configurations.AutoBlockPostUserId)]) then
+				configurations.AutoBlockPostTarget = nil
+				configurations.AutoBlockPostUserId = nil
+			end
 			local hasNonWhitelistedPlayer = false
 			local blockedNonWhitelistedPlayer = false
 			local nextPlayerToPrompt = nil
@@ -6522,9 +6581,10 @@ task.spawn(function()
 					deferredAutoBlockMob = activeExpMob
 				end
 			end
-			local deferPromptForExp = deferredAutoBlockMob ~= nil
+			local deferPromptForExp = not configurations.FinishExpAfterBlockEnabled
+				and deferredAutoBlockMob ~= nil
 				and configurations.Combat.IsLivingMob(deferredAutoBlockMob)
-			if deferredAutoBlockMob and not deferPromptForExp then
+			if deferredAutoBlockMob and not configurations.Combat.IsLivingMob(deferredAutoBlockMob) then
 				deferredAutoBlockMob = nil
 			end
 
@@ -6553,6 +6613,8 @@ task.spawn(function()
 				configurations.AlertCombatBlockReady = false
 				configurations.AlertBlockTarget = nil
 				configurations.AlertBlockPromptShown = false
+				configurations.AutoBlockPostTarget = nil
+				configurations.AutoBlockPostUserId = nil
 			elseif blockedNonWhitelistedPlayer and not autoBlockTeleporting then
 				configurations.AlertCombatBlockReady = false
 				configurations.AlertBlockTarget = nil
@@ -6565,10 +6627,23 @@ task.spawn(function()
 				if not configurations.Combat.IsLivingMob(killMob) then
 					killMob = configurations.ExpMaxCombatTarget
 				end
+				if configurations.FinishExpAfterBlockEnabled
+					and configurations.AutoBlockPostTarget
+					and configurations.AutoBlockPostUserId
+					and blockedUsers
+					and blockedUsers[tostring(configurations.AutoBlockPostUserId)]
+					and configurations.Combat.IsLivingMob(configurations.AutoBlockPostTarget) then
+					killMob = configurations.AutoBlockPostTarget
+				end
 				if configurations.Combat.IsLivingMob(killMob) then
 					configurations.PendingServerHop = true
 					configurations.ServerHopKillTarget = killMob
 					configurations.ExpMaxCombatTarget = killMob
+					configurations.AlertCombatPending = false
+					configurations.AlertCombatHold = false
+					configurations.AlertCombatBlockReady = false
+					configurations.AutoBlockPostTarget = nil
+					configurations.AutoBlockPostUserId = nil
 					-- Stop EXP firing; focus on killing, then hop.
 					if configurations.Farming then
 						configurations.Farming = false
@@ -6584,6 +6659,8 @@ task.spawn(function()
 				else
 					configurations.PendingServerHop = false
 					configurations.ServerHopKillTarget = nil
+					configurations.AutoBlockPostTarget = nil
+					configurations.AutoBlockPostUserId = nil
 					StateLabel.Text = "Server hop"
 					MiniState.Text = "A non-Whitelisted player is already blocked"
 					autoBlockTeleporting = true
