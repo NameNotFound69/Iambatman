@@ -1,7 +1,7 @@
 -- Party leader following and server navigation for Iamrich.
 -- The leader teleport flow follows AIC's in-game Party ChatEvent approach.
-local VERSION = "1.2.0"
-print("[PartySystem] Version " .. VERSION .. " (public server list + direct join)")
+local VERSION = "1.3.1"
+print("[PartySystem] Version " .. VERSION .. " (current server listing + direct join)")
 local PartySystem = {}
 
 function PartySystem.Initialize(configuration, services)
@@ -544,7 +544,7 @@ function PartySystem.Initialize(configuration, services)
 		local listTitle = Instance.new("TextLabel")
 		listTitle.Size = UDim2.new(0.55, 0, 1, 0)
 		listTitle.BackgroundTransparency = 1
-		listTitle.Text = "Public servers"
+		listTitle.Text = "Servers · current first"
 		listTitle.TextColor3 = palette.TEXT
 		listTitle.TextSize = 12
 		listTitle.Font = Enum.Font.GothamBold
@@ -607,20 +607,26 @@ function PartySystem.Initialize(configuration, services)
 		local cursor = nil
 		local loading = false
 		local entryCount = 0
+		local seenServerIds = {}
 		local function clearRows()
 			for _, child in ipairs(list:GetChildren()) do
 				if child ~= layout and child ~= padding then child:Destroy() end
 			end
 			entryCount = 0
+			seenServerIds = {}
 		end
 
 		local function addServerRow(server)
+			local serverId = tostring(server.Id or "")
+			if serverId ~= "" and seenServerIds[serverId] then return end
+			if serverId ~= "" then seenServerIds[serverId] = true end
 			entryCount += 1
+			local isCurrentServer = tostring(server.Id or "") == tostring(game.JobId or "")
 			local row = Instance.new("Frame")
 			row.Name = "Server_" .. tostring(entryCount)
 			row.Size = UDim2.new(1, -2, 0, 72)
 			row.LayoutOrder = entryCount
-			row.BackgroundColor3 = palette.CARD or palette.INPUT
+			row.BackgroundColor3 = isCurrentServer and (palette.ACCENT_DIM or palette.INPUT) or (palette.CARD or palette.INPUT)
 			row.BorderSizePixel = 0
 			row.Parent = list
 			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
@@ -633,15 +639,15 @@ function PartySystem.Initialize(configuration, services)
 			local maxPlayers = tonumber(server.MaxPlayers) or 0
 			local pingVal = tonumber(server.Ping)
 			local fpsVal = tonumber(server.FPS)
-			local shortId = string.sub(tostring(server.Id), 1, 8) .. "…" .. string.sub(tostring(server.Id), -6)
+			local shortId = string.sub(serverId, 1, 8) .. "…" .. string.sub(serverId, -6)
 
 			local title = Instance.new("TextLabel")
 			title.Name = "Title"
 			title.Size = UDim2.new(1, -160, 0, 20)
 			title.Position = UDim2.fromOffset(12, 8)
 			title.BackgroundTransparency = 1
-			title.Text = string.format("%d / %d players", playing, maxPlayers)
-			title.TextColor3 = palette.TEXT
+			title.Text = (isCurrentServer and "YOU ARE HERE  ·  " or "") .. string.format("%d / %d players", playing, maxPlayers)
+			title.TextColor3 = isCurrentServer and palette.ACCENT or palette.TEXT
 			title.TextSize = 13
 			title.Font = Enum.Font.GothamBold
 			title.TextXAlignment = Enum.TextXAlignment.Left
@@ -666,16 +672,18 @@ function PartySystem.Initialize(configuration, services)
 			join.Name = "JoinServer"
 			join.Size = UDim2.fromOffset(64, 28)
 			join.Position = UDim2.new(1, -72, 0.5, -14)
-			join.BackgroundColor3 = palette.ACCENT_DIM
+			join.BackgroundColor3 = isCurrentServer and palette.INPUT or palette.ACCENT_DIM
 			join.BorderSizePixel = 0
-			join.Text = "Join"
-			join.TextColor3 = palette.TEXT
+			join.Text = isCurrentServer and "HERE" or "Join"
+			join.TextColor3 = isCurrentServer and palette.MUTED or palette.TEXT
 			join.TextSize = 12
 			join.Font = Enum.Font.GothamBold
+			join.Active = not isCurrentServer
+			join.AutoButtonColor = not isCurrentServer
 			join.Parent = row
 			Instance.new("UICorner", join).CornerRadius = UDim.new(0, 7)
 			join.MouseButton1Click:Connect(function()
-				JoinServer(server.Id)
+				if not isCurrentServer then JoinServer(server.Id) end
 			end)
 
 			local info = Instance.new("TextButton")
@@ -704,6 +712,20 @@ function PartySystem.Initialize(configuration, services)
 			if reset then
 				cursor = nil
 				clearRows()
+				if tostring(game.JobId or "") ~= "" then
+					local currentPing
+					local pingOk, pingSeconds = pcall(function() return Player:GetNetworkPing() end)
+					if pingOk and type(pingSeconds) == "number" then currentPing = pingSeconds * 1000 end
+					local currentFPS = configuration.ServerFPSLabel and tonumber(string.match(configuration.ServerFPSLabel.Text, "(%d+)"))
+					addServerRow({
+						Id = tostring(game.JobId),
+						Playing = #Players:GetPlayers(),
+						MaxPlayers = Players.MaxPlayers,
+						Ping = currentPing,
+						FPS = currentFPS,
+						IsCurrent = true,
+					})
+				end
 			end
 			if not reset and (type(cursor) ~= "string" or cursor == "") then return end
 			loading = true

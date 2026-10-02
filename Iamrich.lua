@@ -1,4 +1,4 @@
-local VERSION = "2.6.39"
+local VERSION = "2.6.43"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -361,6 +361,7 @@ configurations.JoinLogHeightScale = 0.50
 configurations.CreditLogEntries = {}
 configurations.CreditLogKnownPlayers = {}
 configurations.CreditLogHiddenUsers = {}
+configurations.CreditLogFilterOpen = false
 configurations.CreditLogTarget = nil
 configurations.CreditLogHumanoid = nil
 configurations.CreditLogChildAddedConnection = nil
@@ -575,7 +576,7 @@ else
 	end)
 	configurations.FPSBoostSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.2.0")))()
 	configurations.PartySystemLoadOk, configurations.PartySystemLoadResult = pcall(function()
-		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.1.0")
+		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.3.1")
 		-- Local readability + Info button patch (works even if remote is still 1.1.0)
 		source = source:gsub(
 			'local fpsText = server%.FPS and tostring%(server%.FPS%) or "n/a"',
@@ -621,6 +622,53 @@ else
 				'detail%.Size = UDim2%.new%(1, %-98, 1, %-8%)',
 				'detail.Size = UDim2.new(1, -160, 1, -8)'
 			)
+		end
+		if not source:find("IamrichCurrentServer", 1, true) then
+			source = source:gsub(
+				'local function addServerRow%(server%)%s*entryCount %+= 1',
+				'local function addServerRow(server)\n\t\t\tentryCount += 1\n\t\t\tlocal IamrichCurrentServer = tostring(server.Id or "") == tostring(game.JobId or "")',
+				1
+			)
+			source = source:gsub(
+				'row%.BackgroundColor3 = palette%.CARD or palette%.INPUT',
+				'row.BackgroundColor3 = IamrichCurrentServer and (palette.ACCENT_DIM or palette.INPUT) or (palette.CARD or palette.INPUT)',
+				1
+			)
+			source = source:gsub(
+				'title%.Text = string%.format%("%%d / %%d players", playing, maxPlayers%)',
+				'title.Text = (IamrichCurrentServer and "YOU ARE HERE  ·  " or "") .. playing .. " / " .. maxPlayers .. " players"',
+				1
+			)
+			source = source:gsub('join%.Text = "Join"', 'join.Text = IamrichCurrentServer and "HERE" or "Join"\n\t\t\tjoin.Active = not IamrichCurrentServer', 1)
+			source = source:gsub(
+				'listTitle%.Text = "Public servers"',
+				'listTitle.Text = "Servers · current first"',
+				1
+			)
+			if not source:find("MaxPlayers = Players.MaxPlayers", 1, true) then
+				source = source:gsub(
+					'if reset then%s*cursor = nil%s*clearRows%(%)%s*end',
+					[=[if reset then
+					cursor = nil
+					clearRows()
+					if tostring(game.JobId or "") ~= "" then
+					local currentPing
+					local pingOk, pingSeconds = pcall(function() return Player:GetNetworkPing() end)
+					if pingOk and type(pingSeconds) == "number" then currentPing = pingSeconds * 1000 end
+					local currentFPS = configuration.ServerFPSLabel and tonumber(string.match(configuration.ServerFPSLabel.Text, "(%d+)"))
+					addServerRow({
+						Id = tostring(game.JobId),
+						Playing = #Players:GetPlayers(),
+						MaxPlayers = Players.MaxPlayers,
+						Ping = currentPing,
+						FPS = currentFPS,
+						IsCurrent = true,
+					})
+					end
+					end]=],
+					1
+				)
+			end
 		end
 		local moduleFactory, compileError = loadstring(source)
 		assert(moduleFactory, compileError)
@@ -1964,17 +2012,26 @@ ServerInfoBody.TextXAlignment = Enum.TextXAlignment.Left
 ServerInfoBody.TextYAlignment = Enum.TextYAlignment.Top
 ServerInfoBody.TextWrapped = true
 ServerInfoBody.Parent = ServerInfoPanel
-local ServerInfoFriends = Instance.new("ScrollingFrame")
-ServerInfoFriends.Size = UDim2.new(1, -24, 1, -170)
-ServerInfoFriends.Position = UDim2.fromOffset(12, 150)
-ServerInfoFriends.BackgroundColor3 = UIColors.CARD
-ServerInfoFriends.BorderSizePixel = 0
-ServerInfoFriends.ScrollBarThickness = 3
-ServerInfoFriends.CanvasSize = UDim2.new()
-ServerInfoFriends.AutomaticCanvasSize = Enum.AutomaticSize.Y
-ServerInfoFriends.Parent = ServerInfoPanel
-Instance.new("UICorner", ServerInfoFriends).CornerRadius = UDim.new(0, 8)
-Instance.new("UIListLayout", ServerInfoFriends).Padding = UDim.new(0, 4)
+local ServerInfoPlayers = Instance.new("ScrollingFrame")
+ServerInfoPlayers.Name = "PlayersInServer"
+ServerInfoPlayers.Size = UDim2.new(1, -24, 1, -170)
+ServerInfoPlayers.Position = UDim2.fromOffset(12, 150)
+ServerInfoPlayers.BackgroundColor3 = UIColors.CARD
+ServerInfoPlayers.BorderSizePixel = 0
+ServerInfoPlayers.ScrollBarThickness = 3
+ServerInfoPlayers.ScrollBarImageColor3 = UIColors.MUTED
+ServerInfoPlayers.CanvasSize = UDim2.new()
+ServerInfoPlayers.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ServerInfoPlayers.Parent = ServerInfoPanel
+Instance.new("UICorner", ServerInfoPlayers).CornerRadius = UDim.new(0, 8)
+configurations.ServerInfoPlayersLayout = Instance.new("UIListLayout", ServerInfoPlayers)
+configurations.ServerInfoPlayersLayout.Padding = UDim.new(0, 4)
+configurations.ServerInfoPlayersLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configurations.ServerInfoPlayersPadding = Instance.new("UIPadding", ServerInfoPlayers)
+configurations.ServerInfoPlayersPadding.PaddingTop = UDim.new(0, 5)
+configurations.ServerInfoPlayersPadding.PaddingBottom = UDim.new(0, 5)
+configurations.ServerInfoPlayersPadding.PaddingLeft = UDim.new(0, 5)
+configurations.ServerInfoPlayersPadding.PaddingRight = UDim.new(0, 5)
 local ServerInfoCopy = Instance.new("TextButton")
 ServerInfoCopy.Size = UDim2.new(1, -24, 0, 32)
 ServerInfoCopy.Position = UDim2.new(0, 12, 1, -44)
@@ -1994,84 +2051,120 @@ ServerInfoCopy.MouseButton1Click:Connect(function()
 	end)
 	configurations.NotifyUser("Server", "Job ID copied.", 2)
 end)
+configurations._ServerInfoIsCurrent = false
+configurations.RefreshServerInfoPlayers = function()
+	if not ServerInfoPanel.Visible then return end
+	for _, child in ipairs(ServerInfoPlayers:GetChildren()) do
+		if child ~= configurations.ServerInfoPlayersLayout and child ~= configurations.ServerInfoPlayersPadding then
+			child:Destroy()
+		end
+	end
+	local heading = Instance.new("TextLabel")
+	heading.Name = "ServerInfoPlayersHeading"
+	heading.Size = UDim2.new(1, -8, 0, 20)
+	heading.LayoutOrder = 0
+	heading.BackgroundTransparency = 1
+	heading.Text = configurations._ServerInfoIsCurrent and "Players in this server · YOU ARE HERE" or "Players in selected server"
+	heading.TextColor3 = configurations._ServerInfoIsCurrent and UIColors.GREEN or UIColors.MUTED
+	heading.TextSize = 11
+	heading.Font = Enum.Font.GothamBold
+	heading.TextXAlignment = Enum.TextXAlignment.Left
+	heading.Parent = ServerInfoPlayers
+	if not configurations._ServerInfoIsCurrent then
+		local unavailable = Instance.new("TextLabel")
+		unavailable.Name = "ServerInfoEmpty"
+		unavailable.Size = UDim2.new(1, -8, 0, 42)
+		unavailable.LayoutOrder = 1
+		unavailable.BackgroundTransparency = 1
+		unavailable.Text = "Player names are available for the server you are currently in. Roblox's public server list only provides player counts for other servers."
+		unavailable.TextColor3 = UIColors.MUTED
+		unavailable.TextSize = 11
+		unavailable.Font = Enum.Font.Gotham
+		unavailable.TextXAlignment = Enum.TextXAlignment.Left
+		unavailable.TextWrapped = true
+		unavailable.Parent = ServerInfoPlayers
+		return
+	end
+	local playersHere = Players:GetPlayers()
+	table.sort(playersHere, function(a, b)
+		if a == b then return false end
+		if a == Player then return true end
+		if b == Player then return false end
+		return string.lower(a.Name) < string.lower(b.Name)
+	end)
+	for order, otherPlayer in ipairs(playersHere) do
+		local selectedPlayer = otherPlayer
+		local isLocalPlayer = otherPlayer == Player
+		local displayName = otherPlayer.DisplayName ~= "" and otherPlayer.DisplayName or otherPlayer.Name
+		local line = Instance.new("TextButton")
+		line.Name = "ServerInfoPlayer_" .. tostring(otherPlayer.UserId)
+		line.Size = UDim2.new(1, -8, 0, 30)
+		line.LayoutOrder = order
+		line.BackgroundColor3 = isLocalPlayer and UIColors.ACCENT_DIM or UIColors.INPUT
+		line.BorderSizePixel = 0
+		line.AutoButtonColor = false
+		line.Text = string.format("  %s%s  ·  @%s", isLocalPlayer and "YOU  ·  " or "", displayName, otherPlayer.Name)
+		line.TextColor3 = isLocalPlayer and UIColors.GREEN or UIColors.TEXT
+		line.TextSize = 12
+		line.Font = Enum.Font.GothamMedium
+		line.TextXAlignment = Enum.TextXAlignment.Left
+		line.TextTruncate = Enum.TextTruncate.AtEnd
+		line.Parent = ServerInfoPlayers
+		Instance.new("UICorner", line).CornerRadius = UDim.new(0, 6)
+		line.MouseButton1Click:Connect(function()
+			if configurations.OpenPlayerCardByUserId then
+				configurations.OpenPlayerCardByUserId(selectedPlayer.UserId)
+			end
+		end)
+	end
+	if #playersHere == 0 then
+		local empty = Instance.new("TextLabel")
+		empty.Name = "ServerInfoEmpty"
+		empty.Size = UDim2.new(1, -8, 0, 24)
+		empty.LayoutOrder = 1
+		empty.BackgroundTransparency = 1
+		empty.Text = "No players found."
+		empty.TextColor3 = UIColors.MUTED
+		empty.TextSize = 11
+		empty.Font = Enum.Font.Gotham
+		empty.Parent = ServerInfoPlayers
+	end
+end
+
 configurations.OpenServerInfo = function(server)
 	if not server then return end
-	local playing = tonumber(server.Playing) or 0
-	local maxP = tonumber(server.MaxPlayers) or 0
-	local ping = tonumber(server.Ping)
-	local fps = tonumber(server.FPS)
 	local jobId = tostring(server.Id or "")
+	local isCurrentServer = jobId ~= "" and jobId == tostring(game.JobId or "")
+	local playing = isCurrentServer and #Players:GetPlayers() or (tonumber(server.Playing) or 0)
+	local maxP = isCurrentServer and (tonumber(Players.MaxPlayers) or tonumber(server.MaxPlayers) or 0) or (tonumber(server.MaxPlayers) or 0)
+	local ping = tonumber(server.Ping)
+	if isCurrentServer then
+		local pingOk, pingSeconds = pcall(function() return Player:GetNetworkPing() end)
+		if pingOk and type(pingSeconds) == "number" then ping = pingSeconds * 1000 end
+	end
+	local fps = tonumber(server.FPS)
 	configurations._ServerInfoJobId = jobId
+	configurations._ServerInfoIsCurrent = isCurrentServer
 	ServerInfoBody.Text = string.format(
-		"Players   %d / %d\nPing      %s\nFPS       %s\n\nJob ID\n%s",
-		playing, maxP,
+		"Players   %d / %d%s\nPing      %s\nFPS       %s\n\nJob ID\n%s",
+		playing, maxP, isCurrentServer and "  ·  YOU ARE HERE" or "",
 		ping and (math.floor(ping + 0.5) .. " ms") or "n/a",
 		fps and tostring(math.floor(fps + 0.5)) or "n/a",
 		jobId
 	)
-	for _, c in ipairs(ServerInfoFriends:GetChildren()) do
-		if c:IsA("TextLabel") then c:Destroy() end
-	end
-	local header = Instance.new("TextLabel")
-	header.Size = UDim2.new(1, -8, 0, 20)
-	header.BackgroundTransparency = 1
-	header.Text = "  Friends in this server"
-	header.TextColor3 = UIColors.MUTED
-	header.TextSize = 11
-	header.Font = Enum.Font.GothamBold
-	header.TextXAlignment = Enum.TextXAlignment.Left
-	header.Parent = ServerInfoFriends
-	task.spawn(function()
-		local found = 0
-		local okFriends, pages = pcall(function()
-			return Players:GetFriendsAsync(Player.UserId)
-		end)
-		if okFriends and pages then
-			local guard = 0
-			while guard < 20 do
-				guard += 1
-				for _, item in ipairs(pages:GetCurrentPage()) do
-					local uid = item.Id or item.VisitorId
-					if uid then
-						local ok, _, instanceId = pcall(function()
-							return TeleportService:GetPlayerPlaceInstanceAsync(uid)
-						end)
-						if ok and tostring(instanceId) == jobId then
-							found += 1
-							local line = Instance.new("TextLabel")
-							line.Size = UDim2.new(1, -8, 0, 18)
-							line.BackgroundTransparency = 1
-							line.Text = "  @" .. tostring(item.Username or item.DisplayName or uid)
-							line.TextColor3 = UIColors.TEXT
-							line.TextSize = 12
-							line.Font = Enum.Font.Gotham
-							line.TextXAlignment = Enum.TextXAlignment.Left
-							line.Parent = ServerInfoFriends
-						end
-					end
-				end
-				if pages.IsFinished then break end
-				if not pcall(function() pages:AdvanceToNextPageAsync() end) then break end
-			end
-		end
-		if found == 0 then
-			local empty = Instance.new("TextLabel")
-			empty.Size = UDim2.new(1, -8, 0, 40)
-			empty.BackgroundTransparency = 1
-			empty.Text = "  No friends in this instance.\n  (Public API has no full player list.)"
-			empty.TextColor3 = UIColors.MUTED
-			empty.TextSize = 11
-			empty.Font = Enum.Font.Gotham
-			empty.TextXAlignment = Enum.TextXAlignment.Left
-			empty.TextWrapped = true
-			empty.Parent = ServerInfoFriends
-		end
-	end)
 	ServerInfoPanel.Visible = true
+	configurations.RefreshServerInfoPlayers()
 	if configurations.MakeDraggable then
 		pcall(function() configurations.MakeDraggable(ServerInfoPanel, ServerInfoHeader) end)
 	end
 end
+
+Players.PlayerAdded:Connect(function()
+	task.defer(function() configurations.RefreshServerInfoPlayers() end)
+end)
+Players.PlayerRemoving:Connect(function()
+	task.defer(function() configurations.RefreshServerInfoPlayers() end)
+end)
 
 --==================================================
 -- GLOBAL UI SCALE (Tailwind-inspired tokens; applies to ALL windows)
@@ -2474,7 +2567,7 @@ MiniTitle.Parent = MiniTop
 
 local MiniLevel = Instance.new("TextLabel")
 MiniLevel.Name = "MiniLevel"
-MiniLevel.Size = UDim2.new(0.55, 0, 0, 14)
+MiniLevel.Size = UDim2.new(0.36, 0, 0, 14)
 MiniLevel.Position = UDim2.fromOffset(10, 30)
 MiniLevel.BackgroundTransparency = 1
 MiniLevel.Text = "Lv —"
@@ -2487,19 +2580,20 @@ MiniLevel.Parent = MiniBar
 -- Big farm EXP number
 local MiniExp = Instance.new("TextLabel")
 MiniExp.Name = "MiniExp"
-MiniExp.Size = UDim2.new(0.58, 0, 0, 28)
-MiniExp.Position = UDim2.fromOffset(10, 44)
+MiniExp.Size = UDim2.new(0.50, -8, 0, 28)
+MiniExp.Position = UDim2.fromOffset(10, 46)
 MiniExp.BackgroundTransparency = 1
 MiniExp.Text = "0"
 MiniExp.TextColor3 = UIColors.GREEN
 MiniExp.TextSize = 24
 MiniExp.Font = Enum.Font.GothamBlack
 MiniExp.TextXAlignment = Enum.TextXAlignment.Left
+MiniExp.TextTruncate = Enum.TextTruncate.AtEnd
 MiniExp.Parent = MiniBar
 
 local MiniMax = Instance.new("TextLabel")
 MiniMax.Size = UDim2.new(0.55, 0, 0, 14)
-MiniMax.Position = UDim2.fromOffset(10, 72)
+MiniMax.Position = UDim2.fromOffset(10, 76)
 MiniMax.BackgroundTransparency = 1
 MiniMax.Text = "/ " .. configurations.FormatNumber(configurations.ExpGoal)
 MiniMax.TextColor3 = UIColors.MUTED
@@ -2511,8 +2605,8 @@ MiniMax.Parent = MiniBar
 -- Right side: elapsed time
 local MiniTime = Instance.new("TextLabel")
 MiniTime.Name = "MiniTime"
-MiniTime.Size = UDim2.new(0.42, 0, 0, 20)
-MiniTime.Position = UDim2.new(1, -12, 0, 42)
+MiniTime.Size = UDim2.new(0.36, 0, 0, 20)
+MiniTime.Position = UDim2.new(1, -12, 0, 46)
 MiniTime.AnchorPoint = Vector2.new(1, 0)
 MiniTime.BackgroundTransparency = 1
 MiniTime.Text = "00:00:00"
@@ -2520,6 +2614,7 @@ MiniTime.TextColor3 = UIColors.YELLOW
 MiniTime.TextSize = 14
 MiniTime.Font = Enum.Font.GothamBold
 MiniTime.TextXAlignment = Enum.TextXAlignment.Right
+MiniTime.TextTruncate = Enum.TextTruncate.AtEnd
 MiniTime.Parent = MiniBar
 
 local MiniState = Instance.new("TextLabel")
@@ -2533,19 +2628,21 @@ MiniState.TextColor3 = UIColors.MUTED
 MiniState.TextSize = 11
 MiniState.Font = Enum.Font.Gotham
 MiniState.TextXAlignment = Enum.TextXAlignment.Left
+MiniState.TextTruncate = Enum.TextTruncate.AtEnd
 MiniState.Parent = MiniBar
 
 -- Player EXP text (current/max) beside level
 local MiniLevelExpLabel = Instance.new("TextLabel")
 MiniLevelExpLabel.Name = "MiniLevelExpLabel"
-MiniLevelExpLabel.Size = UDim2.new(0.55, 0, 0, 14)
-MiniLevelExpLabel.Position = UDim2.fromOffset(70, 30)
+MiniLevelExpLabel.Size = UDim2.new(0.52, -4, 0, 14)
+MiniLevelExpLabel.Position = UDim2.new(0.40, 0, 0, 30)
 MiniLevelExpLabel.BackgroundTransparency = 1
 MiniLevelExpLabel.Text = "Exp —/—"
 MiniLevelExpLabel.TextColor3 = UIColors.MUTED
 MiniLevelExpLabel.TextSize = 11
 MiniLevelExpLabel.Font = Enum.Font.Gotham
 MiniLevelExpLabel.TextXAlignment = Enum.TextXAlignment.Left
+MiniLevelExpLabel.TextTruncate = Enum.TextTruncate.AtEnd
 MiniLevelExpLabel.Parent = MiniBar
 
 -- Farm target EXP progress bar only
@@ -3092,7 +3189,7 @@ end)
 -- HERO EXP UIColors.CARD (big numbers)
 --==================================================
 InfoCard = Instance.new("Frame")
-InfoCard.Size = UDim2.new(1, 0, 0, 248)
+InfoCard.Size = UDim2.new(1, 0, 0, 264)
 InfoCard.LayoutOrder = 3
 InfoCard.BackgroundColor3 = UIColors.CARD
 InfoCard.BorderSizePixel = 0
@@ -3224,9 +3321,10 @@ DistLabel.Font = Enum.Font.Gotham
 DistLabel.TextXAlignment = Enum.TextXAlignment.Right
 DistLabel.Parent = InfoCard
 
--- Meta row 2: Time + Rate
+-- Keep time and rate on separate full-width rows so narrow UI scales cannot
+-- make the two values collide when the Overview card is resized.
 local TimeLabel = Instance.new("TextLabel")
-TimeLabel.Size = UDim2.new(0.38, -4, 0, 15)
+TimeLabel.Size = UDim2.new(1, -24, 0, 15)
 TimeLabel.Position = UDim2.fromOffset(12, 166)
 TimeLabel.BackgroundTransparency = 1
 TimeLabel.Text = "00:00:00"
@@ -3237,31 +3335,33 @@ TimeLabel.TextXAlignment = Enum.TextXAlignment.Left
 TimeLabel.Parent = InfoCard
 
 local RateLabel = Instance.new("TextLabel")
-RateLabel.Size = UDim2.new(0.32, -4, 0, 15)
-RateLabel.Position = UDim2.new(0.36, 0, 0, 166)
+RateLabel.Size = UDim2.new(1, -24, 0, 15)
+RateLabel.Position = UDim2.fromOffset(12, 184)
 RateLabel.BackgroundTransparency = 1
 RateLabel.Text = "Rate -"
 RateLabel.TextColor3 = UIColors.MUTED
 RateLabel.TextSize = 11
 RateLabel.Font = Enum.Font.Gotham
-RateLabel.TextXAlignment = Enum.TextXAlignment.Center
+RateLabel.TextXAlignment = Enum.TextXAlignment.Left
+RateLabel.TextTruncate = Enum.TextTruncate.AtEnd
 RateLabel.Parent = InfoCard
 
 local StateLabel = Instance.new("TextLabel")
-StateLabel.Size = UDim2.new(1, -24, 0, 14)
-StateLabel.Position = UDim2.fromOffset(12, 168)
+StateLabel.Size = UDim2.new(1, -124, 0, 14)
+StateLabel.Position = UDim2.fromOffset(12, 202)
 StateLabel.BackgroundTransparency = 1
 StateLabel.Text = "Idle"
 StateLabel.TextColor3 = UIColors.MUTED
 StateLabel.TextSize = 11
 StateLabel.Font = Enum.Font.Gotham
 StateLabel.TextXAlignment = Enum.TextXAlignment.Left
+StateLabel.TextTruncate = Enum.TextTruncate.AtEnd
 StateLabel.Parent = InfoCard
 
 local StatusChip = Instance.new("TextLabel")
 StatusChip.Name = "StatusChip"
 StatusChip.Size = UDim2.fromOffset(88, 22)
-StatusChip.Position = UDim2.new(1, -100, 0, 164)
+StatusChip.Position = UDim2.new(1, -100, 0, 198)
 StatusChip.BackgroundColor3 = UIColors.INPUT
 StatusChip.BorderSizePixel = 0
 StatusChip.Text = "IDLE"
@@ -3281,24 +3381,26 @@ end
 -- Session + recent
 local SessionLabel = Instance.new("TextLabel")
 SessionLabel.Size = UDim2.new(1, -24, 0, 14)
-SessionLabel.Position = UDim2.fromOffset(12, 186)
+SessionLabel.Position = UDim2.fromOffset(12, 220)
 SessionLabel.BackgroundTransparency = 1
 SessionLabel.Text = "Session: +0 EXP / 00:00:00 / 0 EXP/h"
 SessionLabel.TextColor3 = UIColors.MUTED
 SessionLabel.TextSize = 11
 SessionLabel.Font = Enum.Font.Gotham
 SessionLabel.TextXAlignment = Enum.TextXAlignment.Left
+SessionLabel.TextTruncate = Enum.TextTruncate.AtEnd
 SessionLabel.Parent = InfoCard
 
 local RecentCycleLabel = Instance.new("TextLabel")
 RecentCycleLabel.Size = UDim2.new(1, -24, 0, 14)
-RecentCycleLabel.Position = UDim2.fromOffset(12, 204)
+RecentCycleLabel.Position = UDim2.fromOffset(12, 238)
 RecentCycleLabel.BackgroundTransparency = 1
 RecentCycleLabel.Text = configurations.RecentCycle
 RecentCycleLabel.TextColor3 = UIColors.MUTED
 RecentCycleLabel.TextSize = 11
 RecentCycleLabel.Font = Enum.Font.Gotham
 RecentCycleLabel.TextXAlignment = Enum.TextXAlignment.Left
+RecentCycleLabel.TextTruncate = Enum.TextTruncate.AtEnd
 RecentCycleLabel.Parent = InfoCard
 
 --==================================================
@@ -5714,23 +5816,70 @@ configurations.CreditLogCloseButton.Font = Enum.Font.GothamBold
 configurations.CreditLogCloseButton.Parent = configurations.CreditLogHeader
 Instance.new("UICorner", configurations.CreditLogCloseButton).CornerRadius = UDim.new(0, 6)
 
-configurations.CreditLogFilterScroll = Instance.new("ScrollingFrame")
-configurations.CreditLogFilterScroll.Name = "PlayerFilters"
-configurations.CreditLogFilterScroll.Size = UDim2.new(1, -20, 0, 32)
-configurations.CreditLogFilterScroll.Position = UDim2.fromOffset(10, 48)
-configurations.CreditLogFilterScroll.ZIndex = 91
-configurations.CreditLogFilterScroll.BackgroundTransparency = 1
-configurations.CreditLogFilterScroll.BorderSizePixel = 0
-configurations.CreditLogFilterScroll.ScrollBarThickness = 2
-configurations.CreditLogFilterScroll.ScrollBarImageColor3 = UIColors.MUTED
-configurations.CreditLogFilterScroll.CanvasSize = UDim2.new()
-configurations.CreditLogFilterScroll.AutomaticCanvasSize = Enum.AutomaticSize.X
-configurations.CreditLogFilterScroll.ScrollingDirection = Enum.ScrollingDirection.X
-configurations.CreditLogFilterScroll.Parent = configurations.CreditLogPanel
-configurations.CreditLogFilterLayout = Instance.new("UIListLayout", configurations.CreditLogFilterScroll)
-configurations.CreditLogFilterLayout.FillDirection = Enum.FillDirection.Horizontal
-configurations.CreditLogFilterLayout.Padding = UDim.new(0, 4)
+configurations.CreditLogFilterButton = Instance.new("TextButton")
+configurations.CreditLogFilterButton.Name = "FilterButton"
+configurations.CreditLogFilterButton.Size = UDim2.fromOffset(88, 28)
+configurations.CreditLogFilterButton.Position = UDim2.fromOffset(10, 50)
+configurations.CreditLogFilterButton.ZIndex = 93
+configurations.CreditLogFilterButton.BackgroundColor3 = UIColors.INPUT
+configurations.CreditLogFilterButton.BorderSizePixel = 0
+configurations.CreditLogFilterButton.AutoButtonColor = false
+configurations.CreditLogFilterButton.Text = "Filter  +"
+configurations.CreditLogFilterButton.TextColor3 = UIColors.TEXT
+configurations.CreditLogFilterButton.TextSize = 12
+configurations.CreditLogFilterButton.Font = Enum.Font.GothamBold
+configurations.CreditLogFilterButton.Parent = configurations.CreditLogPanel
+Instance.new("UICorner", configurations.CreditLogFilterButton).CornerRadius = UDim.new(0, 7)
+
+configurations.CreditLogFilterSummary = Instance.new("TextLabel")
+configurations.CreditLogFilterSummary.Name = "FilterSummary"
+configurations.CreditLogFilterSummary.Size = UDim2.new(1, -112, 0, 28)
+configurations.CreditLogFilterSummary.Position = UDim2.fromOffset(106, 50)
+configurations.CreditLogFilterSummary.ZIndex = 92
+configurations.CreditLogFilterSummary.BackgroundTransparency = 1
+configurations.CreditLogFilterSummary.Text = "All players"
+configurations.CreditLogFilterSummary.TextColor3 = UIColors.MUTED
+configurations.CreditLogFilterSummary.TextSize = 11
+configurations.CreditLogFilterSummary.Font = Enum.Font.Gotham
+configurations.CreditLogFilterSummary.TextXAlignment = Enum.TextXAlignment.Left
+configurations.CreditLogFilterSummary.Parent = configurations.CreditLogPanel
+
+configurations.CreditLogFilterDropdown = Instance.new("Frame")
+configurations.CreditLogFilterDropdown.Name = "FilterDropdown"
+configurations.CreditLogFilterDropdown.Size = UDim2.new(1, -20, 0, 40)
+configurations.CreditLogFilterDropdown.Position = UDim2.fromOffset(10, 82)
+configurations.CreditLogFilterDropdown.ZIndex = 95
+configurations.CreditLogFilterDropdown.BackgroundColor3 = UIColors.CARD
+configurations.CreditLogFilterDropdown.BorderSizePixel = 0
+configurations.CreditLogFilterDropdown.Visible = false
+configurations.CreditLogFilterDropdown.Parent = configurations.CreditLogPanel
+Instance.new("UICorner", configurations.CreditLogFilterDropdown).CornerRadius = UDim.new(0, 8)
+configurations.CreditLogFilterStroke = Instance.new("UIStroke", configurations.CreditLogFilterDropdown)
+configurations.CreditLogFilterStroke.Color = UIColors.BORDER
+configurations.CreditLogFilterStroke.Transparency = 0.25
+configurations.CreditLogFilterStroke.Thickness = 1
+
+configurations.CreditLogFilterDropdownScroll = Instance.new("ScrollingFrame")
+configurations.CreditLogFilterDropdownScroll.Name = "FilterOptions"
+configurations.CreditLogFilterDropdownScroll.Size = UDim2.new(1, -8, 1, -8)
+configurations.CreditLogFilterDropdownScroll.Position = UDim2.fromOffset(4, 4)
+configurations.CreditLogFilterDropdownScroll.ZIndex = 96
+configurations.CreditLogFilterDropdownScroll.BackgroundTransparency = 1
+configurations.CreditLogFilterDropdownScroll.BorderSizePixel = 0
+configurations.CreditLogFilterDropdownScroll.ScrollBarThickness = 3
+configurations.CreditLogFilterDropdownScroll.ScrollBarImageColor3 = UIColors.MUTED
+configurations.CreditLogFilterDropdownScroll.CanvasSize = UDim2.new()
+configurations.CreditLogFilterDropdownScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configurations.CreditLogFilterDropdownScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+configurations.CreditLogFilterDropdownScroll.Parent = configurations.CreditLogFilterDropdown
+configurations.CreditLogFilterLayout = Instance.new("UIListLayout", configurations.CreditLogFilterDropdownScroll)
+configurations.CreditLogFilterLayout.Padding = UDim.new(0, 3)
 configurations.CreditLogFilterLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configurations.CreditLogFilterPadding = Instance.new("UIPadding", configurations.CreditLogFilterDropdownScroll)
+configurations.CreditLogFilterPadding.PaddingTop = UDim.new(0, 1)
+configurations.CreditLogFilterPadding.PaddingBottom = UDim.new(0, 1)
+configurations.CreditLogFilterPadding.PaddingLeft = UDim.new(0, 1)
+configurations.CreditLogFilterPadding.PaddingRight = UDim.new(0, 1)
 
 configurations.CreditLogScroll = Instance.new("ScrollingFrame")
 configurations.CreditLogScroll.Name = "Credits"
@@ -5745,31 +5894,18 @@ configurations.CreditLogScroll.CanvasSize = UDim2.new()
 configurations.CreditLogScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 configurations.CreditLogScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 configurations.CreditLogScroll.Parent = configurations.CreditLogPanel
-
--- Grid: name + timer cells only
-configurations.CreditLogLayout = Instance.new("UIGridLayout")
-configurations.CreditLogLayout.Name = "CreditGrid"
-configurations.CreditLogLayout.CellSize = UDim2.fromOffset(150, 40)
-configurations.CreditLogLayout.CellPadding = UDim2.fromOffset(6, 6)
-configurations.CreditLogLayout.FillDirection = Enum.FillDirection.Horizontal
-configurations.CreditLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+configurations.CreditLogLayout = Instance.new("UIListLayout", configurations.CreditLogScroll)
+configurations.CreditLogLayout.Padding = UDim.new(0, 6)
 configurations.CreditLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
-configurations.CreditLogLayout.Parent = configurations.CreditLogScroll
-
-configurations.CreditLogGridPad = Instance.new("UIPadding")
-configurations.CreditLogGridPad.PaddingTop = UDim.new(0, 2)
-configurations.CreditLogGridPad.PaddingLeft = UDim.new(0, 2)
-configurations.CreditLogGridPad.PaddingRight = UDim.new(0, 2)
-configurations.CreditLogGridPad.PaddingBottom = UDim.new(0, 2)
-configurations.CreditLogGridPad.Parent = configurations.CreditLogScroll
+configurations.CreditLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 function configurations.RefreshCreditLog()
 	for _, entry in pairs(configurations.CreditLogEntries) do
 		entry.NameButton = nil
 		entry.CountdownLabel = nil
 	end
-	for _, child in ipairs(configurations.CreditLogFilterScroll:GetChildren()) do
-		if child.Name:match("^CreditLogFilter_") then child:Destroy() end
+	for _, child in ipairs(configurations.CreditLogFilterDropdownScroll:GetChildren()) do
+		if child.Name:match("^CreditLogFilter_") or child.Name == "CreditLogFilterEmpty" then child:Destroy() end
 	end
 	for _, child in ipairs(configurations.CreditLogScroll:GetChildren()) do
 		if child.Name:match("^CreditLogRow_") or child.Name == "CreditLogEmpty" then child:Destroy() end
@@ -5778,25 +5914,28 @@ function configurations.RefreshCreditLog()
 	local userIds = {}
 	for userId in pairs(configurations.CreditLogKnownPlayers) do table.insert(userIds, userId) end
 	table.sort(userIds, function(a, b)
-		return string.lower(configurations.CreditLogKnownPlayers[a]) < string.lower(configurations.CreditLogKnownPlayers[b])
+		return string.lower(tostring(configurations.CreditLogKnownPlayers[a])) < string.lower(tostring(configurations.CreditLogKnownPlayers[b]))
 	end)
+	local visibleUserCount = 0
 	for order, userId in ipairs(userIds) do
 		local filterUserId = userId
 		local hidden = configurations.CreditLogHiddenUsers[userId] == true
+		if not hidden then visibleUserCount += 1 end
 		local filterButton = Instance.new("TextButton")
 		filterButton.Name = "CreditLogFilter_" .. userId
-		filterButton.Size = UDim2.fromOffset(96, 26)
+		filterButton.Size = UDim2.new(1, -4, 0, 27)
 		filterButton.LayoutOrder = order
-		filterButton.ZIndex = 92
+		filterButton.ZIndex = 97
 		filterButton.BackgroundColor3 = hidden and UIColors.INPUT or UIColors.GREEN_DIM
 		filterButton.BorderSizePixel = 0
 		filterButton.AutoButtonColor = false
-		filterButton.Text = (hidden and "@" or "✓ @") .. configurations.CreditLogKnownPlayers[userId]
+		filterButton.Text = (hidden and "□  @" or "✓  @") .. tostring(configurations.CreditLogKnownPlayers[userId] or ("User " .. userId))
 		filterButton.TextColor3 = hidden and UIColors.MUTED or UIColors.GREEN
-		filterButton.TextSize = 11
+		filterButton.TextSize = 12
 		filterButton.Font = Enum.Font.GothamBold
+		filterButton.TextXAlignment = Enum.TextXAlignment.Left
 		filterButton.TextTruncate = Enum.TextTruncate.AtEnd
-		filterButton.Parent = configurations.CreditLogFilterScroll
+		filterButton.Parent = configurations.CreditLogFilterDropdownScroll
 		Instance.new("UICorner", filterButton).CornerRadius = UDim.new(0, 6)
 		filterButton.MouseButton1Click:Connect(function()
 			configurations.CreditLogHiddenUsers[filterUserId] = not (configurations.CreditLogHiddenUsers[filterUserId] == true)
@@ -5805,6 +5944,28 @@ function configurations.RefreshCreditLog()
 			configurations.RefreshCreditLog()
 		end)
 	end
+	if #userIds == 0 then
+		local noUsers = Instance.new("TextLabel")
+		noUsers.Name = "CreditLogFilterEmpty"
+		noUsers.Size = UDim2.new(1, -4, 0, 28)
+		noUsers.LayoutOrder = 1
+		noUsers.ZIndex = 97
+		noUsers.BackgroundTransparency = 1
+		noUsers.Text = "No credited players yet"
+		noUsers.TextColor3 = UIColors.MUTED
+		noUsers.TextSize = 11
+		noUsers.Font = Enum.Font.Gotham
+		noUsers.TextXAlignment = Enum.TextXAlignment.Left
+		noUsers.Parent = configurations.CreditLogFilterDropdownScroll
+	end
+	local filterHeight = math.clamp(#userIds * 30 + 8, 40, 140)
+	configurations.CreditLogFilterDropdown.Size = UDim2.new(1, -20, 0, filterHeight)
+	configurations.CreditLogFilterDropdown.Visible = configurations.CreditLogFilterOpen == true
+	configurations.CreditLogFilterButton.Text = configurations.CreditLogFilterOpen and "Filter  −" or "Filter  +"
+	configurations.CreditLogFilterSummary.Text = #userIds == 0 and "No players" or string.format("%d of %d shown", visibleUserCount, #userIds)
+	local listTop = configurations.CreditLogFilterOpen and (82 + filterHeight + 8) or 84
+	configurations.CreditLogScroll.Position = UDim2.fromOffset(8, listTop)
+	configurations.CreditLogScroll.Size = UDim2.new(1, -16, 1, -(listTop + 8))
 
 	local rows = {}
 	for _, entry in pairs(configurations.CreditLogEntries) do
@@ -5819,6 +5980,7 @@ function configurations.RefreshCreditLog()
 		local creditedUserId = entry.UserId
 		local row = Instance.new("Frame")
 		row.Name = "CreditLogRow_" .. tostring(order)
+		row.Size = UDim2.new(1, -6, 0, 36)
 		row.LayoutOrder = order
 		row.ZIndex = 92
 		row.BackgroundColor3 = UIColors.CARD
@@ -5830,10 +5992,39 @@ function configurations.RefreshCreditLog()
 		rowStroke.Transparency = 0.55
 		rowStroke.Thickness = 1
 
+		local countdown = Instance.new("TextLabel")
+		countdown.Name = "Countdown"
+		countdown.Size = UDim2.fromOffset(58, 20)
+		countdown.Position = UDim2.fromOffset(8, 8)
+		countdown.ZIndex = 93
+		countdown.BackgroundColor3 = UIColors.GREEN_DIM
+		countdown.BorderSizePixel = 0
+		countdown.Text = "--:--"
+		countdown.TextColor3 = UIColors.GREEN
+		countdown.TextSize = 11
+		countdown.Font = Enum.Font.GothamBold
+		countdown.Parent = row
+		Instance.new("UICorner", countdown).CornerRadius = UDim.new(0, 6)
+		entry.CountdownLabel = countdown
+
+		local hitBadge = Instance.new("TextLabel")
+		hitBadge.Name = "HitBadge"
+		hitBadge.Size = UDim2.fromOffset(48, 20)
+		hitBadge.Position = UDim2.fromOffset(72, 8)
+		hitBadge.ZIndex = 93
+		hitBadge.BackgroundColor3 = UIColors.INPUT
+		hitBadge.BorderSizePixel = 0
+		hitBadge.Text = "HIT"
+		hitBadge.TextColor3 = UIColors.ACCENT
+		hitBadge.TextSize = 11
+		hitBadge.Font = Enum.Font.GothamBold
+		hitBadge.Parent = row
+		Instance.new("UICorner", hitBadge).CornerRadius = UDim.new(0, 6)
+
 		local nameButton = Instance.new("TextButton")
 		nameButton.Name = "CreditedPlayer"
-		nameButton.Size = UDim2.new(1, -8, 0, 18)
-		nameButton.Position = UDim2.fromOffset(6, 3)
+		nameButton.Size = UDim2.new(1, -140, 0, 24)
+		nameButton.Position = UDim2.fromOffset(128, 6)
 		nameButton.ZIndex = 93
 		nameButton.BackgroundTransparency = 1
 		nameButton.AutoButtonColor = false
@@ -5848,25 +6039,11 @@ function configurations.RefreshCreditLog()
 		nameButton.MouseButton1Click:Connect(function()
 			configurations.OpenPlayerCardByUserId(creditedUserId)
 		end)
-
-		local countdown = Instance.new("TextLabel")
-		countdown.Name = "Countdown"
-		countdown.Size = UDim2.new(1, -8, 0, 14)
-		countdown.Position = UDim2.fromOffset(6, 22)
-		countdown.ZIndex = 93
-		countdown.BackgroundTransparency = 1
-		countdown.TextColor3 = UIColors.GREEN
-		countdown.TextSize = 11
-		countdown.Font = Enum.Font.GothamBold
-		countdown.TextXAlignment = Enum.TextXAlignment.Left
-		countdown.Parent = row
-		entry.CountdownLabel = countdown
 	end
 	if #rows == 0 then
-		-- Full-width empty state (span grid by using a tall label)
 		local empty = Instance.new("TextLabel")
 		empty.Name = "CreditLogEmpty"
-		empty.Size = UDim2.fromOffset(300, 40)
+		empty.Size = UDim2.new(1, -6, 0, 34)
 		empty.LayoutOrder = 1
 		empty.ZIndex = 92
 		empty.BackgroundTransparency = 1
@@ -5888,6 +6065,10 @@ configurations.CreditLogButton.MouseButton1Click:Connect(function()
 		configurations.CreditLogDirty = true
 		configurations.RefreshCreditLog()
 	end
+end)
+configurations.CreditLogFilterButton.MouseButton1Click:Connect(function()
+	configurations.CreditLogFilterOpen = not configurations.CreditLogFilterOpen
+	configurations.RefreshCreditLog()
 end)
 configurations.CreditLogCloseButton.MouseButton1Click:Connect(function()
 	configurations.CreditLogPanel.Visible = false
@@ -6410,6 +6591,7 @@ function configurations.WatchCreditLogTarget(target)
 end
 
 function configurations.UpdateCreditLog()
+	local now = os.clock()
 	for tag, entry in pairs(configurations.CreditLogEntries) do
 		if not tag.Parent or tag.Parent ~= entry.Humanoid
 			or not entry.Mob or not entry.Mob:IsDescendantOf(MobsFolder) then
@@ -6419,11 +6601,26 @@ function configurations.UpdateCreditLog()
 			entry.Username = tag.Value ~= "" and tag.Value or ("User " .. entry.UserId)
 			configurations.CreditLogKnownPlayers[entry.UserId] = entry.Username
 			if previousUsername ~= entry.Username then configurations.CreditLogDirty = true end
-			if entry.NameButton and entry.NameButton.Parent and entry.NameButton.Text ~= "HIT · @" .. entry.Username then
-				entry.NameButton.Text = "HIT · @" .. entry.Username
+			if entry.NameButton and entry.NameButton.Parent and entry.NameButton.Text ~= "@" .. entry.Username then
+				entry.NameButton.Text = "@" .. entry.Username
+			end
+			local startObject = tag:FindFirstChild("StartTime")
+			local endObject = tag:FindFirstChild("EndTime")
+			local startTime = startObject and tonumber(startObject.Value)
+			local endTime = endObject and tonumber(endObject.Value)
+			if startTime and endTime and startTime > 0 and endTime >= startTime
+				and (startTime ~= entry.LastStartTime or endTime ~= entry.LastEndTime) then
+				entry.LastStartTime = startTime
+				entry.LastEndTime = endTime
+				entry.ExpireAt = now + math.max(0, endTime - startTime)
+				configurations.CreditLogDirty = true
 			end
 			if entry.CountdownLabel and entry.CountdownLabel.Parent then
-				entry.CountdownLabel.Text = "CREDIT · ACTIVE"
+				local remaining = entry.ExpireAt and math.max(0, math.ceil(entry.ExpireAt - now)) or nil
+				entry.CountdownLabel.Text = remaining and string.format("%02d:%02d", math.floor(remaining / 60), remaining % 60) or "WAIT"
+			end
+			if entry.ExpireAt and now >= entry.ExpireAt then
+				configurations.RemoveCreditLogEntry(tag)
 			end
 		end
 	end
@@ -8244,6 +8441,7 @@ task.spawn(function()
 						configurations.IsWhitelisted(cardTarget) and "w" or "-",
 						configurations.IsPlayerESPEnabled(cardTarget) and "e" or "-",
 						configurations.PinnedPlayerIds[tostring(cardTarget.UserId)] and "p" or "-",
+						tostring(configurations.GetPlayerPassiveMode(cardTarget)),
 					}, ":")
 					local rebuildCard = cardSig ~= configurations.PlayerCardBuildSignature
 					if rebuildCard then
@@ -8256,7 +8454,7 @@ task.spawn(function()
 						local otherPlayer = cardTarget
 						local row = Instance.new("Frame")
 						row.Name = "PlayerRow_" .. otherPlayer.UserId
-						row.Size = UDim2.new(1, -6, 0, 168)
+						row.Size = UDim2.new(1, -6, 0, 176)
 						row.LayoutOrder = 1
 						row.ZIndex = 93
 						row.BackgroundColor3 = UIColors.CARD
@@ -8291,7 +8489,7 @@ task.spawn(function()
 						displayName.Position = UDim2.fromOffset(74, 12)
 						displayName.ZIndex = 94
 						displayName.BackgroundTransparency = 1
-						displayName.Text = configurations.FormatPlayerDisplayName(otherPlayer)
+						displayName.Text = (otherPlayer.DisplayName ~= "" and otherPlayer.DisplayName) or otherPlayer.Name
 						displayName.TextColor3 = UIColors.TEXT
 						displayName.TextSize = 14
 						displayName.Font = Enum.Font.GothamBold
@@ -8325,11 +8523,26 @@ task.spawn(function()
 						detail.TextXAlignment = Enum.TextXAlignment.Left
 						detail.Parent = row
 
+						local passiveLabel = Instance.new("TextLabel")
+						passiveLabel.Name = "PassiveMode"
+						passiveLabel.Size = UDim2.new(1, -230, 0, 14)
+						passiveLabel.Position = UDim2.fromOffset(74, 66)
+						passiveLabel.ZIndex = 94
+						passiveLabel.BackgroundTransparency = 1
+						local passiveMode = configurations.GetPlayerPassiveMode(otherPlayer)
+						passiveLabel.Text = "PASSIVE " .. (passiveMode == true and "ON" or (passiveMode == false and "OFF" or "—"))
+						passiveLabel.TextColor3 = passiveMode and UIColors.GREEN or UIColors.MUTED
+						passiveLabel.TextSize = 11
+						passiveLabel.Font = Enum.Font.GothamBold
+						passiveLabel.TextXAlignment = Enum.TextXAlignment.Left
+						passiveLabel.TextTruncate = Enum.TextTruncate.AtEnd
+						passiveLabel.Parent = row
+
 						local currentHP, maximumHP = configurations.GetPlayerHealth(otherPlayer)
 						local healthLabel = Instance.new("TextLabel")
 						healthLabel.Name = "Health"
 						healthLabel.Size = UDim2.new(1, -28, 0, 18)
-						healthLabel.Position = UDim2.fromOffset(14, 76)
+						healthLabel.Position = UDim2.fromOffset(14, 84)
 						healthLabel.ZIndex = 94
 						healthLabel.BackgroundTransparency = 1
 						healthLabel.Text = currentHP and string.format("HP  %s / %s", configurations.FormatNumber(currentHP), configurations.FormatNumber(maximumHP)) or "HP  —"
@@ -8343,7 +8556,7 @@ task.spawn(function()
 						local statsLabel = Instance.new("TextLabel")
 						statsLabel.Name = "PlayerStats"
 						statsLabel.Size = UDim2.new(1, -28, 0, 18)
-						statsLabel.Position = UDim2.fromOffset(14, 96)
+						statsLabel.Position = UDim2.fromOffset(14, 104)
 						statsLabel.ZIndex = 94
 						statsLabel.BackgroundTransparency = 1
 						statsLabel.Text = configurations.FormatPlayerListStats(otherPlayer)
@@ -8358,7 +8571,7 @@ task.spawn(function()
 						local expLabel = Instance.new("TextLabel")
 						expLabel.Name = "PlayerExp"
 						expLabel.Size = UDim2.new(1, -28, 0, 16)
-						expLabel.Position = UDim2.fromOffset(14, 120)
+						expLabel.Position = UDim2.fromOffset(14, 128)
 						expLabel.ZIndex = 94
 						expLabel.BackgroundTransparency = 1
 						expLabel.Text = expCurrent and expMax and string.format("EXP  %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP  —"
@@ -8371,7 +8584,7 @@ task.spawn(function()
 						local expBarBg = Instance.new("Frame")
 						expBarBg.Name = "PlayerExpBar"
 						expBarBg.Size = UDim2.new(1, -28, 0, 8)
-						expBarBg.Position = UDim2.fromOffset(14, 142)
+						expBarBg.Position = UDim2.fromOffset(14, 150)
 						expBarBg.ZIndex = 94
 						expBarBg.BackgroundColor3 = UIColors.INPUT
 						expBarBg.BorderSizePixel = 0
