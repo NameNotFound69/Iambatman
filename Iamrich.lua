@@ -1796,12 +1796,65 @@ configurations.SetTextScale = function(value, save)
 	end
 end
 
+-- Convert a GuiObject's current position (Scale and/or Offset) into viewport-relative scale
+-- using the live camera ViewportSize, then clamp so it stays fully on-screen.
+function configurations.GetViewportSize()
+	local camera = workspace.CurrentCamera
+	if not camera then return Vector2.new(1280, 720) end
+	local viewport = camera.ViewportSize
+	if viewport.X < 1 or viewport.Y < 1 then
+		return Vector2.new(1280, 720)
+	end
+	return viewport
+end
+
+function configurations.PositionToScale(guiObject, viewport)
+	viewport = viewport or configurations.GetViewportSize()
+	local vx = math.max(1, viewport.X)
+	local vy = math.max(1, viewport.Y)
+	-- Prefer AbsolutePosition when available (works for both Scale and Offset positions).
+	local abs = guiObject.AbsolutePosition
+	local size = guiObject.AbsoluteSize
+	local xScale = abs.X / vx
+	local yScale = abs.Y / vy
+	-- Fallback if Absolute* is not ready yet (e.g. first frame before layout).
+	if size.X < 1 and size.Y < 1 then
+		xScale = guiObject.Position.X.Scale + guiObject.Position.X.Offset / vx
+		yScale = guiObject.Position.Y.Scale + guiObject.Position.Y.Offset / vy
+	end
+	return xScale, yScale
+end
+
+function configurations.ClampPositionScale(xScale, yScale, widthScale, heightScale)
+	local maxX = math.max(0, 1 - (widthScale or 0))
+	local maxY = math.max(0, 1 - (heightScale or 0))
+	return math.clamp(xScale or 0, 0, maxX), math.clamp(yScale or 0, 0, maxY)
+end
+
 function configurations.ApplyResponsiveMainSize()
-	if configurations.IsMinimized then return end
 	local camera = workspace.CurrentCamera
 	if not camera then return end
-	local viewport = camera.ViewportSize
+	local viewport = configurations.GetViewportSize()
 	if viewport.X < 1 or viewport.Y < 1 then return end
+
+	-- Minimized uses fixed pixel size; keep it on-screen after viewport changes.
+	if configurations.IsMinimized then
+		-- MINI_WIDTH/HEIGHT are defined later; use the same fixed pixel card size.
+		local w = 300
+		local h = 136
+		local px = Main.Position.X.Scale * viewport.X + Main.Position.X.Offset
+		local py = Main.Position.Y.Scale * viewport.Y + Main.Position.Y.Offset
+		-- Prefer AbsolutePosition when layout has resolved.
+		if Main.AbsoluteSize.X > 0 then
+			px = Main.AbsolutePosition.X
+			py = Main.AbsolutePosition.Y
+		end
+		px = math.clamp(px, 8, math.max(8, viewport.X - w - 8))
+		py = math.clamp(py, 8, math.max(8, viewport.Y - h - 8))
+		Main.Size = UDim2.fromOffset(w, h)
+		Main.Position = UDim2.fromOffset(px, py)
+		return
+	end
 
 	-- Keep the configured relative size when the screen changes.
 	-- GuiScale already handles visual scaling, so do not divide the window size by it.
@@ -1816,30 +1869,41 @@ function configurations.ApplyResponsiveMainSize()
 	local width = math.clamp(wantedWidth, minWidth, maxWidth)
 	local height = math.clamp(wantedHeight, minHeight, maxHeight)
 
+	-- Capture on-screen pixel position BEFORE resizing (handles Offset drag positions).
+	local xScale, yScale = configurations.PositionToScale(Main, viewport)
+
 	Main.Size = UDim2.fromScale(width, height)
 
 	if not configurations.MainWindowInitialized then
 		Main.Position = UDim2.fromScale((1 - width) * 0.5, (1 - height) * 0.5)
 		configurations.MainWindowInitialized = true
 	else
-		local maxX = math.max(0, 1 - width)
-		local maxY = math.max(0, 1 - height)
-		Main.Position = UDim2.fromScale(
-			math.clamp(Main.Position.X.Scale, 0, maxX),
-			math.clamp(Main.Position.Y.Scale, 0, maxY)
-		)
+		xScale, yScale = configurations.ClampPositionScale(xScale, yScale, width, height)
+		Main.Position = UDim2.fromScale(xScale, yScale)
 	end
 end
 
 configurations.ApplyResponsiveMainSize()
+configurations._ViewportSizeConnection = nil
 configurations.BindResponsiveViewport = function()
 	local camera = workspace.CurrentCamera
-	if camera then
-		camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-			configurations.ApplyResponsiveMainSize()
-			if configurations.ApplyResponsiveOverlaySizes then configurations.ApplyResponsiveOverlaySizes() end
-		end)
+	if configurations._ViewportSizeConnection then
+		configurations._ViewportSizeConnection:Disconnect()
+		configurations._ViewportSizeConnection = nil
 	end
+	if not camera then return end
+	configurations._ViewportSizeConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		-- Defer one frame so AbsolutePosition/Size settle after the viewport change.
+		task.defer(function()
+			configurations.ApplyResponsiveMainSize()
+			if configurations.ApplyResponsiveOverlaySizes then
+				configurations.ApplyResponsiveOverlaySizes()
+			end
+			if configurations.ApplyGuiScale then
+				configurations.ApplyGuiScale()
+			end
+		end)
+	end)
 end
 configurations.BindResponsiveViewport()
 workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(configurations.BindResponsiveViewport)
@@ -2079,16 +2143,19 @@ function configurations.ApplyMinimized(state)
 	MinimizeBtn.Text = state and "+" or "−"
 
 	if state then
-		SavedMainPosition = Main.Position
+		-- Save as Scale (from AbsolutePosition) so expand + ViewportSize resize stay correct.
+		local viewport = configurations.GetViewportSize and configurations.GetViewportSize()
+			or (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize)
+			or Vector2.new(1280, 720)
+		local sx, sy = configurations.PositionToScale(Main, viewport)
+		SavedMainPosition = UDim2.fromScale(sx, sy)
 		-- Compact floating card
 		Main.Size = UDim2.fromOffset(MINI_WIDTH, MINI_HEIGHT)
 		Header.Size = UDim2.fromScale(1, 1)
 		Header.BackgroundColor3 = UIColors.BG
-		-- Keep near previous top-left, clamp into viewport
-		local camera = workspace.CurrentCamera
-		local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
-		local px = math.clamp(Main.Position.X.Scale * viewport.X + Main.Position.X.Offset, 8, math.max(8, viewport.X - MINI_WIDTH - 8))
-		local py = math.clamp(Main.Position.Y.Scale * viewport.Y + Main.Position.Y.Offset, 8, math.max(8, viewport.Y - MINI_HEIGHT - 8))
+		-- Keep near previous top-left, clamp into viewport using pixel x/y
+		local px = math.clamp(sx * viewport.X, 8, math.max(8, viewport.X - MINI_WIDTH - 8))
+		local py = math.clamp(sy * viewport.Y, 8, math.max(8, viewport.Y - MINI_HEIGHT - 8))
 		Main.Position = UDim2.fromOffset(px, py)
 		-- Same order as full UI: Status left, expand (+) rightmost
 		Status.Position = UDim2.new(1, -84, 0, 8)
@@ -2101,7 +2168,14 @@ function configurations.ApplyMinimized(state)
 		configurations.MainWindowInitialized = true
 		configurations.ApplyResponsiveMainSize()
 		if SavedMainPosition then
-			Main.Position = SavedMainPosition
+			local width = Main.Size.X.Scale
+			local height = Main.Size.Y.Scale
+			local vx = math.max(1, (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X) or 1280)
+			local vy = math.max(1, (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y) or 720)
+			local xScale = SavedMainPosition.X.Scale + SavedMainPosition.X.Offset / vx
+			local yScale = SavedMainPosition.Y.Scale + SavedMainPosition.Y.Offset / vy
+			xScale, yScale = configurations.ClampPositionScale(xScale, yScale, width, height)
+			Main.Position = UDim2.fromScale(xScale, yScale)
 		else
 			Main.Position = UDim2.fromScale(0.5 - Main.Size.X.Scale / 2, 0.5 - Main.Size.Y.Scale / 2)
 		end
@@ -2181,7 +2255,10 @@ UserInputService.InputChanged:Connect(function(input)
 		math.max(0, parentSize.Y - mainSize.Y)
 	)
 
-	Main.Position = UDim2.fromOffset(x, y)
+	-- Store as Scale so ViewportSize changes can re-clamp using screen percentages.
+	local vx = math.max(1, parentSize.X)
+	local vy = math.max(1, parentSize.Y)
+	Main.Position = UDim2.fromScale(x / vx, y / vy)
 end)
 
 --==================================================
@@ -4672,12 +4749,12 @@ end)
 function configurations.MakeDraggable(panel, handle)
 	local dragging = false
 	local dragStart
-	local startPosition
+	local startAbs
 	handle.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = true
 			dragStart = input.Position
-			startPosition = panel.Position
+			startAbs = panel.AbsolutePosition
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					dragging = false
@@ -4687,14 +4764,17 @@ function configurations.MakeDraggable(panel, handle)
 	end)
 	UserInputService.InputChanged:Connect(function(input)
 		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			local delta = input.Position - dragStart
 			local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
-			if viewport then
-				panel.Position = UDim2.fromScale(
-					math.clamp(startPosition.X.Scale + delta.X / viewport.X, 0, 1 - panel.Size.X.Scale),
-					math.clamp(startPosition.Y.Scale + delta.Y / viewport.Y, 0, 1 - panel.Size.Y.Scale)
-				)
-			end
+			if not viewport or viewport.X < 1 or viewport.Y < 1 then return end
+			local delta = input.Position - dragStart
+			local x = startAbs.X + delta.X
+			local y = startAbs.Y + delta.Y
+			local widthScale = panel.Size.X.Scale
+			local heightScale = panel.Size.Y.Scale
+			-- Convert pixel position → Scale using current ViewportSize so resize stays correct.
+			local xScale = math.clamp(x / viewport.X, 0, math.max(0, 1 - widthScale))
+			local yScale = math.clamp(y / viewport.Y, 0, math.max(0, 1 - heightScale))
+			panel.Position = UDim2.fromScale(xScale, yScale)
 		end
 	end)
 end
@@ -4776,15 +4856,13 @@ configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 0.32, 
 end, 0.65)
 
 function configurations.ApplyResponsiveOverlaySizes()
-	local camera = workspace.CurrentCamera
-	if not camera then return end
-	local viewport = camera.ViewportSize
-	if viewport.X < 1 or viewport.Y < 1 then return end
+	local viewport = configurations.GetViewportSize and configurations.GetViewportSize() or (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize)
+	if not viewport or viewport.X < 1 or viewport.Y < 1 then return end
 
 	-- Keep overlay panels at their saved percentage size when the screen changes.
-	-- Do NOT use pixel-based minimums here: those caused Player Logs / Whitelist /
-	-- Join Logs to grow larger when the viewport became smaller.
+	-- Convert AbsolutePosition → Scale so panels dragged with Offset still stay on-screen.
 	configurations.ClampOverlaySize = function(panel, widthScale, heightScale, panelMaxWidth)
+		if not panel or not panel.Parent then return end
 		local maxWidth = math.max(0.05, math.min(panelMaxWidth or 0.80, 1 - 16 / viewport.X))
 		local maxHeight = math.max(0.05, math.min(0.90, 1 - 16 / viewport.Y))
 		local wantedWidth = tonumber(widthScale) or panel.Size.X.Scale
@@ -4792,11 +4870,10 @@ function configurations.ApplyResponsiveOverlaySizes()
 		local width = math.min(math.max(0.05, wantedWidth), maxWidth)
 		local height = math.min(math.max(0.05, wantedHeight), maxHeight)
 
+		local xScale, yScale = configurations.PositionToScale(panel, viewport)
 		panel.Size = UDim2.fromScale(width, height)
-		panel.Position = UDim2.fromScale(
-			math.clamp(panel.Position.X.Scale, 0, math.max(0, 1 - width)),
-			math.clamp(panel.Position.Y.Scale, 0, math.max(0, 1 - height))
-		)
+		xScale, yScale = configurations.ClampPositionScale(xScale, yScale, width, height)
+		panel.Position = UDim2.fromScale(xScale, yScale)
 	end
 
 	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale, 0.52)
