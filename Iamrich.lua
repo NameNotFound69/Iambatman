@@ -1,4 +1,4 @@
-local VERSION = "2.6.35"
+local VERSION = "2.6.36"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -597,9 +597,8 @@ else
 		-- Insert Info button before Join handler close: replace join size/position block once
 		if not source:find("InfoServer", 1, true) then
 			source = source:gsub(
-				'join%.Size = UDim2%.new%(0, 72, 0, 30%)
-			join%.Position = UDim2%.new%(1, %-80, 0%.5, %-15%)',
-				'join.Size = UDim2.fromOffset(64, 28)
+				"join%.Size = UDim2%.new%(0, 72, 0, 30%)%s*join%.Position = UDim2%.new%(1, %-80, 0%.5, %-15%)",
+[=[join.Size = UDim2.fromOffset(64, 28)
 			join.Position = UDim2.new(1, -72, 0.5, -14)
 			local info = Instance.new("TextButton")
 			info.Name = "InfoServer"
@@ -615,7 +614,8 @@ else
 			Instance.new("UICorner", info).CornerRadius = UDim.new(0, 7)
 			info.MouseButton1Click:Connect(function()
 				if configuration.OpenServerInfo then configuration.OpenServerInfo(server) end
-			end)'
+			end)]=],
+				1
 			)
 			source = source:gsub(
 				'detail%.Size = UDim2%.new%(1, %-98, 1, %-8%)',
