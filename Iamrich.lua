@@ -1,4 +1,4 @@
-local VERSION = "2.6.33"
+local VERSION = "2.6.34"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2770,7 +2770,7 @@ end)
 -- HERO EXP UIColors.CARD (big numbers)
 --==================================================
 InfoCard = Instance.new("Frame")
-InfoCard.Size = UDim2.new(1, 0, 0, 190)
+InfoCard.Size = UDim2.new(1, 0, 0, 248)
 InfoCard.LayoutOrder = 3
 InfoCard.BackgroundColor3 = UIColors.CARD
 InfoCard.BorderSizePixel = 0
@@ -2895,7 +2895,7 @@ local DistLabel = Instance.new("TextLabel")
 DistLabel.Size = UDim2.new(0.42, -12, 0, 16)
 DistLabel.Position = UDim2.new(0.58, 0, 0, 146)
 DistLabel.BackgroundTransparency = 1
-DistLabel.Text = "Dist  -"
+DistLabel.Text = "Distance  -"
 DistLabel.TextColor3 = UIColors.MUTED
 DistLabel.TextSize = 11
 DistLabel.Font = Enum.Font.Gotham
@@ -2927,7 +2927,7 @@ RateLabel.Parent = InfoCard
 
 local StateLabel = Instance.new("TextLabel")
 StateLabel.Size = UDim2.new(1, -24, 0, 14)
-StateLabel.Position = UDim2.fromOffset(12, 184)
+StateLabel.Position = UDim2.fromOffset(12, 168)
 StateLabel.BackgroundTransparency = 1
 StateLabel.Text = "Idle"
 StateLabel.TextColor3 = UIColors.MUTED
@@ -2939,7 +2939,7 @@ StateLabel.Parent = InfoCard
 -- Session + recent
 local SessionLabel = Instance.new("TextLabel")
 SessionLabel.Size = UDim2.new(1, -24, 0, 14)
-SessionLabel.Position = UDim2.fromOffset(12, 204)
+SessionLabel.Position = UDim2.fromOffset(12, 186)
 SessionLabel.BackgroundTransparency = 1
 SessionLabel.Text = "Session: +0 EXP / 00:00:00 / 0 EXP/h"
 SessionLabel.TextColor3 = UIColors.MUTED
@@ -2950,7 +2950,7 @@ SessionLabel.Parent = InfoCard
 
 local RecentCycleLabel = Instance.new("TextLabel")
 RecentCycleLabel.Size = UDim2.new(1, -24, 0, 14)
-RecentCycleLabel.Position = UDim2.fromOffset(12, 222)
+RecentCycleLabel.Position = UDim2.fromOffset(12, 204)
 RecentCycleLabel.BackgroundTransparency = 1
 RecentCycleLabel.Text = configurations.RecentCycle
 RecentCycleLabel.TextColor3 = UIColors.MUTED
@@ -4703,30 +4703,8 @@ PlayerScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
 PlayerScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 function configurations.SetPlayerPanelCardLayout(enabled)
-	local resizeHandle = PlayerPanel:FindFirstChild("PlayerPanelResizeHandle")
-	if enabled then
-		if not configurations.PlayerPanelCardMode then
-			configurations.PlayerPanelSavedSize = PlayerPanel.Size
-			configurations.PlayerPanelSavedPosition = PlayerPanel.Position
-			configurations.PlayerPanelSavedAnchorPoint = PlayerPanel.AnchorPoint
-		end
-		configurations.PlayerPanelCardMode = true
-		PlayerPanel.AnchorPoint = Vector2.new(0.5, 0)
-		PlayerPanel.Size = UDim2.fromOffset(configurations.PlayerPanelWidthPx or 340, 244)
-		PlayerPanel.Position = UDim2.new(0.5, 0, 0.03, 0)
-		if resizeHandle then resizeHandle.Visible = false end
-		return
-	end
-
-	if not configurations.PlayerPanelCardMode then return end
-	PlayerPanel.Size = configurations.PlayerPanelSavedSize or UDim2.fromOffset(configurations.PlayerPanelWidthPx or 340, configurations.PlayerPanelHeightPx or 420)
-	PlayerPanel.Position = configurations.PlayerPanelSavedPosition or UDim2.fromScale(0.52, 0.19)
-	PlayerPanel.AnchorPoint = configurations.PlayerPanelSavedAnchorPoint or Vector2.new(0, 0)
-	configurations.PlayerPanelCardMode = false
-	configurations.PlayerPanelSavedSize = nil
-	configurations.PlayerPanelSavedPosition = nil
-	configurations.PlayerPanelSavedAnchorPoint = nil
-	if resizeHandle then resizeHandle.Visible = true end
+	-- Card UI lives on PlayerCardPanel so the server list can stay open.
+	configurations.PlayerPanelCardMode = enabled and true or false
 end
 
 PlayerListButton.MouseButton1Click:Connect(function()
@@ -4748,24 +4726,127 @@ PlayerPanelClose.MouseButton1Click:Connect(function()
 	configurations.SetActionVisual(PlayerListButton, "Player list", false)
 end)
 
+-- Dedicated floating player card (can stay open alongside "Players in server")
+local PlayerCardPanel = Instance.new("Frame")
+PlayerCardPanel.Name = "PlayerCardPanel"
+PlayerCardPanel.Size = UDim2.fromOffset(360, 236)
+PlayerCardPanel.Position = UDim2.fromOffset(120, 60)
+PlayerCardPanel.ZIndex = 91
+PlayerCardPanel.BackgroundColor3 = UIColors.BG
+PlayerCardPanel.BorderSizePixel = 0
+PlayerCardPanel.Visible = false
+PlayerCardPanel.AnchorPoint = Vector2.new(0, 0)
+PlayerCardPanel.Parent = ScreenGui
+Instance.new("UICorner", PlayerCardPanel).CornerRadius = UDim.new(0, 12)
+configurations.RegisterScaledRoot(PlayerCardPanel)
+local PlayerCardStroke = Instance.new("UIStroke", PlayerCardPanel)
+PlayerCardStroke.Color = UIColors.BORDER
+PlayerCardStroke.Thickness = 1
+PlayerCardStroke.Transparency = 0.35
+
+local PlayerCardHeader = Instance.new("Frame")
+PlayerCardHeader.Name = "Header"
+PlayerCardHeader.Size = UDim2.new(1, 0, 0, 44)
+PlayerCardHeader.ZIndex = 92
+PlayerCardHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
+PlayerCardHeader.BorderSizePixel = 0
+PlayerCardHeader.Parent = PlayerCardPanel
+Instance.new("UICorner", PlayerCardHeader).CornerRadius = UDim.new(0, 12)
+local PlayerCardHeaderFix = Instance.new("Frame")
+PlayerCardHeaderFix.Size = UDim2.new(1, 0, 0, 14)
+PlayerCardHeaderFix.Position = UDim2.new(0, 0, 1, -14)
+PlayerCardHeaderFix.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
+PlayerCardHeaderFix.BorderSizePixel = 0
+PlayerCardHeaderFix.Parent = PlayerCardHeader
+
+local PlayerCardTitle = Instance.new("TextLabel")
+PlayerCardTitle.Name = "Title"
+PlayerCardTitle.Size = UDim2.new(1, -56, 0, 18)
+PlayerCardTitle.Position = UDim2.fromOffset(14, 6)
+PlayerCardTitle.ZIndex = 93
+PlayerCardTitle.BackgroundTransparency = 1
+PlayerCardTitle.Text = "Player"
+PlayerCardTitle.TextColor3 = UIColors.TEXT
+PlayerCardTitle.TextSize = 14
+PlayerCardTitle.Font = Enum.Font.GothamBold
+PlayerCardTitle.TextXAlignment = Enum.TextXAlignment.Left
+PlayerCardTitle.TextTruncate = Enum.TextTruncate.AtEnd
+PlayerCardTitle.Parent = PlayerCardHeader
+
+local PlayerCardSubtitle = Instance.new("TextLabel")
+PlayerCardSubtitle.Name = "Subtitle"
+PlayerCardSubtitle.Size = UDim2.new(1, -56, 0, 14)
+PlayerCardSubtitle.Position = UDim2.fromOffset(14, 24)
+PlayerCardSubtitle.ZIndex = 93
+PlayerCardSubtitle.BackgroundTransparency = 1
+PlayerCardSubtitle.Text = "@—"
+PlayerCardSubtitle.TextColor3 = UIColors.MUTED
+PlayerCardSubtitle.TextSize = 11
+PlayerCardSubtitle.Font = Enum.Font.Gotham
+PlayerCardSubtitle.TextXAlignment = Enum.TextXAlignment.Left
+PlayerCardSubtitle.TextTruncate = Enum.TextTruncate.AtEnd
+PlayerCardSubtitle.Parent = PlayerCardHeader
+
+local PlayerCardClose = Instance.new("TextButton")
+PlayerCardClose.Size = UDim2.fromOffset(28, 28)
+PlayerCardClose.Position = UDim2.new(1, -36, 0, 8)
+PlayerCardClose.ZIndex = 93
+PlayerCardClose.BackgroundColor3 = UIColors.INPUT
+PlayerCardClose.BorderSizePixel = 0
+PlayerCardClose.Text = "×"
+PlayerCardClose.TextColor3 = UIColors.TEXT
+PlayerCardClose.TextSize = 16
+PlayerCardClose.Font = Enum.Font.GothamBold
+PlayerCardClose.Parent = PlayerCardHeader
+Instance.new("UICorner", PlayerCardClose).CornerRadius = UDim.new(0, 6)
+
+local PlayerCardScroll = Instance.new("ScrollingFrame")
+PlayerCardScroll.Name = "CardBody"
+PlayerCardScroll.Size = UDim2.new(1, -12, 1, -52)
+PlayerCardScroll.Position = UDim2.fromOffset(6, 48)
+PlayerCardScroll.ZIndex = 92
+PlayerCardScroll.BackgroundTransparency = 1
+PlayerCardScroll.BorderSizePixel = 0
+PlayerCardScroll.ScrollBarThickness = 3
+PlayerCardScroll.ScrollBarImageColor3 = UIColors.MUTED
+PlayerCardScroll.CanvasSize = UDim2.new()
+PlayerCardScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerCardScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+PlayerCardScroll.Parent = PlayerCardPanel
+Instance.new("UIListLayout", PlayerCardScroll).Padding = UDim.new(0, 6)
+
+configurations.PlayerCardPanel = PlayerCardPanel
+configurations.PlayerCardScroll = PlayerCardScroll
+configurations.PlayerCardTitle = PlayerCardTitle
+configurations.PlayerCardSubtitle = PlayerCardSubtitle
+configurations.PlayerCardTargetUserId = nil
+configurations.PlayerCardBuildSignature = nil
+
+PlayerCardClose.MouseButton1Click:Connect(function()
+	PlayerCardPanel.Visible = false
+	configurations.PlayerCardTargetUserId = nil
+	configurations.PlayerCardBuildSignature = nil
+	configurations.PlayerPanelTargetUserId = nil
+	configurations.PlayerPanelCardMode = false
+end)
+
 function configurations.OpenPlayerCardByUserId(userId)
 	local target = Players:GetPlayerByUserId(tonumber(userId) or 0)
 	if not target then return false end
-	configurations.SetPlayerPanelCardLayout(true)
-	configurations.PlayerPanelMode = "card"
+	configurations.PlayerCardTargetUserId = tostring(target.UserId)
 	configurations.PlayerPanelTargetUserId = tostring(target.UserId)
-	PlayerPanelTitle.Text = "Player card · @" .. target.Name
-	PlayerPanel.Visible = true
-	configurations.SetActionVisual(PlayerListButton, "Player list", false)
+	configurations.PlayerPanelCardMode = true
+	configurations.PlayerCardBuildSignature = nil
+	PlayerCardTitle.Text = (target.DisplayName ~= "" and target.DisplayName) or target.Name
+	PlayerCardSubtitle.Text = "@" .. target.Name
+	PlayerCardPanel.Visible = true
+	-- Keep Players-in-server open if it already is — both can show together.
+	if configurations.ApplyTextScale then configurations.ApplyTextScale(PlayerCardPanel) end
 	return true
 end
 
 function configurations.FilterPlayerPanelListing(panelPlayers)
-	if configurations.PlayerPanelMode == "card" then
-		table.clear(panelPlayers)
-		local target = Players:GetPlayerByUserId(tonumber(configurations.PlayerPanelTargetUserId) or 0)
-		if target then table.insert(panelPlayers, target) end
-	end
+	-- Server / follow lists are independent of the floating player card.
 	return panelPlayers
 end
 
@@ -5370,6 +5451,7 @@ function configurations.MakeDraggable(panel, handle)
 end
 
 configurations.MakeDraggable(PlayerPanel, PlayerPanelHeader)
+configurations.MakeDraggable(PlayerCardPanel, PlayerCardHeader)
 configurations.MakeDraggable(configurations.WhitelistPanel, configurations.WhitelistHeader)
 configurations.MakeDraggable(configurations.JoinLogPanel, configurations.JoinLogHeader)
 configurations.MakeDraggable(configurations.CreditLogPanel, configurations.CreditLogHeader)
@@ -6355,7 +6437,7 @@ task.spawn(function()
 				TargetLabel.Text = "No target"
 				ExpLabel.Text = "-"
 				MiniExp.Text = "-"
-				DistLabel.Text = "Dist  -"
+				DistLabel.Text = "Distance  -"
 				StateLabel.Text = "Searching..."
 				MiniState.Text = "Searching within the configured radius"
 				RateLabel.Text = "Rate -"
@@ -6421,7 +6503,7 @@ task.spawn(function()
 		TargetLabel.Text = target.Name
 		ExpLabel.Text = configurations.FormatNumber(expNow)
 		MaxLabel.Text = "/ " .. configurations.FormatNumber(configurations.ExpGoal)
-		DistLabel.Text = "Dist  " .. string.format("%.1f", dist)
+		DistLabel.Text = "Distance  " .. string.format("%.1f", dist)
 		-- Keep marker alive/updated even if the host part respawned.
 		if not configurations.CurrentBillboard or not configurations.CurrentBillboard.Parent then
 			configurations.AttachBillboard(target, expNow)
@@ -7132,7 +7214,7 @@ task.spawn(function()
 			local root = char and char:FindFirstChild("HumanoidRootPart")
 			local mroot = configurations.CurrentTarget.PrimaryPart or configurations.CurrentTarget:FindFirstChild("HumanoidRootPart")
 			if root and mroot then
-				local distText = "Dist  " .. string.format("%.1f", (root.Position - mroot.Position).Magnitude)
+				local distText = "Distance  " .. string.format("%.1f", (root.Position - mroot.Position).Magnitude)
 				if DistLabel.Text ~= distText then DistLabel.Text = distText end
 			end
 		else
@@ -7640,10 +7722,281 @@ task.spawn(function()
 			end
 		end
 
-		if PlayerPanel.Visible and os.clock() - lastPlayerRefresh >= 0.5 then
+		if (PlayerPanel.Visible or (PlayerCardPanel and PlayerCardPanel.Visible)) and os.clock() - lastPlayerRefresh >= 0.5 then
 			lastPlayerRefresh = os.clock()
 			local panelPlayers = configurations.FilterPlayerPanelListing(Players:GetPlayers())
-			if configurations.PlayerPanelMode == "server" or configurations.PlayerPanelMode == "card" then
+			-- Floating player card: single target, independent of the server list panel.
+			if PlayerCardPanel and PlayerCardPanel.Visible and configurations.PlayerCardTargetUserId then
+				local cardTarget = Players:GetPlayerByUserId(tonumber(configurations.PlayerCardTargetUserId) or 0)
+				if not cardTarget then
+					PlayerCardPanel.Visible = false
+					configurations.PlayerCardTargetUserId = nil
+					configurations.PlayerCardBuildSignature = nil
+				else
+					PlayerCardTitle.Text = cardTarget.DisplayName ~= "" and cardTarget.DisplayName or cardTarget.Name
+					PlayerCardSubtitle.Text = "@" .. cardTarget.Name
+					local cardSig = table.concat({
+						tostring(cardTarget.UserId),
+						configurations.IsWhitelisted(cardTarget) and "w" or "-",
+						configurations.IsPlayerESPEnabled(cardTarget) and "e" or "-",
+						configurations.PinnedPlayerIds[tostring(cardTarget.UserId)] and "p" or "-",
+					}, ":")
+					local rebuildCard = cardSig ~= configurations.PlayerCardBuildSignature
+					if rebuildCard then
+						configurations.PlayerCardBuildSignature = cardSig
+						for _, child in ipairs(PlayerCardScroll:GetChildren()) do
+							if child.Name:match("^PlayerRow_") then child:Destroy() end
+						end
+						-- Reuse the same row builder by temporarily pointing PlayerScroll → card scroll is hard;
+						-- build a compact card body inline.
+						local otherPlayer = cardTarget
+						local row = Instance.new("Frame")
+						row.Name = "PlayerRow_" .. otherPlayer.UserId
+						row.Size = UDim2.new(1, -6, 0, 168)
+						row.LayoutOrder = 1
+						row.ZIndex = 93
+						row.BackgroundColor3 = UIColors.CARD
+						row.BorderSizePixel = 0
+						row.Parent = PlayerCardScroll
+						Instance.new("UICorner", row).CornerRadius = UDim.new(0, 12)
+						local rowStroke = Instance.new("UIStroke", row)
+						rowStroke.Color = UIColors.BORDER
+						rowStroke.Thickness = 1
+						rowStroke.Transparency = 0.5
+
+						local avatar = Instance.new("ImageLabel")
+						avatar.Size = UDim2.fromOffset(48, 48)
+						avatar.Position = UDim2.fromOffset(14, 14)
+						avatar.ZIndex = 94
+						avatar.BackgroundColor3 = UIColors.INPUT
+						avatar.BorderSizePixel = 0
+						avatar.ScaleType = Enum.ScaleType.Crop
+						avatar.Parent = row
+						Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
+						if not ThumbnailCache[otherPlayer.UserId] then
+							local ok, imageUrl = pcall(function()
+								return Players:GetUserThumbnailAsync(otherPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size60x60)
+							end)
+							if ok then ThumbnailCache[otherPlayer.UserId] = imageUrl end
+						end
+						avatar.Image = ThumbnailCache[otherPlayer.UserId] or ""
+
+						local displayName = Instance.new("TextLabel")
+						displayName.Name = "DisplayName"
+						displayName.Size = UDim2.new(1, -230, 0, 20)
+						displayName.Position = UDim2.fromOffset(74, 12)
+						displayName.ZIndex = 94
+						displayName.BackgroundTransparency = 1
+						displayName.Text = configurations.FormatPlayerDisplayName(otherPlayer)
+						displayName.TextColor3 = UIColors.TEXT
+						displayName.TextSize = 14
+						displayName.Font = Enum.Font.GothamBold
+						displayName.TextXAlignment = Enum.TextXAlignment.Left
+						displayName.TextTruncate = Enum.TextTruncate.AtEnd
+						displayName.Parent = row
+
+						local usernameLabel = Instance.new("TextLabel")
+						usernameLabel.Name = "Username"
+						usernameLabel.Size = UDim2.new(1, -230, 0, 16)
+						usernameLabel.Position = UDim2.fromOffset(74, 32)
+						usernameLabel.ZIndex = 94
+						usernameLabel.BackgroundTransparency = 1
+						usernameLabel.Text = "@" .. otherPlayer.Name
+						usernameLabel.TextColor3 = UIColors.MUTED
+						usernameLabel.TextSize = 12
+						usernameLabel.Font = Enum.Font.Gotham
+						usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+						usernameLabel.Parent = row
+
+						local detail = Instance.new("TextLabel")
+						detail.Name = "Distance"
+						detail.Size = UDim2.new(1, -230, 0, 16)
+						detail.Position = UDim2.fromOffset(74, 50)
+						detail.ZIndex = 94
+						detail.BackgroundTransparency = 1
+						detail.Text = otherPlayer == Player and "You" or "—"
+						detail.TextColor3 = UIColors.MUTED
+						detail.TextSize = 12
+						detail.Font = Enum.Font.GothamMedium
+						detail.TextXAlignment = Enum.TextXAlignment.Left
+						detail.Parent = row
+
+						local currentHP, maximumHP = configurations.GetPlayerHealth(otherPlayer)
+						local healthLabel = Instance.new("TextLabel")
+						healthLabel.Name = "Health"
+						healthLabel.Size = UDim2.new(1, -28, 0, 18)
+						healthLabel.Position = UDim2.fromOffset(14, 76)
+						healthLabel.ZIndex = 94
+						healthLabel.BackgroundTransparency = 1
+						healthLabel.Text = currentHP and string.format("HP  %s / %s", configurations.FormatNumber(currentHP), configurations.FormatNumber(maximumHP)) or "HP  —"
+						if configurations.IsWhitelisted(otherPlayer) then healthLabel.Text ..= "   ·   WHITELIST" end
+						healthLabel.TextColor3 = configurations.GetHealthColor(currentHP, maximumHP)
+						healthLabel.TextSize = 13
+						healthLabel.Font = Enum.Font.GothamMedium
+						healthLabel.TextXAlignment = Enum.TextXAlignment.Left
+						healthLabel.Parent = row
+
+						local statsLabel = Instance.new("TextLabel")
+						statsLabel.Name = "PlayerStats"
+						statsLabel.Size = UDim2.new(1, -28, 0, 18)
+						statsLabel.Position = UDim2.fromOffset(14, 96)
+						statsLabel.ZIndex = 94
+						statsLabel.BackgroundTransparency = 1
+						statsLabel.Text = configurations.FormatPlayerListStats(otherPlayer)
+						statsLabel.TextColor3 = Color3.fromRGB(160, 170, 190)
+						statsLabel.TextSize = 12
+						statsLabel.Font = Enum.Font.Gotham
+						statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+						statsLabel.TextTruncate = Enum.TextTruncate.AtEnd
+						statsLabel.Parent = row
+
+						local _, expCurrent, expMax, expRatio = configurations.GetPlayerExpProgress(otherPlayer)
+						local expLabel = Instance.new("TextLabel")
+						expLabel.Name = "PlayerExp"
+						expLabel.Size = UDim2.new(1, -28, 0, 16)
+						expLabel.Position = UDim2.fromOffset(14, 120)
+						expLabel.ZIndex = 94
+						expLabel.BackgroundTransparency = 1
+						expLabel.Text = expCurrent and expMax and string.format("EXP  %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP  —"
+						expLabel.TextColor3 = UIColors.ACCENT_SEL
+						expLabel.TextSize = 12
+						expLabel.Font = Enum.Font.GothamMedium
+						expLabel.TextXAlignment = Enum.TextXAlignment.Left
+						expLabel.Parent = row
+
+						local expBarBg = Instance.new("Frame")
+						expBarBg.Name = "PlayerExpBar"
+						expBarBg.Size = UDim2.new(1, -28, 0, 8)
+						expBarBg.Position = UDim2.fromOffset(14, 142)
+						expBarBg.ZIndex = 94
+						expBarBg.BackgroundColor3 = UIColors.INPUT
+						expBarBg.BorderSizePixel = 0
+						expBarBg.Parent = row
+						Instance.new("UICorner", expBarBg).CornerRadius = UDim.new(1, 0)
+						local expBarFill = Instance.new("Frame")
+						expBarFill.Name = "Fill"
+						expBarFill.Size = UDim2.new(expRatio or 0, 0, 1, 0)
+						expBarFill.BackgroundColor3 = UIColors.ACCENT
+						expBarFill.BorderSizePixel = 0
+						expBarFill.Parent = expBarBg
+						Instance.new("UICorner", expBarFill).CornerRadius = UDim.new(1, 0)
+
+						if otherPlayer ~= Player then
+							local function makeActionBtn(name, label, x, y, bg, fg)
+								local b = Instance.new("TextButton")
+								b.Name = name
+								b.Size = UDim2.fromOffset(68, 26)
+								b.Position = UDim2.new(1, x, 0, y)
+								b.ZIndex = 94
+								b.BackgroundColor3 = bg
+								b.BorderSizePixel = 0
+								b.Text = label
+								b.TextColor3 = fg
+								b.TextSize = 11
+								b.Font = Enum.Font.GothamBold
+								b.Parent = row
+								Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
+								return b
+							end
+							local pinOn = configurations.PinnedPlayerIds[tostring(otherPlayer.UserId)] == true
+							local pinBtn = makeActionBtn("PlayerPinToggle", pinOn and "PINNED" or "PIN", -148, 12,
+								pinOn and Color3.fromRGB(55, 45, 22) or UIColors.INPUT,
+								pinOn and UIColors.YELLOW or UIColors.MUTED)
+							pinBtn.MouseButton1Click:Connect(function()
+								local userId = tostring(otherPlayer.UserId)
+								if configurations.PinnedPlayerIds[userId] then
+									configurations.PinnedPlayerIds[userId] = nil
+								else
+									configurations.PinnedPlayerIds[userId] = true
+								end
+								configurations.SaveConfig()
+								configurations.PlayerCardBuildSignature = nil
+							end)
+							local espOn = configurations.IsPlayerESPEnabled(otherPlayer)
+							local espBtn = makeActionBtn("PlayerESPToggle", espOn and "ESP ON" or "ESP OFF", -74, 12,
+								espOn and UIColors.GREEN_DIM or UIColors.INPUT,
+								espOn and UIColors.GREEN or UIColors.MUTED)
+							espBtn.MouseButton1Click:Connect(function()
+								configurations.PlayerESPEnabled[tostring(otherPlayer.UserId)] = not configurations.IsPlayerESPEnabled(otherPlayer)
+								configurations.PlayerCardBuildSignature = nil
+							end)
+							local wlOn = configurations.IsWhitelisted(otherPlayer)
+							local wlBtn = makeActionBtn("WhitelistToggle", wlOn and "WL ON" or "WL ADD", -148, 44,
+								wlOn and Color3.fromRGB(55, 45, 22) or UIColors.INPUT,
+								wlOn and UIColors.YELLOW or UIColors.MUTED)
+							wlBtn.MouseButton1Click:Connect(function()
+								local userId = tostring(otherPlayer.UserId)
+								if configurations.IsWhitelisted(otherPlayer) then
+									configurations.WhitelistIds[userId] = nil
+								else
+									configurations.WhitelistIds[userId] = true
+								end
+								configurations.SaveConfig()
+								if configurations.WhitelistPanel.Visible then configurations.RefreshWhitelist() end
+								configurations.OnWhitelistChanged(userId)
+								configurations.PlayerCardBuildSignature = nil
+							end)
+							local blockButton = makeActionBtn("BlockButton", "Block", -74, 44, UIColors.RED_DIM, UIColors.RED)
+							blockButton.MouseButton1Click:Connect(function()
+								if configurations.BlockPromptCache[otherPlayer.UserId] then return end
+								configurations.BlockPromptCache[otherPlayer.UserId] = true
+								blockButton.Text = "..."
+								local ok, err = pcall(function()
+									StarterGui:SetCore("PromptBlockPlayer", otherPlayer)
+								end)
+								if not ok then
+									configurations.BlockPromptCache[otherPlayer.UserId] = nil
+									blockButton.Text = "Retry"
+									return
+								end
+								blockButton.Text = "Prompted"
+								task.delay(3, function()
+									configurations.BlockPromptCache[otherPlayer.UserId] = nil
+									if blockButton.Parent then blockButton.Text = "Block" end
+								end)
+							end)
+						end
+						configurations.ApplyTextScale(PlayerCardPanel)
+					else
+						-- Live-update distance / HP / EXP on existing card row
+						local row = PlayerCardScroll:FindFirstChild("PlayerRow_" .. cardTarget.UserId)
+						if row then
+							local char = cardTarget.Character
+							local otherRoot = char and char:FindFirstChild("HumanoidRootPart")
+							local distanceLabel = row:FindFirstChild("Distance")
+							if distanceLabel and localRoot then
+								local t = cardTarget == Player and "You" or (otherRoot and string.format("%.0f studs away", (localRoot.Position - otherRoot.Position).Magnitude) or "Distance unavailable")
+								if distanceLabel.Text ~= t then distanceLabel.Text = t end
+							end
+							local healthLabel = row:FindFirstChild("Health")
+							if healthLabel then
+								local currentHP, maximumHP = configurations.GetPlayerHealth(cardTarget)
+								local healthText = currentHP and string.format("HP  %s / %s", configurations.FormatNumber(currentHP), configurations.FormatNumber(maximumHP)) or "HP  —"
+								if configurations.IsWhitelisted(cardTarget) then healthText ..= "   ·   WHITELIST" end
+								if healthLabel.Text ~= healthText then healthLabel.Text = healthText end
+								healthLabel.TextColor3 = configurations.GetHealthColor(currentHP, maximumHP)
+							end
+							local statsLabel = row:FindFirstChild("PlayerStats")
+							if statsLabel then
+								local statsText = configurations.FormatPlayerListStats(cardTarget)
+								if statsLabel.Text ~= statsText then statsLabel.Text = statsText end
+							end
+							local expLabel = row:FindFirstChild("PlayerExp")
+							local expBar = row:FindFirstChild("PlayerExpBar")
+							if expLabel and expBar then
+								local _, expCurrent, expMax, expRatio = configurations.GetPlayerExpProgress(cardTarget)
+								local expText = expCurrent and expMax and string.format("EXP  %s / %s", configurations.FormatNumber(expCurrent), configurations.FormatNumber(expMax)) or "EXP  —"
+								if expLabel.Text ~= expText then expLabel.Text = expText end
+								local fill = expBar:FindFirstChild("Fill")
+								if fill then fill.Size = UDim2.new(expRatio or 0, 0, 1, 0) end
+							end
+						end
+					end
+				end
+			end
+
+			if PlayerPanel.Visible then
+			if configurations.PlayerPanelMode == "server" or configurations.PlayerPanelMode == "follow" or configurations.PlayerPanelMode == "card" then
 				table.sort(panelPlayers, function(a, b)
 					if a == Player then return b ~= Player end
 					if b == Player then return false end
@@ -8006,6 +8359,8 @@ task.spawn(function()
 				end
 			end
 		end
+
+			end -- PlayerPanel.Visible
 
 		-- Keep markers for every replicated player, regardless of distance.
 		local presentPlayers = {}
