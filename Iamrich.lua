@@ -1,4 +1,4 @@
-local VERSION = "2.6.38"
+local VERSION = "2.6.39"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2084,7 +2084,6 @@ MainUIScale.Parent = Main
 
 -- Roots that receive GuiScale (UIScale) and TextScale
 configurations.ScaledRoots = { Main }
-if ServerInfoPanel then configurations.RegisterScaledRoot(ServerInfoPanel) end
 
 function configurations.RegisterScaledRoot(root)
 	if not root or not root:IsA("GuiObject") then return end
@@ -2142,6 +2141,8 @@ function configurations.ApplyTextScale(root)
 		end
 	end
 end
+
+if ServerInfoPanel then configurations.RegisterScaledRoot(ServerInfoPanel) end
 
 function configurations.GetEffectiveGuiScale()
 	local userScale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
