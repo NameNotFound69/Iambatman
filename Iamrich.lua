@@ -1,4 +1,4 @@
-local VERSION = "2.6.23"
+local VERSION = "2.6.24"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -341,11 +341,32 @@ configurations.ConfigFileName = ""
 configurations.ConfigSaveWarningShown = false
 configurations.ConfigRootFolder = "Iamrich"
 configurations.ConfigUserFolder = ""
+configurations.WaypointConfigFileName = ""
+configurations.WaypointConfigVersion = 0
 configurations.LegacyConfigFileName = "EXPPlus_Config.json"
 configurations.LegacyConfigOwnerFileName = "Iamrich_LegacyConfigOwner.txt"
 configurations.MigratedLegacyConfig = false
 configurations.IsMinimized = false
 configurations.Combat = {}
+
+function configurations.CheckExpRetaliationHealth(mob, currentHealth, previousHealth)
+	if not mob or configurations.CurrentTarget ~= mob
+		or configurations.ExpLastShotTarget ~= mob
+		or not configurations.Farming
+		or configurations.EmergencyStopActive
+		or not configurations.ExpTargetRetaliationEnabled then
+		return false
+	end
+	local humanoid = mob:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 or humanoid.MaxHealth <= 0 then return false end
+	currentHealth = tonumber(currentHealth) or humanoid.Health
+	if previousHealth ~= nil and currentHealth >= previousHealth then return false end
+	if currentHealth <= humanoid.MaxHealth * 0.9 then
+		configurations.ExpRetaliationTarget = mob
+		return true
+	end
+	return false
+end
 
 local function DisconnectExpRetaliationHealthWatch(mob)
 	local watch = configurations.ExpRetaliationHealthWatchers[mob]
@@ -369,14 +390,9 @@ local function ConnectExpRetaliationHumanoid(mob, humanoid)
 	watch.Connection = humanoid.HealthChanged:Connect(function(currentHealth)
 		local previousHealth = watch.LastHealth
 		watch.LastHealth = currentHealth
-		if previousHealth and currentHealth < previousHealth
-			and configurations.Farming
-			and not configurations.EmergencyStopActive
-			and configurations.ExpTargetRetaliationEnabled
-			and configurations.CurrentTarget == mob then
-			configurations.ExpRetaliationTarget = mob
-		end
+		configurations.CheckExpRetaliationHealth(mob, currentHealth, previousHealth)
 	end)
+	configurations.CheckExpRetaliationHealth(mob)
 end
 
 local function ScheduleExpRetaliationHealthWatch(mob)
@@ -413,6 +429,14 @@ end
 
 MobsFolder.ChildAdded:Connect(ScheduleExpRetaliationHealthWatch)
 MobsFolder.ChildRemoved:Connect(function(mob)
+	if mob == configurations.CurrentTarget or mob == configurations.ExpLastShotTarget
+		or mob == configurations.ExpRetaliationTarget or mob == configurations.ExpMaxCombatTarget
+		or mob == configurations.ExpFinishTarget or mob == configurations.AlertCombatTarget
+		or mob == configurations.ServerHopKillTarget then
+		if configurations.Combat.StowWeaponAfterMobDeath then
+			configurations.Combat.StowWeaponAfterMobDeath(mob)
+		end
+	end
 	DisconnectExpRetaliationHealthWatch(mob)
 	if configurations.ExpRetaliationTarget == mob then
 		configurations.ExpRetaliationTarget = nil
@@ -574,6 +598,7 @@ end
 function configurations.PrepareConfigStorage()
 	if configurations.IsStudio then return false end
 	local userId = tostring(Player.UserId)
+	local placeId = tostring(game.PlaceId)
 	configurations.ConfigUserFolder = configurations.ConfigRootFolder .. "/" .. userId
 	local nestedPath = configurations.ConfigUserFolder .. "/Config.json"
 	local flatPath = configurations.ConfigRootFolder .. "_" .. userId .. ".json"
@@ -588,12 +613,14 @@ function configurations.PrepareConfigStorage()
 		end
 		if folderReady then
 			configurations.ConfigFileName = nestedPath
+			configurations.WaypointConfigFileName = configurations.ConfigUserFolder .. "/Waypoint_" .. placeId .. ".json"
 			return
 		end
 	end
 
 	-- Keep per-user isolation even on executors without folder APIs.
 	configurations.ConfigFileName = flatPath
+	configurations.WaypointConfigFileName = configurations.ConfigRootFolder .. "_" .. userId .. "_Waypoint_" .. placeId .. ".json"
 end
 
 
@@ -632,6 +659,13 @@ function configurations.LoadConfig()
 		end
 	end
 	if type(config) ~= "table" then return end
+	configurations.WaypointConfigVersion = tonumber(config.WaypointConfigVersion) or 0
+	if configurations.WaypointConfigVersion < 1 and type(config.WaypointPosition) == "table" then
+		configurations.LegacyWaypointConfig = {
+			Position = config.WaypointPosition,
+			ReturnEnabled = config.WaypointReturnEnabled == true,
+		}
+	end
 
 	local function ReadNumber(key, current, minimum, allowZero)
 		local value = tonumber(config[key])
@@ -665,11 +699,6 @@ function configurations.LoadConfig()
 	-- such as the 955-stud mob outside the eligible-target search.
 	if savedMobSearchRange == 100 then savedMobSearchRange = 1000 end
 	configurations.AutoAttackSearchRange = math.clamp(savedMobSearchRange, 5, 1000)
-	local waypoint = config.WaypointPosition
-	if type(waypoint) == "table" then
-		local x, y, z = tonumber(waypoint.X), tonumber(waypoint.Y), tonumber(waypoint.Z)
-		if x and y and z then configurations.WaypointPosition = Vector3.new(x, y, z) end
-	end
 	configurations.AutoAttackInterval = math.clamp(ReadNumber("AutoAttackInterval", configurations.AutoAttackInterval, 1, false), 1, 10)
 	configurations.AutoSkillInterval = math.clamp(ReadNumber("AutoSkillInterval", configurations.AutoSkillInterval, 1, false), 1, 30)
 	local followUserId = tonumber(config.FollowTargetUserId)
@@ -726,7 +755,6 @@ function configurations.LoadConfig()
 	if type(config.AutoAttackEnabled) == "boolean" then configurations.AutoAttackEnabled = config.AutoAttackEnabled end
 	if type(config.AutoBossTargetEnabled) == "boolean" then configurations.AutoBossTargetEnabled = config.AutoBossTargetEnabled end
 	if type(config.AutoMiniBossTargetEnabled) == "boolean" then configurations.AutoMiniBossTargetEnabled = config.AutoMiniBossTargetEnabled end
-	if type(config.WaypointReturnEnabled) == "boolean" then configurations.WaypointReturnEnabled = config.WaypointReturnEnabled end
 	if type(config.WaypointBillboardEnabled) == "boolean" then configurations.WaypointBillboardEnabled = config.WaypointBillboardEnabled end
 	if type(config.ExpTargetRetaliationEnabled) == "boolean" then configurations.ExpTargetRetaliationEnabled = config.ExpTargetRetaliationEnabled end
 	if type(config.ExpHitFeedbackEnabled) == "boolean" then configurations.ExpHitFeedbackEnabled = config.ExpHitFeedbackEnabled end
@@ -752,6 +780,70 @@ function configurations.LoadConfig()
 			end
 		end
 	end
+end
+
+function configurations.SaveWaypointConfig()
+	if configurations.IsStudio or type(writefile) ~= "function" then return false end
+	configurations.PrepareConfigStorage()
+	if configurations.WaypointConfigFileName == "" then return false end
+	local point = configurations.WaypointPosition
+	local data = {
+		PlaceId = tostring(game.PlaceId),
+		Position = point and { X = point.X, Y = point.Y, Z = point.Z } or nil,
+		ReturnEnabled = point ~= nil and configurations.WaypointReturnEnabled == true,
+	}
+	local ok, err = pcall(function()
+		writefile(configurations.WaypointConfigFileName, HttpService:JSONEncode(data))
+	end)
+	if not ok then
+		warn("[Iamrich] Waypoint save failed:", err)
+		return false
+	end
+	configurations.WaypointConfigVersion = 1
+	configurations.LegacyWaypointConfig = nil
+	return true
+end
+
+function configurations.LoadWaypointConfig()
+	if configurations.IsStudio or type(readfile) ~= "function" then return false end
+	configurations.PrepareConfigStorage()
+	local shouldSaveVersion = configurations.WaypointConfigVersion < 1
+	local loadedPlaceRecord = false
+	local fileOk, data = pcall(function()
+		return HttpService:JSONDecode(readfile(configurations.WaypointConfigFileName))
+	end)
+	if fileOk and type(data) == "table" and tostring(data.PlaceId) == tostring(game.PlaceId) then
+		loadedPlaceRecord = true
+		local point = data.Position
+		if type(point) == "table" then
+			local x, y, z = tonumber(point.X), tonumber(point.Y), tonumber(point.Z)
+			if x and y and z then configurations.WaypointPosition = Vector3.new(x, y, z) end
+		end
+		configurations.WaypointReturnEnabled = configurations.WaypointPosition ~= nil
+			and data.ReturnEnabled == true
+	end
+
+	if not loadedPlaceRecord and configurations.WaypointConfigVersion < 1
+		and type(configurations.LegacyWaypointConfig) == "table" then
+		local point = configurations.LegacyWaypointConfig.Position
+		if type(point) == "table" then
+			local x, y, z = tonumber(point.X), tonumber(point.Y), tonumber(point.Z)
+			if x and y and z then
+				configurations.WaypointPosition = Vector3.new(x, y, z)
+				configurations.WaypointReturnEnabled = configurations.LegacyWaypointConfig.ReturnEnabled == true
+				loadedPlaceRecord = configurations.SaveWaypointConfig()
+			end
+		end
+	end
+
+	if loadedPlaceRecord or not configurations.LegacyWaypointConfig then
+		configurations.WaypointConfigVersion = 1
+		configurations.LegacyWaypointConfig = nil
+	end
+	if shouldSaveVersion and configurations.WaypointConfigVersion >= 1 then
+		configurations.SaveConfig()
+	end
+	return loadedPlaceRecord
 end
 
 function configurations.SaveConfig()
@@ -800,12 +892,7 @@ function configurations.SaveConfig()
 		ExpHitFeedbackEnabled = configurations.ExpHitFeedbackEnabled,
 		AutoAttackRange = configurations.AutoAttackRange,
 		AutoAttackSearchRange = configurations.AutoAttackSearchRange,
-		WaypointPosition = configurations.WaypointPosition and {
-			X = configurations.WaypointPosition.X,
-			Y = configurations.WaypointPosition.Y,
-			Z = configurations.WaypointPosition.Z,
-		} or nil,
-		WaypointReturnEnabled = configurations.WaypointReturnEnabled,
+		WaypointConfigVersion = configurations.WaypointConfigVersion,
 		WaypointBillboardEnabled = configurations.WaypointBillboardEnabled,
 		AutoAttackInterval = configurations.AutoAttackInterval,
 		AutoSkillEnabled = configurations.AutoSkillEnabled,
@@ -855,6 +942,7 @@ function configurations.SetFPSBoost(enabled)
 end
 
 configurations.LoadConfig()
+configurations.LoadWaypointConfig()
 if configurations.PartySystem then
 	configurations.PartySystemInitOk, configurations.PartySystemInitResult = pcall(function()
 		return configurations.PartySystem.Initialize(configurations, {
@@ -3173,6 +3261,7 @@ SetWaypointButton.MouseButton1Click:Connect(function()
 	configurations.WaypointPosition = root.Position
 	configurations.WaypointReturnEnabled = true
 	UpdateWaypointInfo()
+	configurations.SaveWaypointConfig()
 	configurations.SaveConfig()
 end)
 
@@ -3182,6 +3271,7 @@ ClearWaypointButton.MouseButton1Click:Connect(function()
 	configurations.WaypointReturnEnabled = false
 	configurations.WaypointNavigator.Reset()
 	UpdateWaypointInfo()
+	configurations.SaveWaypointConfig()
 	configurations.SaveConfig()
 end)
 
@@ -3198,6 +3288,7 @@ ReturnToWaypointButton.MouseButton1Click:Connect(function()
 	end
 	configurations.WaypointReturnEnabled = not configurations.WaypointReturnEnabled
 	UpdateWaypointInfo()
+	configurations.SaveWaypointConfig()
 	configurations.SaveConfig()
 end)
 UpdateWaypointInfo()
@@ -3975,7 +4066,7 @@ local ExpTargetRetaliationButton = configurations.MakeToggle(
 	UIColors.RED_DIM,
 	5,
 	FarmPage,
-	"Attack the EXP target after its health drops."
+	"Attack the EXP target after its health falls to 90% or below."
 )
 ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
 	configurations.ExpTargetRetaliationEnabled = not configurations.ExpTargetRetaliationEnabled
@@ -3988,6 +4079,8 @@ ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
 	)
 	if not configurations.ExpTargetRetaliationEnabled then
 		configurations.ExpRetaliationTarget = nil
+	else
+		configurations.CheckExpRetaliationHealth(configurations.CurrentTarget)
 	end
 	configurations.SaveConfig()
 end)
@@ -4038,6 +4131,53 @@ configurations.ExpHitFeedbackButton.MouseButton1Click:Connect(function()
 	end
 	configurations.UpdateExpHitFeedback()
 	configurations.SaveConfig()
+end)
+
+configurations.ResetStatsButton = configurations.MakeActionRow(
+	"Reset stats",
+	8,
+	FarmPage,
+	"Use the AIC reset for stats below 500 points."
+)
+configurations.ResetStatsButton.MouseButton1Click:Connect(function()
+	if configurations.ResetStatsInProgress then return end
+	configurations.ResetStatsInProgress = true
+	task.spawn(function()
+		local playerStats = Player:WaitForChild("PlayerStats", 5)
+		local statsEvent = ReplicatedStorage:FindFirstChild("StatsEvent", true)
+		if not playerStats then
+			configurations.NotifyUser("Reset stats", "PlayerStats is unavailable.", 5)
+			configurations.ResetStatsInProgress = false
+			return
+		end
+		if not statsEvent or not statsEvent:IsA("RemoteEvent") then
+			configurations.NotifyUser("Reset stats", "StatsEvent is unavailable.", 5)
+			configurations.ResetStatsInProgress = false
+			return
+		end
+
+		local statNames = { "Vitality", "Agility", "Luck", "Strength", "Defense" }
+		local skippedStats = {}
+		for _, statName in ipairs(statNames) do
+			local statValue = playerStats:FindFirstChild(statName)
+			if statValue and (statValue:IsA("IntValue") or statValue:IsA("NumberValue")) then
+				if statValue.Value < 500 then
+					local ok, err = pcall(function()
+						statsEvent:FireServer(statName, 0)
+					end)
+					if not ok then
+						configurations.NotifyUser("Reset stats", "Failed to reset " .. statName .. ": " .. tostring(err), 6)
+					end
+				else
+					table.insert(skippedStats, statName)
+				end
+			end
+		end
+		if #skippedStats > 0 then
+			configurations.NotifyUser("Reset stats", "Skipped (500+): " .. table.concat(skippedStats, ", "), 6)
+		end
+		configurations.ResetStatsInProgress = false
+	end)
 end)
 
 AmountBox.FocusLost:Connect(function()
@@ -5151,6 +5291,16 @@ function configurations.Combat.IsLivingMob(mob)
 	return not humanoid or humanoid.Health > 0
 end
 
+function configurations.Combat.IsActiveExpTarget(mob, exp)
+	return mob ~= nil
+		and configurations.CurrentTarget == mob
+		and mob:IsDescendantOf(MobsFolder)
+		and configurations.Combat.IsLivingMob(mob)
+		and exp ~= nil
+		and exp.Parent ~= nil
+		and exp:IsDescendantOf(mob)
+end
+
 function configurations.Combat.GetExpExecutionTarget()
 	local candidates = {}
 	if configurations.ExpLastShotTarget then table.insert(candidates, configurations.ExpLastShotTarget) end
@@ -5188,6 +5338,38 @@ function configurations.Combat.GetWeaponEquipState(character)
 	end
 
 	return false, false
+end
+
+function configurations.Combat.StowWeaponAfterMobDeath(mob)
+	if not mob or configurations.Combat.IsLivingMob(mob)
+		or configurations.LastWeaponStowMob == mob then
+		return false
+	end
+	local now = os.clock()
+	if configurations.LastWeaponStowAttemptMob == mob
+		and now - (configurations.LastWeaponStowAttemptAt or 0) < 0.75 then
+		return false
+	end
+	configurations.LastWeaponStowAttemptMob = mob
+	configurations.LastWeaponStowAttemptAt = now
+	local character = Player.Character
+	local hasWeapon, needsEquip = configurations.Combat.GetWeaponEquipState(character)
+	if needsEquip then
+		configurations.LastWeaponStowMob = mob
+		return true
+	end
+	if not hasWeapon then return false end
+	local playerGui = Player:FindFirstChildOfClass("PlayerGui")
+	local inputFunction = playerGui and playerGui:FindFirstChild("InputBindableFunction", true)
+	if not inputFunction or not inputFunction:IsA("BindableFunction") then return false end
+	local ok = pcall(function()
+		inputFunction:Invoke("EquipButton", Enum.UserInputState.Begin)
+	end)
+	if ok then
+		configurations.LastWeaponStowMob = mob
+		return true
+	end
+	return false
 end
 
 function configurations.Combat.GetSelectedCombatMob(localRoot)
@@ -5326,6 +5508,9 @@ task.spawn(function()
 		if target and configurations.Combat.IsLivingMob(target) then
 			-- ยึดตัวเดิม
 		else
+			if target and not configurations.Combat.IsLivingMob(target) then
+				configurations.Combat.StowWeaponAfterMobDeath(target)
+			end
 			if chasingExpTarget or expMoveState.Active then
 				local character = Player.Character
 				local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -5501,7 +5686,7 @@ task.spawn(function()
 
 		while callsSent < toFire do
 			if not configurations.Farming or configurations.EmergencyStopActive then break end
-			if not target:IsDescendantOf(MobsFolder) then break end
+			if not configurations.Combat.IsActiveExpTarget(target, exp) then break end
 			if configurations.ExpRetaliationTarget == target
 				or configurations.ExpMaxCombatTarget == target
 				or (configurations.PendingServerHop and configurations.ServerHopKillTarget == target)
@@ -5581,9 +5766,28 @@ task.spawn(function()
 
 		if not configurations.Farming or configurations.EmergencyStopActive then continue end
 
-		if not target:IsDescendantOf(MobsFolder) then
-			configurations.ClearBillboard()
-			configurations.CurrentTarget = nil
+		if not configurations.Combat.IsActiveExpTarget(target, exp) then
+			if configurations.CurrentTarget == target then
+				configurations.ClearBillboard()
+				configurations.CurrentTarget = nil
+			end
+			if configurations.ExpLastShotTarget == target
+				and not configurations.Combat.IsLivingMob(target) then
+				configurations.ExpLastShotTarget = nil
+			end
+			if configurations.ExpRetaliationTarget == target
+				and not configurations.Combat.IsLivingMob(target) then
+				configurations.ExpRetaliationTarget = nil
+			end
+			if configurations.ExpMaxCombatTarget == target
+				and not configurations.Combat.IsLivingMob(target) then
+				configurations.ExpMaxCombatTarget = nil
+			end
+			if configurations.ExpFinishTarget == target
+				and not configurations.Combat.IsLivingMob(target) then
+				configurations.ExpFinishTarget = nil
+			end
+			if engagedFireTarget == target then engagedFireTarget = nil end
 			task.wait(0.05)
 			continue
 		end
@@ -5605,19 +5809,55 @@ task.spawn(function()
 		end
 
 		-- รอ EXP ขึ้น (timeout สั้นลงเมื่อใกล้ Max)
-		if target:IsDescendantOf(MobsFolder) then
+		if configurations.Combat.IsActiveExpTarget(target, exp)
+			and configurations.ExpRetaliationTarget ~= target
+			and configurations.ExpMaxCombatTarget ~= target
+			and not (configurations.PendingServerHop and configurations.ServerHopKillTarget == target)
+			and not (configurations.AlertCombatPending and configurations.AlertCombatTarget == target) then
 			StateLabel.Text = "Waiting"
 			MiniState.Text = "Waiting for EXP update on locked target"
 			local expected = math.min(cycleStartExp + callsSent, configurations.ExpGoal)
 			local startWait = os.clock()
 			local maxWait = (exp.Value >= configurations.ExpGoal - 500) and 2 or 5
 
-			while configurations.Farming and not configurations.EmergencyStopActive and exp.Parent and exp.Value < expected do
-				if not target:IsDescendantOf(MobsFolder) then break end
+			while configurations.Farming and not configurations.EmergencyStopActive
+				and configurations.Combat.IsActiveExpTarget(target, exp)
+				and configurations.ExpRetaliationTarget ~= target
+				and configurations.ExpMaxCombatTarget ~= target
+				and not (configurations.PendingServerHop and configurations.ServerHopKillTarget == target)
+				and not (configurations.AlertCombatPending and configurations.AlertCombatTarget == target)
+				and exp.Value < expected do
 				if exp.Value >= configurations.ExpGoal then break end
 				if os.clock() - startWait > maxWait then break end
 				task.wait(0.05)
 			end
+		end
+
+		if configurations.Farming and not configurations.EmergencyStopActive
+			and not configurations.Combat.IsActiveExpTarget(target, exp) then
+			if configurations.CurrentTarget == target then
+				configurations.ClearBillboard()
+				configurations.CurrentTarget = nil
+			end
+			if configurations.ExpLastShotTarget == target
+				and not configurations.Combat.IsLivingMob(target) then
+				configurations.ExpLastShotTarget = nil
+			end
+			if configurations.ExpRetaliationTarget == target
+				and not configurations.Combat.IsLivingMob(target) then
+				configurations.ExpRetaliationTarget = nil
+			end
+			if configurations.ExpMaxCombatTarget == target
+				and not configurations.Combat.IsLivingMob(target) then
+				configurations.ExpMaxCombatTarget = nil
+			end
+			if configurations.ExpFinishTarget == target
+				and not configurations.Combat.IsLivingMob(target) then
+				configurations.ExpFinishTarget = nil
+			end
+			if engagedFireTarget == target then engagedFireTarget = nil end
+			task.wait(0.05)
+			continue
 		end
 
 		configurations.Combat.RecordCycle(cycleStartExp, cycleStartTime, callsSent, exp.Value)
@@ -5630,14 +5870,39 @@ task.spawn(function()
 		end
 
 		if configurations.Farming then
-			if not target:IsDescendantOf(MobsFolder) then
-				configurations.ClearBillboard()
-				configurations.CurrentTarget = nil
+			if not configurations.Combat.IsActiveExpTarget(target, exp) then
+				if configurations.CurrentTarget == target then
+					configurations.ClearBillboard()
+					configurations.CurrentTarget = nil
+				end
+				if configurations.ExpLastShotTarget == target
+					and not configurations.Combat.IsLivingMob(target) then
+					configurations.ExpLastShotTarget = nil
+				end
+				if configurations.ExpRetaliationTarget == target
+					and not configurations.Combat.IsLivingMob(target) then
+					configurations.ExpRetaliationTarget = nil
+				end
+				if configurations.ExpMaxCombatTarget == target
+					and not configurations.Combat.IsLivingMob(target) then
+					configurations.ExpMaxCombatTarget = nil
+				end
+				if configurations.ExpFinishTarget == target
+					and not configurations.Combat.IsLivingMob(target) then
+					configurations.ExpFinishTarget = nil
+				end
+				if engagedFireTarget == target then engagedFireTarget = nil end
 				task.wait(0.05)
 				continue
 			end
 			if exp.Value >= configurations.ExpGoal then
 				configurations.PauseTimer()
+				continue
+			end
+			if configurations.ExpRetaliationTarget == target
+				or configurations.ExpMaxCombatTarget == target
+				or (configurations.PendingServerHop and configurations.ServerHopKillTarget == target)
+				or (configurations.AlertCombatPending and configurations.AlertCombatTarget == target) then
 				continue
 			end
 			StateLabel.Text = configurations.NoProgressCycles >= 2 and "Waiting" or "Interval"
@@ -5708,6 +5973,9 @@ task.spawn(function()
 					math.max(7, configurations.AutoAttackStandoff + 3)
 				)
 				if attackMoveState.Target ~= target then
+					if attackMoveState.Target and not configurations.Combat.IsLivingMob(attackMoveState.Target) then
+						configurations.Combat.StowWeaponAfterMobDeath(attackMoveState.Target)
+					end
 					if attackMoveState.Target ~= nil and attackMoveState.Active then
 						local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 						if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
@@ -5836,6 +6104,9 @@ task.spawn(function()
 					configurations.UpdateCombatStatus(target, targetRoot, distance, attackMoveState.NavigationMode, attackMoveState)
 				end
 			else
+				if attackMoveState.Target and not configurations.Combat.IsLivingMob(attackMoveState.Target) then
+					configurations.Combat.StowWeaponAfterMobDeath(attackMoveState.Target)
+				end
 				if chasingMob or attackMoveState.Active then
 					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 					if humanoid and localRoot then humanoid:MoveTo(localRoot.Position) end
@@ -5930,6 +6201,10 @@ task.spawn(function()
 		-- Never let waypoint-return navigation issue MoveTo calls over combat pursuit.
 		if MovementOwner == "Combat" then
 			configurations.WaypointNavigator.Reset()
+		elseif configurations.WaypointReturnEnabled and point and root
+			and (root.Position - point).Magnitude > 1500 then
+			if humanoid then ReleaseMovement("Waypoint", humanoid, root) end
+			configurations.WaypointNavigator.Reset()
 		else
 			if configurations.WaypointReturnEnabled and point and root and humanoid and not paused then
 				if configurations.WaypointNavigator.IsHoldingPosition(root, point) then
@@ -5947,6 +6222,7 @@ task.spawn(function()
 		end
 		local waypointBusy = MovementOwner == "Combat"
 			or (configurations.WaypointReturnEnabled and point and root and humanoid and not paused
+				and (root.Position - point).Magnitude <= 1500
 				and not configurations.WaypointNavigator.IsHoldingPosition(root, point))
 		local waypointWait = configurations.FPSBoostEnabled and not waypointBusy and 0.35 or 0.12
 		task.wait(waypointWait)
