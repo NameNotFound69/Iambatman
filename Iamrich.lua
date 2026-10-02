@@ -1,4 +1,4 @@
-local VERSION = "2.6.30"
+local VERSION = "2.6.32"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -800,9 +800,9 @@ function configurations.LoadConfig()
 	configurations.PlayerPanelWidthPx = ReadPx("PlayerPanelWidthPx", configurations.PlayerPanelWidthPx or 340, 260, 560)
 	configurations.PlayerPanelHeightPx = ReadPx("PlayerPanelHeightPx", configurations.PlayerPanelHeightPx or 420, 280, 700)
 	configurations.WhitelistPanelWidthPx = ReadPx("WhitelistPanelWidthPx", configurations.WhitelistPanelWidthPx or 300, 240, 520)
-	configurations.WhitelistPanelHeightPx = ReadPx("WhitelistPanelHeightPx", configurations.WhitelistPanelHeightPx or 360, 240, 640)
+	configurations.WhitelistPanelHeightPx = ReadPx("WhitelistPanelHeightPx", configurations.WhitelistPanelHeightPx or 360, 240, 1100)
 	configurations.JoinLogWidthPx = ReadPx("JoinLogWidthPx", configurations.JoinLogWidthPx or 320, 260, 560)
-	configurations.JoinLogHeightPx = ReadPx("JoinLogHeightPx", configurations.JoinLogHeightPx or 360, 240, 640)
+	configurations.JoinLogHeightPx = ReadPx("JoinLogHeightPx", configurations.JoinLogHeightPx or 360, 240, 1100)
 	if config.PlayerPanelWidthPx == nil and tonumber(config.PlayerPanelWidthScale) then
 		configurations.PlayerPanelWidthPx = math.clamp(math.floor(tonumber(config.PlayerPanelWidthScale) * viewport.X + 0.5), 260, 560)
 	end
@@ -1959,7 +1959,7 @@ function configurations.ApplyResponsiveMainSize()
 	local maxW = math.max(360, math.floor((viewport.X - 24) / uiScale))
 	local maxH = math.max(320, math.floor((viewport.Y - 24) / uiScale))
 	local w = math.clamp(wantW, 360, math.min(900, maxW))
-	local h = math.clamp(wantH, 320, math.min(900, maxH))
+	local h = math.clamp(wantH, 320, math.min(1100, maxH))
 
 	local abs = Main.AbsolutePosition
 	local px, py
@@ -2421,6 +2421,7 @@ local FarmPage = configurations.CreatePage("Farm", false)
 local CombatPage = configurations.CreatePage("Combat", false)
 local WaypointPage = configurations.CreatePage("Waypoint", false)
 local PerformancePage = configurations.CreatePage("Performance", false)
+local DisplayPage = configurations.CreatePage("Display", false)
 
 function configurations.AddPageHeading(page, title, description)
 	local heading = Instance.new("Frame")
@@ -2460,6 +2461,7 @@ configurations.AddPageHeading(FarmPage, "EXP Farm", "Cycle, range, timing and ta
 configurations.AddPageHeading(CombatPage, "Combat", "Auto attack, skills, Boss and Miniboss targeting")
 configurations.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
 configurations.AddPageHeading(PerformancePage, "Performance", "Reduce graphics load for higher FPS")
+configurations.AddPageHeading(DisplayPage, "Display", "Window size, GUI scale and text scale")
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
@@ -2580,6 +2582,7 @@ end
 configurations.MakeNavSection("Visuals", configurations.TeleportSystem and 14 or 13)
 NavButtons.ESP = configurations.MakeNavButton("ESP", nil, configurations.TeleportSystem and 15 or 14)
 NavButtons.Performance = configurations.MakeNavButton("Performance", nil, configurations.TeleportSystem and 16 or 15)
+NavButtons.Display = configurations.MakeNavButton("Display", nil, configurations.TeleportSystem and 17 or 16)
 
 function configurations.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -2623,7 +2626,7 @@ configurations.SetMainTab("EXP")
 --==================================================
 local ServerCard = Instance.new("Frame")
 ServerCard.Name = "ServerCard"
-ServerCard.Size = UDim2.new(1, 0, 0, 78)
+ServerCard.Size = UDim2.new(1, 0, 0, 92)
 ServerCard.LayoutOrder = 2
 ServerCard.BackgroundColor3 = UIColors.CARD
 ServerCard.BorderSizePixel = 0
@@ -2647,8 +2650,8 @@ ServerTitle.Parent = ServerCard
 
 local ServerPlayersLabel = Instance.new("TextLabel")
 ServerPlayersLabel.Name = "ServerPlayers"
-ServerPlayersLabel.Size = UDim2.fromOffset(134, 26)
-ServerPlayersLabel.Position = UDim2.new(1, -148, 0, 5)
+ServerPlayersLabel.Size = UDim2.fromOffset(118, 24)
+ServerPlayersLabel.Position = UDim2.new(1, -130, 0, 8)
 ServerPlayersLabel.BackgroundColor3 = UIColors.ACCENT_DIM
 ServerPlayersLabel.BorderSizePixel = 0
 ServerPlayersLabel.Text = "0 PLAYERS"
@@ -2687,8 +2690,8 @@ ServerJobLabel.Parent = ServerCard
 
 configurations.ServerFPSLabel = Instance.new("TextLabel")
 configurations.ServerFPSLabel.Name = "ServerFPS"
-configurations.ServerFPSLabel.Size = UDim2.fromOffset(92, 18)
-configurations.ServerFPSLabel.Position = UDim2.fromOffset(14, 67)
+configurations.ServerFPSLabel.Size = UDim2.fromOffset(80, 20)
+configurations.ServerFPSLabel.Position = UDim2.fromOffset(14, 64)
 configurations.ServerFPSLabel.BackgroundColor3 = UIColors.INPUT
 configurations.ServerFPSLabel.BorderSizePixel = 0
 configurations.ServerFPSLabel.Text = "FPS --"
@@ -2701,8 +2704,8 @@ Instance.new("UICorner", configurations.ServerFPSLabel).CornerRadius = UDim.new(
 
 configurations.ServerPingLabel = Instance.new("TextLabel")
 configurations.ServerPingLabel.Name = "ServerPing"
-configurations.ServerPingLabel.Size = UDim2.fromOffset(104, 18)
-configurations.ServerPingLabel.Position = UDim2.fromOffset(112, 67)
+configurations.ServerPingLabel.Size = UDim2.fromOffset(100, 20)
+configurations.ServerPingLabel.Position = UDim2.fromOffset(100, 64)
 configurations.ServerPingLabel.BackgroundColor3 = UIColors.INPUT
 configurations.ServerPingLabel.BorderSizePixel = 0
 configurations.ServerPingLabel.Text = "Ping -- ms"
@@ -3074,7 +3077,8 @@ function configurations.SetToggleVisual(btn, title, isOn, onColor, onBg)
 		-- Always use accent blue for ON (Slayers2-style), gray for OFF
 		switch.BackgroundColor3 = isOn and UIColors.ACCENT or Color3.fromRGB(55, 60, 78)
 		if knob then
-			knob.Position = isOn and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+			knob.AnchorPoint = Vector2.new(0, 0.5)
+			knob.Position = isOn and UDim2.new(0, 22, 0.5, 0) or UDim2.new(0, 2, 0.5, 0)
 		end
 	end
 end
@@ -3128,8 +3132,9 @@ function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, des
 
 	local switch = Instance.new("Frame")
 	switch.Name = "Switch"
-	switch.Size = UDim2.fromOffset(44, 24)
-	switch.Position = UDim2.new(1, -58, 0.5, -12)
+	switch.Size = UDim2.fromOffset(42, 24)
+	switch.AnchorPoint = Vector2.new(1, 0.5)
+	switch.Position = UDim2.new(1, -14, 0.5, 0)
 	switch.BackgroundColor3 = isOn and UIColors.ACCENT or Color3.fromRGB(55, 60, 78)
 	switch.BorderSizePixel = 0
 	switch.Parent = btn
@@ -3137,8 +3142,10 @@ function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, des
 
 	local knob = Instance.new("Frame")
 	knob.Name = "Knob"
-	knob.Size = UDim2.fromOffset(20, 20)
-	knob.Position = isOn and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+	knob.Size = UDim2.fromOffset(18, 18)
+	knob.AnchorPoint = Vector2.new(0, 0.5)
+	-- 2px inset on each side: OFF at x=2, ON at x=42-18-2=22
+	knob.Position = isOn and UDim2.new(0, 22, 0.5, 0) or UDim2.new(0, 2, 0.5, 0)
 	knob.BackgroundColor3 = Color3.fromRGB(250, 250, 255)
 	knob.BorderSizePixel = 0
 	knob.Parent = switch
@@ -3812,9 +3819,11 @@ configurations.JoinLogButton = configurations.MakeActionRow("Join Log", 5, Alert
 configurations.CreditLogButton = configurations.MakeActionRow("Credit Log", 10, FarmPage, "Show players credited with hits on the current EXP target.")
 
 -- Compact display controls used by the Performance page.
-function configurations.MakeScaleControl(parent, title, getter, setter, minValue, maxValue, step, order)
+function configurations.MakeScaleControl(parent, title, getter, setter, minValue, maxValue, step, order, mode)
+	-- mode: "scale" = value is 0.20–2.50 shown as "100%"; "percent" = value is 1–100 shown as "95"
+	mode = mode or "scale"
 	local card = Instance.new("Frame")
-	card.Name = title:gsub("%s+", "")
+	card.Name = (title or "Scale"):gsub("%s+", "")
 	card.Size = UDim2.new(1, 0, 0, 48)
 	card.LayoutOrder = order
 	card.BackgroundColor3 = UIColors.CARD
@@ -3828,88 +3837,235 @@ function configurations.MakeScaleControl(parent, title, getter, setter, minValue
 
 	local label = Instance.new("TextLabel")
 	label.Name = "Title"
-	label.Size = UDim2.new(1, -190, 1, 0)
-	label.Position = UDim2.fromOffset(16, 0)
+	label.Size = UDim2.new(1, -168, 1, 0)
+	label.Position = UDim2.fromOffset(14, 0)
 	label.BackgroundTransparency = 1
 	label.Text = title
 	label.TextColor3 = UIColors.TEXT
-	label.TextSize = 14
+	label.TextSize = 13
 	label.Font = Enum.Font.GothamMedium
 	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.Parent = card
 
-	local minus = Instance.new("TextButton")
-	minus.Name = "Decrease"
-	minus.Size = UDim2.fromOffset(30, 30)
-	minus.Position = UDim2.new(1, -142, 0.5, -15)
-	minus.BackgroundColor3 = UIColors.INPUT
-	minus.BorderSizePixel = 0
-	minus.Text = "−"
-	minus.TextColor3 = UIColors.TEXT
-	minus.TextSize = 16
-	minus.Font = Enum.Font.GothamBold
-	minus.Parent = card
-	Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 7)
+	-- Layout from the right: [ −  ][ value ][ + ] with clear gaps
+	local plus = Instance.new("TextButton")
+	plus.Name = "Increase"
+	plus.Size = UDim2.fromOffset(28, 28)
+	plus.AnchorPoint = Vector2.new(1, 0.5)
+	plus.Position = UDim2.new(1, -12, 0.5, 0)
+	plus.BackgroundColor3 = UIColors.INPUT
+	plus.BorderSizePixel = 0
+	plus.Text = "+"
+	plus.TextColor3 = UIColors.TEXT
+	plus.TextSize = 15
+	plus.Font = Enum.Font.GothamBold
+	plus.Parent = card
+	Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 7)
 
-	local value = Instance.new("TextLabel")
+	local value = Instance.new("TextBox")
 	value.Name = "Value"
-	value.Size = UDim2.fromOffset(74, 30)
-	value.Position = UDim2.new(1, -108, 0.5, -15)
+	value.Size = UDim2.fromOffset(56, 28)
+	value.AnchorPoint = Vector2.new(1, 0.5)
+	value.Position = UDim2.new(1, -46, 0.5, 0) -- 12 + 28 + 6 gap
 	value.BackgroundColor3 = UIColors.INPUT
 	value.BorderSizePixel = 0
 	value.TextColor3 = UIColors.ACCENT_SEL
 	value.TextSize = 12
 	value.Font = Enum.Font.GothamBold
+	value.TextXAlignment = Enum.TextXAlignment.Center
+	value.ClearTextOnFocus = false
 	value.Parent = card
 	Instance.new("UICorner", value).CornerRadius = UDim.new(0, 7)
 
-	local plus = Instance.new("TextButton")
-	plus.Name = "Increase"
-	plus.Size = UDim2.fromOffset(30, 30)
-	plus.Position = UDim2.new(1, -42, 0.5, -15)
-	plus.BackgroundColor3 = UIColors.INPUT
-	plus.BorderSizePixel = 0
-	plus.Text = "+"
-	plus.TextColor3 = UIColors.TEXT
-	plus.TextSize = 16
-	plus.Font = Enum.Font.GothamBold
-	plus.Parent = card
-	Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 7)
+	local minus = Instance.new("TextButton")
+	minus.Name = "Decrease"
+	minus.Size = UDim2.fromOffset(28, 28)
+	minus.AnchorPoint = Vector2.new(1, 0.5)
+	minus.Position = UDim2.new(1, -108, 0.5, 0) -- 12+28+6+56+6
+	minus.BackgroundColor3 = UIColors.INPUT
+	minus.BorderSizePixel = 0
+	minus.Text = "−"
+	minus.TextColor3 = UIColors.TEXT
+	minus.TextSize = 15
+	minus.Font = Enum.Font.GothamBold
+	minus.Parent = card
+	Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 7)
 
-	local function refresh()
-		value.Text = string.format("%d%%", math.floor((getter() or 1) * 100 + 0.5))
+	local function formatValue(v)
+		v = tonumber(v) or minValue
+		if mode == "percent" then
+			return tostring(math.floor(v + 0.5))
+		end
+		return string.format("%d%%", math.floor(v * 100 + 0.5))
 	end
 
-	local function change(delta)
-		local current = getter() or 1
-		local nextValue = math.clamp(current + delta, minValue, maxValue)
-		nextValue = math.floor(nextValue / step + 0.5) * step
-		nextValue = math.clamp(nextValue, minValue, maxValue)
+	local function refresh()
+		if value:IsFocused() then return end
+		value.Text = formatValue(getter())
+	end
+
+	local function applyRaw(raw)
+		local parsed = tonumber(tostring(raw):gsub("%%", ""):match("-?[%d%.]+"))
+		if not parsed then
+			refresh()
+			return
+		end
+		local nextValue
+		if mode == "percent" then
+			nextValue = math.clamp(math.floor(parsed + 0.5), minValue, maxValue)
+		else
+			-- typed as percent (100) or as scale (1.0)
+			if parsed > maxValue then
+				parsed = parsed / 100
+			end
+			nextValue = math.clamp(parsed, minValue, maxValue)
+			nextValue = math.floor(nextValue / step + 0.5) * step
+			nextValue = math.clamp(nextValue, minValue, maxValue)
+		end
 		setter(nextValue, true)
 		refresh()
 	end
 
-	minus.MouseButton1Click:Connect(function() change(-step) end)
-	plus.MouseButton1Click:Connect(function() change(step) end)
+	local function change(delta)
+		local current = tonumber(getter()) or minValue
+		local nextValue = math.clamp(current + delta, minValue, maxValue)
+		if mode ~= "percent" then
+			nextValue = math.floor(nextValue / step + 0.5) * step
+			nextValue = math.clamp(nextValue, minValue, maxValue)
+		else
+			nextValue = math.floor(nextValue + 0.5)
+		end
+		setter(nextValue, true)
+		refresh()
+	end
+
+	minus.MouseButton1Click:Connect(function() change(-(step or 1)) end)
+	plus.MouseButton1Click:Connect(function() change(step or 1) end)
+	value.FocusLost:Connect(function()
+		applyRaw(value.Text)
+	end)
 	refresh()
-	return card
+	card:SetAttribute("Refresh", true)
+	return card, value, refresh
+end
+
+--==================================================
+-- DISPLAY PAGE (window size + scales)
+--==================================================
+local DisplayGrid = configurations.MakeToggleGrid(DisplayPage, 2)
+
+local DEFAULT_MAIN_W, DEFAULT_MAIN_H = 520, 560
+local DEFAULT_PLAYER_W, DEFAULT_PLAYER_H = 340, 420
+local DEFAULT_WL_W, DEFAULT_WL_H = 300, 360
+local DEFAULT_JOIN_W, DEFAULT_JOIN_H = 320, 360
+local DEFAULT_CREDIT_W, DEFAULT_CREDIT_H = 340, 380
+
+-- Resets ONLY display/UI: window sizes + GuiScale + TextScale. Does not touch farm/combat/alerts/etc.
+function configurations.ResetUIToDefault()
+	configurations.MainWidthPx = DEFAULT_MAIN_W
+	configurations.MainHeightPx = DEFAULT_MAIN_H
+	configurations.PlayerPanelWidthPx = DEFAULT_PLAYER_W
+	configurations.PlayerPanelHeightPx = DEFAULT_PLAYER_H
+	configurations.WhitelistPanelWidthPx = DEFAULT_WL_W
+	configurations.WhitelistPanelHeightPx = DEFAULT_WL_H
+	configurations.JoinLogWidthPx = DEFAULT_JOIN_W
+	configurations.JoinLogHeightPx = DEFAULT_JOIN_H
+	configurations.CreditLogWidthPx = DEFAULT_CREDIT_W
+	configurations.CreditLogHeightPx = DEFAULT_CREDIT_H
+	configurations.GuiScale = 1.0
+	configurations.TextScale = 1.0
+	configurations.MainWindowInitialized = true
+	if configurations.ApplyResponsiveMainSize then configurations.ApplyResponsiveMainSize() end
+	if configurations.ApplyResponsiveOverlaySizes then configurations.ApplyResponsiveOverlaySizes() end
+	if configurations.ApplyGuiScale then configurations.ApplyGuiScale() end
+	if configurations.ApplyTextScale then configurations.ApplyTextScale() end
+end
+configurations.ResetWindowSizesToDefault = configurations.ResetUIToDefault
+
+function configurations.SaveWindowSizes()
+	-- Capture current on-screen sizes into config, then persist.
+	if Main and Main.Size.X.Offset > 0 then
+		configurations.MainWidthPx = Main.Size.X.Offset
+		configurations.MainHeightPx = Main.Size.Y.Offset
+	end
+	if PlayerPanel and PlayerPanel.Size.X.Offset > 0 then
+		configurations.PlayerPanelWidthPx = PlayerPanel.Size.X.Offset
+		configurations.PlayerPanelHeightPx = PlayerPanel.Size.Y.Offset
+	end
+	if configurations.WhitelistPanel and configurations.WhitelistPanel.Size.X.Offset > 0 then
+		configurations.WhitelistPanelWidthPx = configurations.WhitelistPanel.Size.X.Offset
+		configurations.WhitelistPanelHeightPx = configurations.WhitelistPanel.Size.Y.Offset
+	end
+	if configurations.JoinLogPanel and configurations.JoinLogPanel.Size.X.Offset > 0 then
+		configurations.JoinLogWidthPx = configurations.JoinLogPanel.Size.X.Offset
+		configurations.JoinLogHeightPx = configurations.JoinLogPanel.Size.Y.Offset
+	end
+	if configurations.CreditLogPanel and configurations.CreditLogPanel.Size.X.Offset > 0 then
+		configurations.CreditLogWidthPx = configurations.CreditLogPanel.Size.X.Offset
+		configurations.CreditLogHeightPx = configurations.CreditLogPanel.Size.Y.Offset
+	end
+	configurations.SaveConfig()
+	configurations.NotifyUser("Display", "Window sizes saved.", 3)
 end
 
 local GuiScaleControl = configurations.MakeScaleControl(
-	PerformanceGrid,
+	DisplayGrid,
 	"GUI size (all windows)",
 	function() return configurations.GuiScale end,
 	configurations.SetGuiScale,
-	0.20, 2.50, 0.05, 2
+	0.20, 2.50, 0.05, 1
 )
 
 local TextScaleControl = configurations.MakeScaleControl(
-	PerformanceGrid,
+	DisplayGrid,
 	"Text size (all windows)",
 	function() return configurations.TextScale end,
 	configurations.SetTextScale,
-	0.20, 2.50, 0.05, 3
+	0.20, 2.50, 0.05, 2
 )
+
+local ResetSizesBtn = configurations.MakeActionRow(
+	"Reset to Default",
+	3,
+	DisplayGrid,
+	"UI only: restore default window sizes, GUI scale 100%, and text scale 100%."
+)
+ResetSizesBtn.MouseButton1Click:Connect(function()
+	configurations.ResetUIToDefault()
+	configurations.SaveConfig()
+	-- Refresh on-screen scale control labels if present
+	for _, root in ipairs({ DisplayGrid }) do
+		if root then
+			for _, child in ipairs(root:GetChildren()) do
+				local box = child:FindFirstChild("Value")
+				if box and box:IsA("TextBox") then
+					-- force refresh via FocusLost path is awkward; set text from known controls below
+				end
+			end
+		end
+	end
+	if GuiScaleControl then
+		local v = GuiScaleControl:FindFirstChild("Value")
+		if v then v.Text = string.format("%d%%", math.floor((configurations.GuiScale or 1) * 100 + 0.5)) end
+	end
+	if TextScaleControl then
+		local v = TextScaleControl:FindFirstChild("Value")
+		if v then v.Text = string.format("%d%%", math.floor((configurations.TextScale or 1) * 100 + 0.5)) end
+	end
+	configurations.NotifyUser("Display", "UI reset to default (sizes + scale).", 3)
+end)
+
+local SaveSizesBtn = configurations.MakeActionRow(
+	"Save window sizes",
+	4,
+	DisplayGrid,
+	"Save current Main / panel sizes only (scales already auto-save)."
+)
+SaveSizesBtn.MouseButton1Click:Connect(function()
+	configurations.SaveWindowSizes()
+end)
+
 
 local ESPToggleButton = configurations.MakeToggle("Player ESP", configurations.ESPEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 2, nil, "Show markers for other players.")
 local ESPLineButton = configurations.MakeToggle("ESP lines", configurations.ESPLineEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 3, nil, "Draw lines to players.")
@@ -4293,19 +4449,18 @@ ExpTargetRetaliationButton.MouseButton1Click:Connect(function()
 	configurations.SaveConfig()
 end)
 
-configurations.ExpRetaliationHealthCard, configurations.ExpRetaliationHealthInput = configurations.MakeNumberCard(
+configurations.ExpRetaliationHealthCard, configurations.ExpRetaliationHealthInput = configurations.MakeScaleControl(
 	FarmPage,
 	"Avengers HP trigger (%)",
 	function() return configurations.ExpRetaliationHealthPercent end,
-	6,
-	1,
-	100,
-	function(value)
-		configurations.ExpRetaliationHealthPercent = value
+	function(value, save)
+		configurations.ExpRetaliationHealthPercent = math.clamp(math.floor(tonumber(value) or 95), 1, 100)
 		if configurations.ExpTargetRetaliationEnabled then
 			configurations.CheckExpRetaliationHealth(configurations.CurrentTarget)
 		end
-	end
+		if save ~= false then configurations.SaveConfig() end
+	end,
+	1, 100, 1, 6, "percent"
 )
 
 configurations.SafeBoosterResetButton = configurations.MakeToggle(
@@ -5251,7 +5406,7 @@ function configurations.MakeResizable(panel, name, minWidthPx, minHeightPx, onRe
 			or math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
 		local delta = input.Position - startPoint
 		local maxW = math.max(minWidthPx, math.min(maxWidthPx or 560, math.floor((viewport.X - panel.AbsolutePosition.X - 8) / uiScale)))
-		local maxH = math.max(minHeightPx, math.min(maxHeightPx or 700, math.floor((viewport.Y - panel.AbsolutePosition.Y - 8) / uiScale)))
+		local maxH = math.max(minHeightPx, math.min(maxHeightPx or 1200, math.floor((viewport.Y - panel.AbsolutePosition.Y - 8) / uiScale)))
 		panel.Size = UDim2.fromOffset(
 			math.clamp(math.floor(startW + delta.X / uiScale + 0.5), minWidthPx, maxW),
 			math.clamp(math.floor(startH + delta.Y / uiScale + 0.5), minHeightPx, maxH)
@@ -5262,19 +5417,19 @@ end
 configurations.MakeResizable(PlayerPanel, "PlayerPanel", 280, 300, function(width, height)
 	configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx = width, height
 	configurations.SaveConfig()
-end, 560, 700)
+end, 640, 1200)
 configurations.MakeResizable(configurations.WhitelistPanel, "WhitelistPanel", 240, 260, function(width, height)
 	configurations.WhitelistPanelWidthPx, configurations.WhitelistPanelHeightPx = width, height
 	configurations.SaveConfig()
-end, 520, 640)
+end, 560, 1100)
 configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 260, 260, function(width, height)
 	configurations.JoinLogWidthPx, configurations.JoinLogHeightPx = width, height
 	configurations.SaveConfig()
-end, 560, 640)
+end, 560, 1100)
 configurations.MakeResizable(configurations.CreditLogPanel, "CreditLogPanel", 280, 280, function(width, height)
 	configurations.CreditLogWidthPx, configurations.CreditLogHeightPx = width, height
 	configurations.SaveConfig()
-end, 560, 700)
+end, 640, 1200)
 
 function configurations.ApplyResponsiveOverlaySizes()
 	local camera = workspace.CurrentCamera
@@ -5290,7 +5445,7 @@ function configurations.ApplyResponsiveOverlaySizes()
 		local fitW = math.max(240, math.floor((viewport.X - 24) / uiScale))
 		local fitH = math.max(200, math.floor((viewport.Y - 24) / uiScale))
 		local w = math.clamp(wantW, 240, math.min(maxW or 560, fitW))
-		local h = math.clamp(wantH, 200, math.min(maxH or 700, fitH))
+		local h = math.clamp(wantH, 200, math.min(maxH or 1200, fitH))
 
 		local abs = panel.AbsolutePosition
 		local px = (panel.AbsoluteSize.X > 0) and abs.X or 40
@@ -5302,11 +5457,11 @@ function configurations.ApplyResponsiveOverlaySizes()
 	end
 
 	if not configurations.PlayerPanelCardMode then
-		configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx, 560, 700)
+		configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx, 640, 1200)
 	end
-	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthPx, configurations.WhitelistPanelHeightPx, 520, 640)
-	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthPx, configurations.JoinLogHeightPx, 560, 640)
-	configurations.ClampOverlaySize(configurations.CreditLogPanel, configurations.CreditLogWidthPx, configurations.CreditLogHeightPx, 560, 700)
+	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthPx, configurations.WhitelistPanelHeightPx, 560, 1100)
+	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthPx, configurations.JoinLogHeightPx, 560, 1100)
+	configurations.ClampOverlaySize(configurations.CreditLogPanel, configurations.CreditLogWidthPx, configurations.CreditLogHeightPx, 640, 1200)
 end
 configurations.ApplyResponsiveOverlaySizes()
 
@@ -5765,7 +5920,7 @@ UserInputService.InputChanged:Connect(function(input)
 	local maxH = math.max(320, math.floor((viewport.Y - Main.AbsolutePosition.Y - 16) / uiScale))
 	local w = math.clamp(math.floor(configurations.ResizeStartSize.X + delta.X / uiScale + 0.5), 360, math.min(900, maxW))
 	local h = configurations.IsMinimized and configurations.ResizeStartSize.Y
-		or math.clamp(math.floor(configurations.ResizeStartSize.Y + delta.Y / uiScale + 0.5), 320, math.min(900, maxH))
+		or math.clamp(math.floor(configurations.ResizeStartSize.Y + delta.Y / uiScale + 0.5), 320, math.min(1100, maxH))
 	configurations.MainWidthPx = w
 	configurations.MainHeightPx = h
 	Main.Size = UDim2.fromOffset(w, h)
