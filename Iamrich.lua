@@ -1,4 +1,4 @@
-local VERSION = "2.6.26"
+local VERSION = "2.6.27"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -247,6 +247,7 @@ configurations.PartyLeaderName = nil
 configurations.PartyResumeFarmOnJoin = false
 configurations.FPSBoostEnabled = false
 configurations.PlayerPanelMode = "server"
+configurations.PlayerPanelTargetUserId = nil
 configurations.SelectedCombatMob = nil
 configurations.WaypointPosition = nil
 configurations.WaypointReturnEnabled = false
@@ -341,6 +342,16 @@ configurations.WhitelistPanelWidthScale = 0.40
 configurations.WhitelistPanelHeightScale = 0.55
 configurations.JoinLogWidthScale = 0.38
 configurations.JoinLogHeightScale = 0.50
+configurations.CreditLogEntries = {}
+configurations.CreditLogKnownPlayers = {}
+configurations.CreditLogHiddenUsers = {}
+configurations.CreditLogTarget = nil
+configurations.CreditLogHumanoid = nil
+configurations.CreditLogChildAddedConnection = nil
+configurations.CreditLogChildRemovedConnection = nil
+configurations.CreditLogDirty = true
+configurations.CreditLogWidthScale = 0.38
+configurations.CreditLogHeightScale = 0.50
 configurations.ConfigFileName = ""
 configurations.ConfigSaveWarningShown = false
 configurations.ConfigRootFolder = "Iamrich"
@@ -688,6 +699,9 @@ function configurations.LoadConfig()
 	configurations.Interval = ReadNumber("Interval", configurations.Interval, 0, true)
 	configurations.ExpGoal = ReadNumber("ExpGoal", configurations.ExpGoal, 0, false)
 	if type(config.AutoExecuteEnabled) == "boolean" then configurations.AutoExecuteEnabled = config.AutoExecuteEnabled end
+	if type(config.CreditLogHiddenUsers) == "table" then configurations.CreditLogHiddenUsers = config.CreditLogHiddenUsers end
+	configurations.CreditLogWidthScale = math.clamp(ReadNumber("CreditLogWidthScale", configurations.CreditLogWidthScale, 0.32, false), 0.32, 0.65)
+	configurations.CreditLogHeightScale = math.clamp(ReadNumber("CreditLogHeightScale", configurations.CreditLogHeightScale, 0.35, false), 0.35, 0.90)
 	configurations.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configurations.AlertsDistance, 0, true), 0, 100000)
 	configurations.FollowDistance = math.clamp(ReadNumber("FollowDistance", configurations.FollowDistance, 2, false), 2, 100)
 	if type(config.FollowTargetVisible) == "boolean" then
@@ -916,6 +930,9 @@ function configurations.SaveConfig()
 		WhitelistPanelHeightScale = configurations.WhitelistPanelHeightScale,
 		JoinLogWidthScale = configurations.JoinLogWidthScale,
 		JoinLogHeightScale = configurations.JoinLogHeightScale,
+		CreditLogHiddenUsers = configurations.CreditLogHiddenUsers,
+		CreditLogWidthScale = configurations.CreditLogWidthScale,
+		CreditLogHeightScale = configurations.CreditLogHeightScale,
 		AlertsEnabled = configurations.AlertsEnabled,
 		JoinAlertsEnabled = configurations.JoinAlertsEnabled,
 		AutoResumeAfterAlert = configurations.AutoResumeAfterAlert,
@@ -3716,6 +3733,7 @@ local AlertFlashButton = configurations.MakeToggle("Screen flash", configuration
 local AutoResumeButton = configurations.MakeToggle("Auto resume", configurations.AutoResumeAfterAlert, UIColors.ACCENT, UIColors.ACCENT_DIM, 3, AlertsGrid, "Off: press Start yourself after the Alert clears.")
 configurations.JoinAlertButton = configurations.MakeToggle("Join alerts", configurations.JoinAlertsEnabled, UIColors.GREEN, UIColors.GREEN_DIM, 4, AlertsGrid, "Notify when a non-whitelisted player joins or is already in this server.")
 configurations.JoinLogButton = configurations.MakeActionRow("Join Log", 5, AlertsGrid, "Open the player join and leave log.")
+configurations.CreditLogButton = configurations.MakeActionRow("Credit Log", 6, AlertsGrid, "Show players credited with hits on the current EXP target.")
 
 -- Compact display controls used by the Performance page.
 function configurations.MakeScaleControl(parent, title, getter, setter, minValue, maxValue, step, order)
@@ -4153,7 +4171,7 @@ local AutoExecuteButton = configurations.MakeToggle(
 	UIColors.RED_DIM,
 	4,
 	FarmPage,
-	"Stop EXP firing and finish the locked mob at EXP Max, manual stop, or Alert."
+	"Finish the locked mob at EXP Max or stop. Off: skip capped mobs and keep farming eligible targets."
 )
 AutoExecuteButton.MouseButton1Click:Connect(function()
 	configurations.AutoExecuteEnabled = not configurations.AutoExecuteEnabled
@@ -4447,20 +4465,53 @@ PlayerScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
 PlayerScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 PlayerListButton.MouseButton1Click:Connect(function()
+	local wasShowingCard = configurations.PlayerPanelMode == "card"
 	configurations.PlayerPanelMode = "server"
+	configurations.PlayerPanelTargetUserId = nil
 	PlayerPanelTitle.Text = "Players in server"
-	PlayerPanel.Visible = not PlayerPanel.Visible
+	PlayerPanel.Visible = wasShowingCard or not PlayerPanel.Visible
 	configurations.SetActionVisual(PlayerListButton, PlayerPanel.Visible and "Close list" or "Player list", PlayerPanel.Visible)
 	if PlayerPanel.Visible then configurations.ApplyTextScale(PlayerPanel) end
 end)
 PlayerPanelClose.MouseButton1Click:Connect(function()
 	PlayerPanel.Visible = false
 	configurations.PlayerPanelMode = "server"
+	configurations.PlayerPanelTargetUserId = nil
+	PlayerPanelTitle.Text = "Players in server"
 	configurations.SetActionVisual(PlayerListButton, "Player list", false)
 end)
 
+function configurations.OpenPlayerCardByUserId(userId)
+	local target = Players:GetPlayerByUserId(tonumber(userId) or 0)
+	if not target then return false end
+	configurations.PlayerPanelMode = "card"
+	configurations.PlayerPanelTargetUserId = tostring(target.UserId)
+	PlayerPanelTitle.Text = "Player card · @" .. target.Name
+	PlayerPanel.Visible = true
+	if configurations.JoinLogPanel then
+		configurations.JoinLogPanel.Visible = false
+		configurations.SetActionVisual(configurations.JoinLogButton, "Join Log", false)
+	end
+	if configurations.CreditLogPanel then
+		configurations.CreditLogPanel.Visible = false
+		configurations.SetActionVisual(configurations.CreditLogButton, "Credit Log", false)
+	end
+	configurations.SetActionVisual(PlayerListButton, "Player list", false)
+	return true
+end
+
+function configurations.FilterPlayerPanelListing(panelPlayers)
+	if configurations.PlayerPanelMode == "card" then
+		table.clear(panelPlayers)
+		local target = Players:GetPlayerByUserId(tonumber(configurations.PlayerPanelTargetUserId) or 0)
+		if target then table.insert(panelPlayers, target) end
+	end
+	return panelPlayers
+end
+
 FollowSelectButton.MouseButton1Click:Connect(function()
 	configurations.PlayerPanelMode = "follow"
+	configurations.PlayerPanelTargetUserId = nil
 	PlayerPanelTitle.Text = "Choose player to follow"
 	PlayerPanel.Visible = true
 	configurations.SetActionVisual(PlayerListButton, "Player list", false)
@@ -4469,6 +4520,7 @@ end)
 FollowToggleButton.MouseButton1Click:Connect(function()
 	if not configurations.SelectedFollowUserId then
 		configurations.PlayerPanelMode = "follow"
+		configurations.PlayerPanelTargetUserId = nil
 		PlayerPanelTitle.Text = "Choose player to follow"
 		PlayerPanel.Visible = true
 		return
@@ -4686,6 +4738,7 @@ function configurations.RefreshJoinLog()
 	end
 	for order = #configurations.PlayerJoinLog, 1, -1 do
 		local entry = configurations.PlayerJoinLog[order]
+		local selectedEntry = entry
 		local row = Instance.new("Frame")
 		row.Name = "JoinLogRow_" .. tostring(order)
 		row.Size = UDim2.new(1, -6, 0, 34)
@@ -4737,12 +4790,13 @@ function configurations.RefreshJoinLog()
 		eventBadge.Parent = row
 		Instance.new("UICorner", eventBadge).CornerRadius = UDim.new(0, 6)
 
-		local nameLabel = Instance.new("TextLabel")
+		local nameLabel = Instance.new("TextButton")
 		local nameStart = 72 + eventBadgeWidth + 8
 		nameLabel.Size = UDim2.new(1, -(nameStart + 8), 0, 18)
 		nameLabel.Position = UDim2.fromOffset(nameStart, 8)
 		nameLabel.ZIndex = 93
 		nameLabel.BackgroundTransparency = 1
+		nameLabel.AutoButtonColor = false
 		local whitelistTag = (entry.Whitelisted or currentlyWhitelisted) and "  ·  WL" or ""
 		nameLabel.Text = "@" .. entry.Username .. whitelistTag
 		nameLabel.TextColor3 = isDanger and UIColors.RED or UIColors.TEXT
@@ -4751,12 +4805,24 @@ function configurations.RefreshJoinLog()
 		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 		nameLabel.Parent = row
+		nameLabel.MouseButton1Click:Connect(function()
+			configurations.OpenPlayerCardByUserId(selectedEntry.UserId)
+		end)
 	end
 	configurations.ApplyTextScale(configurations.JoinLogPanel)
 end
 
 configurations.JoinLogButton.MouseButton1Click:Connect(function()
 	local isOpen = not configurations.JoinLogPanel.Visible
+	if isOpen then
+		PlayerPanel.Visible = false
+		configurations.PlayerPanelMode = "server"
+		configurations.PlayerPanelTargetUserId = nil
+		PlayerPanelTitle.Text = "Players in server"
+		configurations.SetActionVisual(PlayerListButton, "Player list", false)
+	end
+	configurations.CreditLogPanel.Visible = false
+	configurations.SetActionVisual(configurations.CreditLogButton, "Credit Log", false)
 	configurations.JoinLogPanel.Visible = isOpen
 	configurations.SetActionVisual(configurations.JoinLogButton, isOpen and "Close log" or "Join Log", isOpen)
 	if isOpen then configurations.RefreshJoinLog() end
@@ -4764,6 +4830,241 @@ end)
 configurations.JoinLogCloseButton.MouseButton1Click:Connect(function()
 	configurations.JoinLogPanel.Visible = false
 	configurations.SetActionVisual(configurations.JoinLogButton, "Join Log", false)
+end)
+
+configurations.CreditLogPanel = Instance.new("Frame")
+configurations.CreditLogPanel.Name = "CreditLogPanel"
+configurations.CreditLogPanel.Size = UDim2.fromScale(configurations.CreditLogWidthScale, configurations.CreditLogHeightScale)
+configurations.CreditLogPanel.Position = UDim2.fromScale(0.31, 0.2)
+configurations.CreditLogPanel.ZIndex = 90
+configurations.CreditLogPanel.BackgroundColor3 = UIColors.BG
+configurations.CreditLogPanel.BorderSizePixel = 0
+configurations.CreditLogPanel.Visible = false
+configurations.CreditLogPanel.Parent = ScreenGui
+Instance.new("UICorner", configurations.CreditLogPanel).CornerRadius = UDim.new(0, 12)
+configurations.RegisterScaledRoot(configurations.CreditLogPanel)
+configurations.CreditLogPanelStroke = Instance.new("UIStroke", configurations.CreditLogPanel)
+configurations.CreditLogPanelStroke.Color = UIColors.BORDER
+configurations.CreditLogPanelStroke.Thickness = 1
+configurations.CreditLogPanelStroke.Transparency = 0.35
+
+configurations.CreditLogHeader = Instance.new("Frame")
+configurations.CreditLogHeader.Name = "Header"
+configurations.CreditLogHeader.Size = UDim2.new(1, 0, 0, 44)
+configurations.CreditLogHeader.ZIndex = 91
+configurations.CreditLogHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
+configurations.CreditLogHeader.BorderSizePixel = 0
+configurations.CreditLogHeader.Parent = configurations.CreditLogPanel
+Instance.new("UICorner", configurations.CreditLogHeader).CornerRadius = UDim.new(0, 12)
+
+configurations.CreditLogHeaderFix = Instance.new("Frame")
+configurations.CreditLogHeaderFix.Size = UDim2.new(1, 0, 0, 16)
+configurations.CreditLogHeaderFix.Position = UDim2.new(0, 0, 1, -16)
+configurations.CreditLogHeaderFix.ZIndex = 91
+configurations.CreditLogHeaderFix.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
+configurations.CreditLogHeaderFix.BorderSizePixel = 0
+configurations.CreditLogHeaderFix.Parent = configurations.CreditLogHeader
+
+configurations.CreditLogTitle = Instance.new("TextLabel")
+configurations.CreditLogTitle.Size = UDim2.new(1, -56, 0, 22)
+configurations.CreditLogTitle.Position = UDim2.fromOffset(14, 11)
+configurations.CreditLogTitle.ZIndex = 92
+configurations.CreditLogTitle.BackgroundTransparency = 1
+configurations.CreditLogTitle.Text = "Credit Log · current EXP target"
+configurations.CreditLogTitle.TextColor3 = UIColors.TEXT
+configurations.CreditLogTitle.TextSize = 16
+configurations.CreditLogTitle.Font = Enum.Font.GothamBold
+configurations.CreditLogTitle.TextXAlignment = Enum.TextXAlignment.Left
+configurations.CreditLogTitle.Parent = configurations.CreditLogHeader
+
+configurations.CreditLogCloseButton = Instance.new("TextButton")
+configurations.CreditLogCloseButton.Size = UDim2.fromOffset(32, 32)
+configurations.CreditLogCloseButton.Position = UDim2.new(1, -40, 0, 6)
+configurations.CreditLogCloseButton.ZIndex = 92
+configurations.CreditLogCloseButton.BackgroundColor3 = UIColors.INPUT
+configurations.CreditLogCloseButton.BorderSizePixel = 0
+configurations.CreditLogCloseButton.Text = "×"
+configurations.CreditLogCloseButton.TextColor3 = UIColors.TEXT
+configurations.CreditLogCloseButton.TextSize = 19
+configurations.CreditLogCloseButton.Font = Enum.Font.GothamBold
+configurations.CreditLogCloseButton.Parent = configurations.CreditLogHeader
+Instance.new("UICorner", configurations.CreditLogCloseButton).CornerRadius = UDim.new(0, 6)
+
+configurations.CreditLogFilterScroll = Instance.new("ScrollingFrame")
+configurations.CreditLogFilterScroll.Name = "PlayerFilters"
+configurations.CreditLogFilterScroll.Size = UDim2.new(1, -20, 0, 48)
+configurations.CreditLogFilterScroll.Position = UDim2.fromOffset(10, 50)
+configurations.CreditLogFilterScroll.ZIndex = 91
+configurations.CreditLogFilterScroll.BackgroundTransparency = 1
+configurations.CreditLogFilterScroll.BorderSizePixel = 0
+configurations.CreditLogFilterScroll.ScrollBarThickness = 2
+configurations.CreditLogFilterScroll.ScrollBarImageColor3 = UIColors.MUTED
+configurations.CreditLogFilterScroll.CanvasSize = UDim2.new()
+configurations.CreditLogFilterScroll.AutomaticCanvasSize = Enum.AutomaticSize.X
+configurations.CreditLogFilterScroll.ScrollingDirection = Enum.ScrollingDirection.X
+configurations.CreditLogFilterScroll.Parent = configurations.CreditLogPanel
+configurations.CreditLogFilterLayout = Instance.new("UIListLayout", configurations.CreditLogFilterScroll)
+configurations.CreditLogFilterLayout.FillDirection = Enum.FillDirection.Horizontal
+configurations.CreditLogFilterLayout.Padding = UDim.new(0, 6)
+configurations.CreditLogFilterLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+configurations.CreditLogScroll = Instance.new("ScrollingFrame")
+configurations.CreditLogScroll.Name = "Credits"
+configurations.CreditLogScroll.Size = UDim2.new(1, -20, 1, -112)
+configurations.CreditLogScroll.Position = UDim2.fromOffset(10, 104)
+configurations.CreditLogScroll.ZIndex = 91
+configurations.CreditLogScroll.BackgroundTransparency = 1
+configurations.CreditLogScroll.BorderSizePixel = 0
+configurations.CreditLogScroll.ScrollBarThickness = 3
+configurations.CreditLogScroll.ScrollBarImageColor3 = UIColors.MUTED
+configurations.CreditLogScroll.CanvasSize = UDim2.new()
+configurations.CreditLogScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configurations.CreditLogScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+configurations.CreditLogScroll.Parent = configurations.CreditLogPanel
+configurations.CreditLogLayout = Instance.new("UIListLayout", configurations.CreditLogScroll)
+configurations.CreditLogLayout.Padding = UDim.new(0, 6)
+configurations.CreditLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configurations.CreditLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+function configurations.RefreshCreditLog()
+	for _, entry in pairs(configurations.CreditLogEntries) do
+		entry.NameButton = nil
+		entry.CountdownLabel = nil
+	end
+	for _, child in ipairs(configurations.CreditLogFilterScroll:GetChildren()) do
+		if child.Name:match("^CreditLogFilter_") then child:Destroy() end
+	end
+	for _, child in ipairs(configurations.CreditLogScroll:GetChildren()) do
+		if child.Name:match("^CreditLogRow_") or child.Name == "CreditLogEmpty" then child:Destroy() end
+	end
+
+	local userIds = {}
+	for userId in pairs(configurations.CreditLogKnownPlayers) do table.insert(userIds, userId) end
+	table.sort(userIds, function(a, b)
+		return string.lower(configurations.CreditLogKnownPlayers[a]) < string.lower(configurations.CreditLogKnownPlayers[b])
+	end)
+	for order, userId in ipairs(userIds) do
+		local filterUserId = userId
+		local hidden = configurations.CreditLogHiddenUsers[userId] == true
+		local filterButton = Instance.new("TextButton")
+		filterButton.Name = "CreditLogFilter_" .. userId
+		filterButton.Size = UDim2.fromOffset(132, 30)
+		filterButton.LayoutOrder = order
+		filterButton.ZIndex = 92
+		filterButton.BackgroundColor3 = hidden and UIColors.INPUT or UIColors.GREEN_DIM
+		filterButton.BorderSizePixel = 0
+		filterButton.AutoButtonColor = false
+		filterButton.Text = (hidden and "○  @" or "✓  @") .. configurations.CreditLogKnownPlayers[userId]
+		filterButton.TextColor3 = hidden and UIColors.MUTED or UIColors.GREEN
+		filterButton.TextSize = 11
+		filterButton.Font = Enum.Font.GothamBold
+		filterButton.TextTruncate = Enum.TextTruncate.AtEnd
+		filterButton.Parent = configurations.CreditLogFilterScroll
+		Instance.new("UICorner", filterButton).CornerRadius = UDim.new(0, 7)
+		filterButton.MouseButton1Click:Connect(function()
+			configurations.CreditLogHiddenUsers[filterUserId] = not (configurations.CreditLogHiddenUsers[filterUserId] == true)
+			configurations.CreditLogDirty = true
+			configurations.SaveConfig()
+			configurations.RefreshCreditLog()
+		end)
+	end
+
+	local rows = {}
+	for _, entry in pairs(configurations.CreditLogEntries) do
+		if configurations.CreditLogHiddenUsers[entry.UserId] ~= true
+			and (not entry.ExpireAt or entry.ExpireAt > os.clock()) then
+			table.insert(rows, entry)
+		end
+	end
+	table.sort(rows, function(a, b)
+		return (a.ExpireAt or math.huge) < (b.ExpireAt or math.huge)
+	end)
+	for order, entry in ipairs(rows) do
+		local creditedUserId = entry.UserId
+		local row = Instance.new("Frame")
+		row.Name = "CreditLogRow_" .. tostring(order)
+		row.Size = UDim2.new(1, -6, 0, 42)
+		row.LayoutOrder = order
+		row.ZIndex = 92
+		row.BackgroundColor3 = UIColors.CARD
+		row.BorderSizePixel = 0
+		row.Parent = configurations.CreditLogScroll
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 9)
+		local rowStroke = Instance.new("UIStroke", row)
+		rowStroke.Color = UIColors.BORDER
+		rowStroke.Transparency = 0.55
+		rowStroke.Thickness = 1
+
+		local nameButton = Instance.new("TextButton")
+		nameButton.Name = "CreditedPlayer"
+		nameButton.Size = UDim2.new(0.62, -10, 1, 0)
+		nameButton.Position = UDim2.fromOffset(12, 0)
+		nameButton.ZIndex = 93
+		nameButton.BackgroundTransparency = 1
+		nameButton.AutoButtonColor = false
+		nameButton.Text = "HIT · @" .. entry.Username
+		nameButton.TextColor3 = UIColors.TEXT
+		nameButton.TextSize = 13
+		nameButton.Font = Enum.Font.GothamBold
+		nameButton.TextXAlignment = Enum.TextXAlignment.Left
+		nameButton.TextTruncate = Enum.TextTruncate.AtEnd
+		nameButton.Parent = row
+		entry.NameButton = nameButton
+		nameButton.MouseButton1Click:Connect(function()
+			configurations.OpenPlayerCardByUserId(creditedUserId)
+		end)
+
+		local countdown = Instance.new("TextLabel")
+		countdown.Name = "Countdown"
+		countdown.Size = UDim2.new(0.38, -8, 1, 0)
+		countdown.Position = UDim2.new(0.62, 0, 0, 0)
+		countdown.ZIndex = 93
+		countdown.BackgroundTransparency = 1
+		countdown.TextColor3 = UIColors.GREEN
+		countdown.TextSize = 11
+		countdown.Font = Enum.Font.GothamBold
+		countdown.TextXAlignment = Enum.TextXAlignment.Right
+		countdown.Parent = row
+		entry.CountdownLabel = countdown
+	end
+	if #rows == 0 then
+		local empty = Instance.new("TextLabel")
+		empty.Name = "CreditLogEmpty"
+		empty.Size = UDim2.new(1, -8, 0, 42)
+		empty.LayoutOrder = 1
+		empty.ZIndex = 92
+		empty.BackgroundTransparency = 1
+		empty.Text = "No credited players on the current EXP target yet."
+		empty.TextColor3 = UIColors.MUTED
+		empty.TextSize = 12
+		empty.Font = Enum.Font.Gotham
+		empty.Parent = configurations.CreditLogScroll
+	end
+	configurations.CreditLogDirty = false
+	configurations.ApplyTextScale(configurations.CreditLogPanel)
+end
+
+configurations.CreditLogButton.MouseButton1Click:Connect(function()
+	local isOpen = not configurations.CreditLogPanel.Visible
+	if isOpen then
+		PlayerPanel.Visible = false
+		configurations.PlayerPanelMode = "server"
+		configurations.PlayerPanelTargetUserId = nil
+		PlayerPanelTitle.Text = "Players in server"
+		configurations.SetActionVisual(PlayerListButton, "Player list", false)
+	end
+	configurations.JoinLogPanel.Visible = false
+	configurations.SetActionVisual(configurations.JoinLogButton, "Join Log", false)
+	configurations.CreditLogPanel.Visible = isOpen
+	configurations.SetActionVisual(configurations.CreditLogButton, isOpen and "Close log" or "Credit Log", isOpen)
+	if isOpen then
+		configurations.CreditLogDirty = true
+		configurations.RefreshCreditLog()
+	end
+end)
+configurations.CreditLogCloseButton.MouseButton1Click:Connect(function()
+	configurations.CreditLogPanel.Visible = false
+	configurations.SetActionVisual(configurations.CreditLogButton, "Credit Log", false)
 end)
 
 function configurations.MakeDraggable(panel, handle)
@@ -4802,6 +5103,7 @@ end
 configurations.MakeDraggable(PlayerPanel, PlayerPanelHeader)
 configurations.MakeDraggable(configurations.WhitelistPanel, configurations.WhitelistHeader)
 configurations.MakeDraggable(configurations.JoinLogPanel, configurations.JoinLogHeader)
+configurations.MakeDraggable(configurations.CreditLogPanel, configurations.CreditLogHeader)
 
 function configurations.MakeResizable(panel, name, minWidth, minHeight, onReleased, maxWidthScale)
 	local handle = Instance.new("TextButton")
@@ -4874,6 +5176,10 @@ configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 0.32, 
 	configurations.JoinLogWidthScale, configurations.JoinLogHeightScale = width, height
 	configurations.SaveConfig()
 end, 0.65)
+configurations.MakeResizable(configurations.CreditLogPanel, "CreditLogPanel", 0.32, 0.35, function(width, height)
+	configurations.CreditLogWidthScale, configurations.CreditLogHeightScale = width, height
+	configurations.SaveConfig()
+end, 0.65)
 
 function configurations.ApplyResponsiveOverlaySizes()
 	local viewport = configurations.GetViewportSize and configurations.GetViewportSize() or (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize)
@@ -4899,6 +5205,7 @@ function configurations.ApplyResponsiveOverlaySizes()
 	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale, 0.52)
 	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale)
 	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthScale, configurations.JoinLogHeightScale, 0.65)
+	configurations.ClampOverlaySize(configurations.CreditLogPanel, configurations.CreditLogWidthScale, configurations.CreditLogHeightScale, 0.65)
 end
 configurations.ApplyResponsiveOverlaySizes()
 
@@ -5197,6 +5504,95 @@ function configurations.WatchExpTargetForHit(target)
 	end
 end
 
+function configurations.RemoveCreditLogEntry(tag)
+	local entry = configurations.CreditLogEntries[tag]
+	if not entry then return false end
+	configurations.CreditLogEntries[tag] = nil
+	configurations.CreditLogDirty = true
+	return true
+end
+
+function configurations.TrackCreditLogTag(tag)
+	if not tag or not tag:IsA("StringValue") then return false end
+	local userId = string.match(tag.Name, "^creator_(%d+)$")
+	if not userId then return false end
+	local entry = configurations.CreditLogEntries[tag]
+	if not entry then
+		entry = { Tag = tag, UserId = userId, Username = tag.Value, CreatedAt = os.clock(), ExpireAt = nil }
+		configurations.CreditLogEntries[tag] = entry
+		configurations.CreditLogDirty = true
+	end
+	local previousUsername = entry.Username
+	entry.Username = tag.Value ~= "" and tag.Value or entry.Username
+	configurations.CreditLogKnownPlayers[userId] = entry.Username
+	if previousUsername ~= entry.Username then configurations.CreditLogDirty = true end
+	return true
+end
+
+function configurations.WatchCreditLogTarget(target)
+	if not target or not target:IsDescendantOf(MobsFolder) then target = nil end
+	local humanoid = target and target:FindFirstChildOfClass("Humanoid")
+	if configurations.CreditLogTarget == target and configurations.CreditLogHumanoid == humanoid then return end
+	if configurations.CreditLogChildAddedConnection then configurations.CreditLogChildAddedConnection:Disconnect() end
+	if configurations.CreditLogChildRemovedConnection then configurations.CreditLogChildRemovedConnection:Disconnect() end
+	configurations.CreditLogChildAddedConnection = nil
+	configurations.CreditLogChildRemovedConnection = nil
+	for tag in pairs(configurations.CreditLogEntries) do
+		configurations.RemoveCreditLogEntry(tag)
+	end
+	configurations.CreditLogTarget = target
+	configurations.CreditLogHumanoid = humanoid
+	if not humanoid then return end
+	configurations.CreditLogChildAddedConnection = humanoid.ChildAdded:Connect(function(child)
+		if child:IsA("StringValue") then configurations.TrackCreditLogTag(child) end
+	end)
+	configurations.CreditLogChildRemovedConnection = humanoid.ChildRemoved:Connect(function(child)
+		configurations.RemoveCreditLogEntry(child)
+	end)
+	for _, child in ipairs(humanoid:GetChildren()) do
+		if child:IsA("StringValue") then configurations.TrackCreditLogTag(child) end
+	end
+end
+
+function configurations.UpdateCreditLog()
+	local now = os.clock()
+	for tag, entry in pairs(configurations.CreditLogEntries) do
+		if not tag.Parent or tag.Parent ~= configurations.CreditLogHumanoid
+			or (tag.Value == "" and (entry.Username ~= "" or now - (entry.CreatedAt or now) > 1)) then
+			configurations.RemoveCreditLogEntry(tag)
+		else
+			local previousUsername = entry.Username
+			entry.Username = tag.Value ~= "" and tag.Value or entry.Username
+			configurations.CreditLogKnownPlayers[entry.UserId] = entry.Username
+			if previousUsername ~= entry.Username then configurations.CreditLogDirty = true end
+			local startObject = tag:FindFirstChild("StartTime")
+			local endObject = tag:FindFirstChild("EndTime")
+			local startTime = startObject and tonumber(startObject.Value)
+			local endTime = endObject and tonumber(endObject.Value)
+			if startTime ~= entry.LastStartTime or endTime ~= entry.LastEndTime then
+				entry.LastStartTime = startTime
+				entry.LastEndTime = endTime
+				-- The tag's StartTime/EndTime delta is the credit lifetime requested for this log.
+				entry.ExpireAt = startTime and endTime and now + math.max(0, endTime - startTime) or nil
+				configurations.CreditLogDirty = true
+			end
+			if entry.NameButton and entry.NameButton.Parent and entry.NameButton.Text ~= "HIT · @" .. entry.Username then
+				entry.NameButton.Text = "HIT · @" .. entry.Username
+			end
+			if entry.CountdownLabel and entry.CountdownLabel.Parent then
+				local remaining = entry.ExpireAt and math.max(0, math.ceil(entry.ExpireAt - now)) or nil
+				entry.CountdownLabel.Text = remaining and string.format("CREDIT · %02d:%02d", math.floor(remaining / 60), remaining % 60) or "CREDIT · WAITING"
+			end
+			if entry.ExpireAt and now >= entry.ExpireAt then
+				configurations.RemoveCreditLogEntry(tag)
+			end
+		end
+	end
+	if configurations.CreditLogPanel and configurations.CreditLogPanel.Visible and configurations.CreditLogDirty then
+		configurations.RefreshCreditLog()
+	end
+end
+
 configurations.PlayerEspLayer = Instance.new("Frame")
 configurations.PlayerEspLayer.Name = "PlayerESPLayer"
 configurations.PlayerEspLayer.Size = UDim2.fromScale(1, 1)
@@ -5338,16 +5734,24 @@ function configurations.SetRunning()
 end
 
 function configurations.HandleExpMax(target)
-	if configurations.AutoExecuteEnabled and configurations.Combat.IsLivingMob(target) then
-		configurations.ExpMaxCombatTarget = target
-		configurations.PauseTimer()
+	local living = configurations.Combat.IsLivingMob(target)
+	configurations.ExpMaxCombatTarget = configurations.AutoExecuteEnabled and living and target or nil
+	configurations.PauseTimer()
+	if configurations.AutoExecuteEnabled and living then
 		StateLabel.Text = "EXP max - finishing target"
 		MiniState.Text = "Auto Execute: attacking this EXP target until it dies"
-		return true
+	else
+		if living and configurations.CurrentTarget == target then
+			configurations.CurrentTarget = nil
+			if configurations.ExpLastShotTarget == target then configurations.ExpLastShotTarget = nil end
+			configurations.ClearBillboard()
+		end
+		StateLabel.Text = "EXP max - finding another mob"
+		MiniState.Text = "Auto Execute is off; skipping the capped mob and continuing EXP farm"
 	end
-	configurations.ExpMaxCombatTarget = nil
-	configurations.SetIdle(false)
-	return false
+	-- Keep the farm loop alive at the cap. With Auto Execute off, drop the capped
+	-- target so the search can pick another mob or wait for a fresh spawn.
+	return true
 end
 
 StartBtn.MouseButton1Click:Connect(function()
@@ -6369,6 +6773,8 @@ end)
 --==================================================
 task.spawn(function()
 	while true do
+		configurations.WatchCreditLogTarget(configurations.CurrentTarget)
+		configurations.UpdateCreditLog()
 		configurations.WatchExpTargetForHit(configurations.ExpMaxCombatTarget or configurations.ExpFinishTarget
 			or configurations.AlertCombatTarget
 			or configurations.ExpRetaliationTarget or configurations.CurrentTarget
@@ -6485,6 +6891,135 @@ end)
 --==================================================
 -- PLAYER LIST + FULL-SCREEN ALERTS
 --==================================================
+function configurations.DestroyPlayerESPVisual(visual)
+	if not visual then return end
+	if visual.Highlight then visual.Highlight:Destroy() end
+	if visual.NameTag then visual.NameTag:Destroy() end
+	if visual.Tracer then visual.Tracer:Destroy() end
+end
+
+function configurations.UpdatePlayerESPVisual(otherPlayer, otherCharacter, otherRoot, localRoot, camera, viewport, playerVisuals)
+	local visual = playerVisuals[otherPlayer]
+	local enabled = configurations.ESPEnabled and configurations.IsPlayerESPEnabled(otherPlayer)
+	if not enabled or not otherCharacter or not otherRoot then
+		if visual then
+			configurations.DestroyPlayerESPVisual(visual)
+			playerVisuals[otherPlayer] = nil
+		end
+		return
+	end
+	if not visual then
+		local highlight = Instance.new("Highlight")
+		highlight.Name = "PlayerESPOutline"
+		highlight.FillTransparency = 1
+		highlight.OutlineColor = UIColors.RED
+		highlight.OutlineTransparency = 0
+		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		highlight.Parent = workspace
+
+		local nameTag = Instance.new("Frame")
+		nameTag.Name = "PlayerESPName"
+		nameTag.Size = UDim2.fromOffset(210, 86)
+		nameTag.AnchorPoint = Vector2.new(0.5, 1)
+		nameTag.BackgroundTransparency = 1
+		nameTag.BorderSizePixel = 0
+		nameTag.Visible = false
+		nameTag.ZIndex = 80
+		nameTag.Parent = configurations.PlayerEspLayer
+
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size = UDim2.new(1, 0, 0, 26)
+		nameLabel.ZIndex = 81
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.TextColor3 = Color3.new(1, 1, 1)
+		nameLabel.TextStrokeTransparency = 0.2
+		nameLabel.TextSize = 13
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.TextWrapped = true
+		nameLabel.Parent = nameTag
+
+		local distanceLabel = Instance.new("TextLabel")
+		distanceLabel.Name = "Distance"
+		distanceLabel.Size = UDim2.new(1, 0, 0, 20)
+		distanceLabel.Position = UDim2.fromOffset(0, 27)
+		distanceLabel.ZIndex = 81
+		distanceLabel.BackgroundTransparency = 1
+		distanceLabel.TextColor3 = Color3.fromRGB(225, 230, 240)
+		distanceLabel.TextStrokeTransparency = 0.25
+		distanceLabel.TextSize = 12
+		distanceLabel.Font = Enum.Font.Gotham
+		distanceLabel.Parent = nameTag
+
+		local healthLabel = Instance.new("TextLabel")
+		healthLabel.Name = "Health"
+		healthLabel.Size = UDim2.new(1, 0, 0, 18)
+		healthLabel.Position = UDim2.fromOffset(0, 48)
+		healthLabel.ZIndex = 81
+		healthLabel.BackgroundTransparency = 1
+		healthLabel.TextColor3 = Color3.fromRGB(225, 230, 240)
+		healthLabel.TextStrokeTransparency = 0.25
+		healthLabel.TextSize = 12
+		healthLabel.Font = Enum.Font.Gotham
+		healthLabel.Parent = nameTag
+
+		local statsLabel = Instance.new("TextLabel")
+		statsLabel.Name = "Stats"
+		statsLabel.Size = UDim2.new(1, 0, 0, 18)
+		statsLabel.Position = UDim2.fromOffset(0, 66)
+		statsLabel.ZIndex = 81
+		statsLabel.BackgroundTransparency = 1
+		statsLabel.TextColor3 = Color3.fromRGB(225, 230, 240)
+		statsLabel.TextStrokeTransparency = 0.25
+		statsLabel.TextSize = 12
+		statsLabel.Font = Enum.Font.Gotham
+		statsLabel.Parent = nameTag
+
+		local tracer = Instance.new("Frame")
+		tracer.Name = "PlayerESPLine"
+		tracer.AnchorPoint = Vector2.new(0.5, 0.5)
+		tracer.Size = UDim2.fromScale(0, 0)
+		tracer.BackgroundColor3 = UIColors.RED
+		tracer.BorderSizePixel = 0
+		tracer.Visible = false
+		tracer.ZIndex = 0
+		tracer.Parent = configurations.PlayerEspLayer
+		visual = { Highlight = highlight, NameTag = nameTag, NameLabel = nameLabel, DistanceLabel = distanceLabel, HealthLabel = healthLabel, StatsLabel = statsLabel, Tracer = tracer }
+		playerVisuals[otherPlayer] = visual
+	end
+
+	visual.Highlight.Adornee = otherCharacter
+	visual.Highlight.Enabled = configurations.ESPBoxEnabled
+	visual.NameLabel.Text = otherPlayer.DisplayName .. "  (@" .. otherPlayer.Name .. ")"
+	if localRoot then
+		visual.DistanceLabel.Text = string.format("%.0f studs", (localRoot.Position - otherRoot.Position).Magnitude)
+	else
+		visual.DistanceLabel.Text = "Distance unavailable"
+	end
+	local currentHP, maximumHP = configurations.GetPlayerHealth(otherPlayer)
+	visual.HealthLabel.Text = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
+	visual.HealthLabel.TextColor3 = configurations.GetHealthColor(currentHP, maximumHP)
+	visual.StatsLabel.Text = configurations.FormatPlayerStats(otherPlayer)
+	visual.NameTag.Visible = false
+	visual.Tracer.Visible = false
+	if camera and viewport then
+		local point, onScreen = camera:WorldToViewportPoint(otherRoot.Position)
+		if point.Z > 0 and onScreen then
+			visual.NameTag.Position = UDim2.fromScale(point.X / viewport.X, (point.Y - 8) / viewport.Y)
+			visual.NameTag.Visible = true
+			if configurations.ESPLineEnabled then
+				local startPoint = Vector2.new(viewport.X * 0.5, viewport.Y - 8)
+				local endPoint = Vector2.new(point.X, point.Y)
+				local delta = endPoint - startPoint
+				local midpoint = (startPoint + endPoint) * 0.5
+				visual.Tracer.Position = UDim2.fromScale(midpoint.X / viewport.X, midpoint.Y / viewport.Y)
+				visual.Tracer.Size = UDim2.fromScale(delta.Magnitude / viewport.X, 2 / viewport.Y)
+				visual.Tracer.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+				visual.Tracer.Visible = true
+			end
+		end
+	end
+end
+
 task.spawn(function()
 	local lastPlayerRefresh = 0
 	local lastAutoBlockCheck = 0
@@ -6827,8 +7362,8 @@ task.spawn(function()
 
 		if PlayerPanel.Visible and os.clock() - lastPlayerRefresh >= 0.5 then
 			lastPlayerRefresh = os.clock()
-			local panelPlayers = Players:GetPlayers()
-			if configurations.PlayerPanelMode == "server" then
+			local panelPlayers = configurations.FilterPlayerPanelListing(Players:GetPlayers())
+			if configurations.PlayerPanelMode == "server" or configurations.PlayerPanelMode == "card" then
 				table.sort(panelPlayers, function(a, b)
 					if a == Player then return b ~= Player end
 					if b == Player then return false end
@@ -6886,6 +7421,7 @@ task.spawn(function()
 							configurations.UpdateFollowButtons()
 							PlayerPanel.Visible = false
 							configurations.PlayerPanelMode = "server"
+							configurations.PlayerPanelTargetUserId = nil
 							PlayerPanelTitle.Text = "Players in server"
 							lastPlayerRefresh = 0
 						end)
@@ -7143,7 +7679,7 @@ task.spawn(function()
 			end
 
 			-- Refresh changing player data in-place; keep cards and their callbacks alive.
-			if configurations.PlayerPanelMode == "server" then
+			if configurations.PlayerPanelMode == "server" or configurations.PlayerPanelMode == "card" then
 				for _, listedPlayer in ipairs(panelPlayers) do
 					local row = PlayerScroll:FindFirstChild("PlayerRow_" .. listedPlayer.UserId)
 					if row and row:IsA("Frame") then
@@ -7200,136 +7736,12 @@ task.spawn(function()
 				presentPlayers[otherPlayer] = true
 				local otherCharacter = otherPlayer.Character
 				local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
-				local visual = PlayerVisuals[otherPlayer]
-
-				if otherCharacter and otherRoot then
-					if not visual then
-						local highlight = Instance.new("Highlight")
-						highlight.Name = "PlayerESPOutline"
-						highlight.FillTransparency = 1
-						highlight.OutlineColor = UIColors.RED
-						highlight.OutlineTransparency = 0
-						highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-						highlight.Parent = workspace
-
-						local nameTag = Instance.new("Frame")
-						nameTag.Name = "PlayerESPName"
-						nameTag.Size = UDim2.fromOffset(210, 86)
-						nameTag.AnchorPoint = Vector2.new(0.5, 1)
-						nameTag.BackgroundTransparency = 1
-						nameTag.BorderSizePixel = 0
-						nameTag.Visible = false
-						nameTag.ZIndex = 80
-						nameTag.Parent = configurations.PlayerEspLayer
-
-						local nameLabel = Instance.new("TextLabel")
-						nameLabel.Size = UDim2.new(1, 0, 0, 26)
-						nameLabel.ZIndex = 81
-						nameLabel.BackgroundTransparency = 1
-						nameLabel.TextColor3 = Color3.new(1, 1, 1)
-						nameLabel.TextStrokeTransparency = 0.2
-						nameLabel.TextSize = 13
-						nameLabel.Font = Enum.Font.GothamBold
-						nameLabel.TextWrapped = true
-						nameLabel.Parent = nameTag
-
-						local distanceLabel = Instance.new("TextLabel")
-						distanceLabel.Name = "Distance"
-						distanceLabel.Size = UDim2.new(1, 0, 0, 20)
-						distanceLabel.Position = UDim2.fromOffset(0, 27)
-						distanceLabel.ZIndex = 81
-						distanceLabel.BackgroundTransparency = 1
-						distanceLabel.TextColor3 = Color3.fromRGB(225, 230, 240)
-						distanceLabel.TextStrokeTransparency = 0.25
-						distanceLabel.TextSize = 12
-						distanceLabel.Font = Enum.Font.Gotham
-						distanceLabel.Parent = nameTag
-
-						local healthLabel = Instance.new("TextLabel")
-						healthLabel.Name = "Health"
-						healthLabel.Size = UDim2.new(1, 0, 0, 18)
-						healthLabel.Position = UDim2.fromOffset(0, 48)
-						healthLabel.ZIndex = 81
-						healthLabel.BackgroundTransparency = 1
-						healthLabel.TextColor3 = Color3.fromRGB(225, 230, 240)
-						healthLabel.TextStrokeTransparency = 0.25
-						healthLabel.TextSize = 12
-						healthLabel.Font = Enum.Font.Gotham
-						healthLabel.Parent = nameTag
-
-						local statsLabel = Instance.new("TextLabel")
-						statsLabel.Name = "Stats"
-						statsLabel.Size = UDim2.new(1, 0, 0, 18)
-						statsLabel.Position = UDim2.fromOffset(0, 66)
-						statsLabel.ZIndex = 81
-						statsLabel.BackgroundTransparency = 1
-						statsLabel.TextColor3 = Color3.fromRGB(225, 230, 240)
-						statsLabel.TextStrokeTransparency = 0.25
-						statsLabel.TextSize = 12
-						statsLabel.Font = Enum.Font.Gotham
-						statsLabel.Parent = nameTag
-
-						local tracer = Instance.new("Frame")
-						tracer.Name = "PlayerESPLine"
-						tracer.AnchorPoint = Vector2.new(0.5, 0.5)
-						tracer.Size = UDim2.fromScale(0, 0)
-						tracer.BackgroundColor3 = UIColors.RED
-						tracer.BorderSizePixel = 0
-						tracer.Visible = false
-						tracer.ZIndex = 0
-						tracer.Parent = configurations.PlayerEspLayer
-						visual = { Highlight = highlight, NameTag = nameTag, NameLabel = nameLabel, DistanceLabel = distanceLabel, HealthLabel = healthLabel, StatsLabel = statsLabel, Tracer = tracer }
-						PlayerVisuals[otherPlayer] = visual
-					end
-
-					visual.Highlight.Adornee = otherCharacter
-					visual.NameLabel.Text = otherPlayer.DisplayName .. "  (@" .. otherPlayer.Name .. ")"
-					if localRoot then
-						local distance = (localRoot.Position - otherRoot.Position).Magnitude
-						visual.DistanceLabel.Text = string.format("%.0f studs", distance)
-					else
-						visual.DistanceLabel.Text = "Distance unavailable"
-					end
-					local currentHP, maximumHP = configurations.GetPlayerHealth(otherPlayer)
-					visual.HealthLabel.Text = currentHP and string.format("HP %d / %d", currentHP, maximumHP) or "HP unavailable"
-					visual.HealthLabel.TextColor3 = configurations.GetHealthColor(currentHP, maximumHP)
-					visual.StatsLabel.Text = configurations.FormatPlayerStats(otherPlayer)
-					local visible = configurations.ESPEnabled and configurations.IsPlayerESPEnabled(otherPlayer)
-					visual.Highlight.Enabled = visible and configurations.ESPBoxEnabled
-					visual.NameTag.Visible = false
-					visual.Tracer.Visible = false
-
-					if visible and camera and viewport then
-						local point, onScreen = camera:WorldToViewportPoint(otherRoot.Position)
-						if point.Z > 0 and onScreen then
-							visual.NameTag.Position = UDim2.fromScale(point.X / viewport.X, (point.Y - 8) / viewport.Y)
-							visual.NameTag.Visible = true
-							if configurations.ESPLineEnabled then
-								local startPoint = Vector2.new(viewport.X * 0.5, viewport.Y - 8)
-								local endPoint = Vector2.new(point.X, point.Y)
-								local delta = endPoint - startPoint
-								local midpoint = (startPoint + endPoint) * 0.5
-								visual.Tracer.Position = UDim2.fromScale(midpoint.X / viewport.X, midpoint.Y / viewport.Y)
-								visual.Tracer.Size = UDim2.fromScale(delta.Magnitude / viewport.X, 2 / viewport.Y)
-								visual.Tracer.Rotation = math.deg(math.atan2(delta.Y, delta.X))
-								visual.Tracer.Visible = true
-							end
-						end
-					end
-
-					if localRoot then
-						local distance = (localRoot.Position - otherRoot.Position).Magnitude
-						if not configurations.IsWhitelisted(otherPlayer) and distance <= configurations.AlertsDistance and distance < nearbyDistance then
-							nearbyDistance = distance
-							nearbyPlayer = otherPlayer
-						end
-					end
-				else
-					if visual then
-						visual.Highlight.Enabled = false
-						visual.NameTag.Visible = false
-						visual.Tracer.Visible = false
-					end
+				configurations.UpdatePlayerESPVisual(otherPlayer, otherCharacter, otherRoot, localRoot, camera, viewport, PlayerVisuals)
+				if localRoot and otherRoot and not configurations.IsWhitelisted(otherPlayer)
+					and (localRoot.Position - otherRoot.Position).Magnitude <= configurations.AlertsDistance
+					and (localRoot.Position - otherRoot.Position).Magnitude < nearbyDistance then
+					nearbyDistance = (localRoot.Position - otherRoot.Position).Magnitude
+					nearbyPlayer = otherPlayer
 				end
 			end
 		end
