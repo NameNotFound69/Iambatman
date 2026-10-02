@@ -1,4 +1,4 @@
-local VERSION = "2.6.34"
+local VERSION = "2.6.35"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -378,6 +378,10 @@ configurations.LegacyConfigFileName = "EXPPlus_Config.json"
 configurations.LegacyConfigOwnerFileName = "Iamrich_LegacyConfigOwner.txt"
 configurations.MigratedLegacyConfig = false
 configurations.IsMinimized = false
+configurations.CompactUI = false
+configurations.PlayerListFilter = ""
+configurations.PlayerListTab = "server" -- server | pinned | nearby
+configurations.PanelPositions = {}
 configurations.Combat = {}
 
 function configurations.CheckExpRetaliationHealth(mob, currentHealth, previousHealth)
@@ -479,19 +483,28 @@ task.defer(function()
 	end
 end)
 
+configurations._ToastQueue = {}
+configurations._ToastBusy = false
+
 function configurations.NotifyUser(title, message, duration)
+	duration = duration or 3.5
+	-- Prefer in-UI toast when ScreenGui is ready; always try Roblox core as fallback.
+	table.insert(configurations._ToastQueue, {
+		Title = tostring(title or ""),
+		Message = tostring(message or ""),
+		Duration = duration,
+	})
+	if configurations.PumpToasts then
+		task.defer(configurations.PumpToasts)
+	end
 	task.spawn(function()
-		for _ = 1, 4 do
-			local ok = pcall(function()
-				StarterGui:SetCore("SendNotification", {
-					Title = tostring(title),
-					Text = tostring(message),
-					Duration = duration or 5,
-				})
-			end)
-			if ok then return end
-			task.wait(0.75)
-		end
+		pcall(function()
+			StarterGui:SetCore("SendNotification", {
+				Title = tostring(title),
+				Text = tostring(message),
+				Duration = math.clamp(duration, 2, 8),
+			})
+		end)
 	end)
 end
 
@@ -563,6 +576,52 @@ else
 	configurations.FPSBoostSystem = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/FPSBoostSystem.lua?v=1.2.0")))()
 	configurations.PartySystemLoadOk, configurations.PartySystemLoadResult = pcall(function()
 		local source = game:HttpGet("https://raw.githubusercontent.com/NameNotFound69/Iambatman/refs/heads/main/PartySystem.lua?v=1.1.0")
+		-- Local readability + Info button patch (works even if remote is still 1.1.0)
+		source = source:gsub(
+			'local fpsText = server%.FPS and tostring%(server%.FPS%) or "n/a"',
+			'local fpsText = server.FPS and string.format("%d", math.floor((tonumber(server.FPS) or 0) + 0.5)) or "n/a"'
+		)
+		source = source:gsub(
+			'row%.Size = UDim2%.new%(1, %-2, 0, 54%)',
+			'row.Size = UDim2.new(1, -2, 0, 72)'
+		)
+		source = source:gsub(
+			'detail%.TextSize = 10',
+			'detail.TextSize = 12'
+		)
+		source = source:gsub(
+			'detail%.Font = Enum%.Font%.Gotham',
+			'detail.Font = Enum.Font.GothamMedium',
+			1
+		)
+		-- Insert Info button before Join handler close: replace join size/position block once
+		if not source:find("InfoServer", 1, true) then
+			source = source:gsub(
+				'join%.Size = UDim2%.new%(0, 72, 0, 30%)
+			join%.Position = UDim2%.new%(1, %-80, 0%.5, %-15%)',
+				'join.Size = UDim2.fromOffset(64, 28)
+			join.Position = UDim2.new(1, -72, 0.5, -14)
+			local info = Instance.new("TextButton")
+			info.Name = "InfoServer"
+			info.Size = UDim2.fromOffset(52, 28)
+			info.Position = UDim2.new(1, -130, 0.5, -14)
+			info.BackgroundColor3 = palette.INPUT
+			info.BorderSizePixel = 0
+			info.Text = "Info"
+			info.TextColor3 = palette.TEXT
+			info.TextSize = 12
+			info.Font = Enum.Font.GothamBold
+			info.Parent = row
+			Instance.new("UICorner", info).CornerRadius = UDim.new(0, 7)
+			info.MouseButton1Click:Connect(function()
+				if configuration.OpenServerInfo then configuration.OpenServerInfo(server) end
+			end)'
+			)
+			source = source:gsub(
+				'detail%.Size = UDim2%.new%(1, %-98, 1, %-8%)',
+				'detail.Size = UDim2.new(1, -160, 1, -8)'
+			)
+		end
 		local moduleFactory, compileError = loadstring(source)
 		assert(moduleFactory, compileError)
 		local module = moduleFactory()
@@ -743,6 +802,9 @@ function configurations.LoadConfig()
 	if type(config.FPSBoostEnabled) == "boolean" then
 		configurations.FPSBoostEnabled = config.FPSBoostEnabled
 	end
+	if type(config.CompactUI) == "boolean" then configurations.CompactUI = config.CompactUI end
+	if type(config.PlayerListTab) == "string" then configurations.PlayerListTab = config.PlayerListTab end
+	if type(config.PanelPositions) == "table" then configurations.PanelPositions = config.PanelPositions end
 	configurations.AutoAttackRange = math.clamp(ReadNumber("AutoAttackRange", configurations.AutoAttackRange, 5, false), 5, 500)
 	local savedMobSearchRange = ReadNumber("AutoAttackSearchRange", configurations.AutoAttackSearchRange, 5, false)
 	-- Earlier builds defaulted mob visibility to 100 studs. The intended default
@@ -965,6 +1027,9 @@ function configurations.SaveConfig()
 		PartyLeaderName = configurations.PartyLeaderName,
 		PartyResumeFarmOnJoin = configurations.PartyResumeFarmOnJoin,
 		FPSBoostEnabled = configurations.FPSBoostEnabled,
+		CompactUI = configurations.CompactUI,
+		PlayerListTab = configurations.PlayerListTab,
+		PanelPositions = configurations.PanelPositions,
 		AutoAttackEnabled = configurations.AutoAttackEnabled,
 		AutoBossTargetEnabled = configurations.AutoBossTargetEnabled,
 		AutoMiniBossTargetEnabled = configurations.AutoMiniBossTargetEnabled,
@@ -1777,6 +1842,238 @@ MainStroke.Thickness = 1
 MainStroke.Transparency = 0.35
 
 --==================================================
+-- TOAST / SNACKBAR + SERVER INFO PANEL
+--==================================================
+local ToastHost = Instance.new("Frame")
+ToastHost.Name = "ToastHost"
+ToastHost.Size = UDim2.new(1, 0, 1, 0)
+ToastHost.BackgroundTransparency = 1
+ToastHost.ZIndex = 200
+ToastHost.Parent = ScreenGui
+local ToastStack = Instance.new("Frame")
+ToastStack.Name = "ToastStack"
+ToastStack.Size = UDim2.new(0, 320, 1, -24)
+ToastStack.Position = UDim2.new(1, -332, 0, 12)
+ToastStack.BackgroundTransparency = 1
+ToastStack.Parent = ToastHost
+local ToastLayout = Instance.new("UIListLayout", ToastStack)
+ToastLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ToastLayout.Padding = UDim.new(0, 8)
+ToastLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+function configurations.PumpToasts()
+	if configurations._ToastBusy then return end
+	local item = table.remove(configurations._ToastQueue, 1)
+	if not item then return end
+	configurations._ToastBusy = true
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 0)
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	card.BackgroundColor3 = Color3.fromRGB(22, 24, 34)
+	card.BorderSizePixel = 0
+	card.ZIndex = 201
+	card.Parent = ToastStack
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+	local stroke = Instance.new("UIStroke", card)
+	stroke.Color = UIColors.ACCENT
+	stroke.Transparency = 0.35
+	local pad = Instance.new("UIPadding", card)
+	pad.PaddingTop = UDim.new(0, 10)
+	pad.PaddingBottom = UDim.new(0, 10)
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+	local t = Instance.new("TextLabel")
+	t.Size = UDim2.new(1, 0, 0, 16)
+	t.BackgroundTransparency = 1
+	t.Text = item.Title
+	t.TextColor3 = UIColors.ACCENT
+	t.TextSize = 12
+	t.Font = Enum.Font.GothamBold
+	t.TextXAlignment = Enum.TextXAlignment.Left
+	t.ZIndex = 202
+	t.Parent = card
+	local m = Instance.new("TextLabel")
+	m.Size = UDim2.new(1, 0, 0, 0)
+	m.AutomaticSize = Enum.AutomaticSize.Y
+	m.Position = UDim2.fromOffset(0, 18)
+	m.BackgroundTransparency = 1
+	m.Text = item.Message
+	m.TextColor3 = UIColors.TEXT
+	m.TextSize = 12
+	m.Font = Enum.Font.Gotham
+	m.TextXAlignment = Enum.TextXAlignment.Left
+	m.TextWrapped = true
+	m.ZIndex = 202
+	m.Parent = card
+	task.delay(item.Duration or 3.5, function()
+		if card.Parent then card:Destroy() end
+		configurations._ToastBusy = false
+		configurations.PumpToasts()
+	end)
+end
+
+local ServerInfoPanel = Instance.new("Frame")
+ServerInfoPanel.Name = "ServerInfoPanel"
+ServerInfoPanel.Size = UDim2.fromOffset(360, 320)
+ServerInfoPanel.Position = UDim2.fromOffset(80, 80)
+ServerInfoPanel.ZIndex = 95
+ServerInfoPanel.BackgroundColor3 = UIColors.BG
+ServerInfoPanel.BorderSizePixel = 0
+ServerInfoPanel.Visible = false
+ServerInfoPanel.Parent = ScreenGui
+Instance.new("UICorner", ServerInfoPanel).CornerRadius = UDim.new(0, 12)
+-- RegisterScaledRoot applied after it is defined below
+local _sis = Instance.new("UIStroke", ServerInfoPanel)
+_sis.Color = UIColors.BORDER
+local ServerInfoHeader = Instance.new("Frame")
+ServerInfoHeader.Size = UDim2.new(1, 0, 0, 40)
+ServerInfoHeader.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
+ServerInfoHeader.BorderSizePixel = 0
+ServerInfoHeader.Parent = ServerInfoPanel
+Instance.new("UICorner", ServerInfoHeader).CornerRadius = UDim.new(0, 12)
+local ServerInfoTitle = Instance.new("TextLabel")
+ServerInfoTitle.Size = UDim2.new(1, -48, 1, 0)
+ServerInfoTitle.Position = UDim2.fromOffset(14, 0)
+ServerInfoTitle.BackgroundTransparency = 1
+ServerInfoTitle.Text = "Server info"
+ServerInfoTitle.TextColor3 = UIColors.TEXT
+ServerInfoTitle.TextSize = 14
+ServerInfoTitle.Font = Enum.Font.GothamBold
+ServerInfoTitle.TextXAlignment = Enum.TextXAlignment.Left
+ServerInfoTitle.Parent = ServerInfoHeader
+local ServerInfoClose = Instance.new("TextButton")
+ServerInfoClose.Size = UDim2.fromOffset(28, 28)
+ServerInfoClose.Position = UDim2.new(1, -34, 0, 6)
+ServerInfoClose.BackgroundColor3 = UIColors.INPUT
+ServerInfoClose.BorderSizePixel = 0
+ServerInfoClose.Text = "×"
+ServerInfoClose.TextColor3 = UIColors.TEXT
+ServerInfoClose.TextSize = 16
+ServerInfoClose.Font = Enum.Font.GothamBold
+ServerInfoClose.Parent = ServerInfoHeader
+Instance.new("UICorner", ServerInfoClose).CornerRadius = UDim.new(0, 6)
+ServerInfoClose.MouseButton1Click:Connect(function() ServerInfoPanel.Visible = false end)
+local ServerInfoBody = Instance.new("TextLabel")
+ServerInfoBody.Size = UDim2.new(1, -24, 0, 100)
+ServerInfoBody.Position = UDim2.fromOffset(12, 48)
+ServerInfoBody.BackgroundTransparency = 1
+ServerInfoBody.Text = ""
+ServerInfoBody.TextColor3 = UIColors.TEXT
+ServerInfoBody.TextSize = 12
+ServerInfoBody.Font = Enum.Font.Gotham
+ServerInfoBody.TextXAlignment = Enum.TextXAlignment.Left
+ServerInfoBody.TextYAlignment = Enum.TextYAlignment.Top
+ServerInfoBody.TextWrapped = true
+ServerInfoBody.Parent = ServerInfoPanel
+local ServerInfoFriends = Instance.new("ScrollingFrame")
+ServerInfoFriends.Size = UDim2.new(1, -24, 1, -170)
+ServerInfoFriends.Position = UDim2.fromOffset(12, 150)
+ServerInfoFriends.BackgroundColor3 = UIColors.CARD
+ServerInfoFriends.BorderSizePixel = 0
+ServerInfoFriends.ScrollBarThickness = 3
+ServerInfoFriends.CanvasSize = UDim2.new()
+ServerInfoFriends.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ServerInfoFriends.Parent = ServerInfoPanel
+Instance.new("UICorner", ServerInfoFriends).CornerRadius = UDim.new(0, 8)
+Instance.new("UIListLayout", ServerInfoFriends).Padding = UDim.new(0, 4)
+local ServerInfoCopy = Instance.new("TextButton")
+ServerInfoCopy.Size = UDim2.new(1, -24, 0, 32)
+ServerInfoCopy.Position = UDim2.new(0, 12, 1, -44)
+ServerInfoCopy.BackgroundColor3 = UIColors.ACCENT_DIM
+ServerInfoCopy.BorderSizePixel = 0
+ServerInfoCopy.Text = "Copy Job ID"
+ServerInfoCopy.TextColor3 = UIColors.TEXT
+ServerInfoCopy.TextSize = 12
+ServerInfoCopy.Font = Enum.Font.GothamBold
+ServerInfoCopy.Parent = ServerInfoPanel
+Instance.new("UICorner", ServerInfoCopy).CornerRadius = UDim.new(0, 8)
+configurations._ServerInfoJobId = ""
+ServerInfoCopy.MouseButton1Click:Connect(function()
+	local jobId = configurations._ServerInfoJobId or ""
+	pcall(function()
+		if setclipboard then setclipboard(jobId) elseif toclipboard then toclipboard(jobId) end
+	end)
+	configurations.NotifyUser("Server", "Job ID copied.", 2)
+end)
+configurations.OpenServerInfo = function(server)
+	if not server then return end
+	local playing = tonumber(server.Playing) or 0
+	local maxP = tonumber(server.MaxPlayers) or 0
+	local ping = tonumber(server.Ping)
+	local fps = tonumber(server.FPS)
+	local jobId = tostring(server.Id or "")
+	configurations._ServerInfoJobId = jobId
+	ServerInfoBody.Text = string.format(
+		"Players   %d / %d\nPing      %s\nFPS       %s\n\nJob ID\n%s",
+		playing, maxP,
+		ping and (math.floor(ping + 0.5) .. " ms") or "n/a",
+		fps and tostring(math.floor(fps + 0.5)) or "n/a",
+		jobId
+	)
+	for _, c in ipairs(ServerInfoFriends:GetChildren()) do
+		if c:IsA("TextLabel") then c:Destroy() end
+	end
+	local header = Instance.new("TextLabel")
+	header.Size = UDim2.new(1, -8, 0, 20)
+	header.BackgroundTransparency = 1
+	header.Text = "  Friends in this server"
+	header.TextColor3 = UIColors.MUTED
+	header.TextSize = 11
+	header.Font = Enum.Font.GothamBold
+	header.TextXAlignment = Enum.TextXAlignment.Left
+	header.Parent = ServerInfoFriends
+	task.spawn(function()
+		local found = 0
+		local okFriends, pages = pcall(function()
+			return Players:GetFriendsAsync(Player.UserId)
+		end)
+		if okFriends and pages then
+			local guard = 0
+			while guard < 20 do
+				guard += 1
+				for _, item in ipairs(pages:GetCurrentPage()) do
+					local uid = item.Id or item.VisitorId
+					if uid then
+						local ok, _, instanceId = pcall(function()
+							return TeleportService:GetPlayerPlaceInstanceAsync(uid)
+						end)
+						if ok and tostring(instanceId) == jobId then
+							found += 1
+							local line = Instance.new("TextLabel")
+							line.Size = UDim2.new(1, -8, 0, 18)
+							line.BackgroundTransparency = 1
+							line.Text = "  @" .. tostring(item.Username or item.DisplayName or uid)
+							line.TextColor3 = UIColors.TEXT
+							line.TextSize = 12
+							line.Font = Enum.Font.Gotham
+							line.TextXAlignment = Enum.TextXAlignment.Left
+							line.Parent = ServerInfoFriends
+						end
+					end
+				end
+				if pages.IsFinished then break end
+				if not pcall(function() pages:AdvanceToNextPageAsync() end) then break end
+			end
+		end
+		if found == 0 then
+			local empty = Instance.new("TextLabel")
+			empty.Size = UDim2.new(1, -8, 0, 40)
+			empty.BackgroundTransparency = 1
+			empty.Text = "  No friends in this instance.\n  (Public API has no full player list.)"
+			empty.TextColor3 = UIColors.MUTED
+			empty.TextSize = 11
+			empty.Font = Enum.Font.Gotham
+			empty.TextXAlignment = Enum.TextXAlignment.Left
+			empty.TextWrapped = true
+			empty.Parent = ServerInfoFriends
+		end
+	end)
+	ServerInfoPanel.Visible = true
+	if configurations.MakeDraggable then
+		pcall(function() configurations.MakeDraggable(ServerInfoPanel, ServerInfoHeader) end)
+	end
+end
+
+--==================================================
 -- GLOBAL UI SCALE (Tailwind-inspired tokens; applies to ALL windows)
 -- GuiScale / TextScale affect Main + floating panels together.
 --==================================================
@@ -1787,6 +2084,7 @@ MainUIScale.Parent = Main
 
 -- Roots that receive GuiScale (UIScale) and TextScale
 configurations.ScaledRoots = { Main }
+if ServerInfoPanel then configurations.RegisterScaledRoot(ServerInfoPanel) end
 
 function configurations.RegisterScaledRoot(root)
 	if not root or not root:IsA("GuiObject") then return end
@@ -2012,6 +2310,29 @@ configurations.BindResponsiveViewport = function()
 			configurations.ApplyResponsiveMainSize()
 			if configurations.ApplyResponsiveOverlaySizes then
 				configurations.ApplyResponsiveOverlaySizes()
+
+function configurations.ApplySavedPanelPositions()
+	local pos = configurations.PanelPositions
+	if type(pos) ~= "table" then return end
+	local function apply(name, gui)
+		local p = pos[name]
+		if not p or not gui then return end
+		local x, y = tonumber(p.X), tonumber(p.Y)
+		if not x or not y then return end
+		gui.AnchorPoint = Vector2.new(0, 0)
+		gui.Position = UDim2.fromOffset(x, y)
+	end
+	apply("Main", Main)
+	apply("PlayerPanel", PlayerPanel)
+	apply("WhitelistPanel", configurations.WhitelistPanel)
+	apply("JoinLogPanel", configurations.JoinLogPanel)
+	apply("CreditLogPanel", configurations.CreditLogPanel)
+	apply("PlayerCardPanel", configurations.PlayerCardPanel)
+end
+task.defer(function()
+	if configurations.ApplySavedPanelPositions then configurations.ApplySavedPanelPositions() end
+end)
+
 			end
 			if configurations.ApplyGuiScale then
 				configurations.ApplyGuiScale()
@@ -2936,6 +3257,26 @@ StateLabel.Font = Enum.Font.Gotham
 StateLabel.TextXAlignment = Enum.TextXAlignment.Left
 StateLabel.Parent = InfoCard
 
+local StatusChip = Instance.new("TextLabel")
+StatusChip.Name = "StatusChip"
+StatusChip.Size = UDim2.fromOffset(88, 22)
+StatusChip.Position = UDim2.new(1, -100, 0, 164)
+StatusChip.BackgroundColor3 = UIColors.INPUT
+StatusChip.BorderSizePixel = 0
+StatusChip.Text = "IDLE"
+StatusChip.TextColor3 = UIColors.MUTED
+StatusChip.TextSize = 11
+StatusChip.Font = Enum.Font.GothamBold
+StatusChip.Parent = InfoCard
+Instance.new("UICorner", StatusChip).CornerRadius = UDim.new(0, 7)
+configurations.StatusChip = StatusChip
+function configurations.SetStatusChip(label, color, bg)
+	if not StatusChip then return end
+	StatusChip.Text = string.upper(tostring(label or "IDLE"))
+	StatusChip.TextColor3 = color or UIColors.MUTED
+	StatusChip.BackgroundColor3 = bg or UIColors.INPUT
+end
+
 -- Session + recent
 local SessionLabel = Instance.new("TextLabel")
 SessionLabel.Size = UDim2.new(1, -24, 0, 14)
@@ -3092,9 +3433,10 @@ end
 
 function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, description)
 	local clean = tostring(text or ""):gsub("%s*:?%s*ON%s*$", ""):gsub("%s*:?%s*OFF%s*$", "")
-	local hasDesc = type(description) == "string" and description ~= ""
+	local hasDesc = type(description) == "string" and description ~= "" and not configurations.CompactUI
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(1, 0, 0, hasDesc and 64 or 48)
+	btn:SetAttribute("FullDescription", type(description) == "string" and description or "")
 	btn.LayoutOrder = order
 	btn.BackgroundColor3 = UIColors.CARD
 	btn.BorderSizePixel = 0
@@ -3162,6 +3504,38 @@ function configurations.MakeToggle(text, isOn, onColor, onBg, order, parent, des
 	btn:SetAttribute("IsOn", isOn and true or false)
 	return btn
 end
+function configurations.ApplyCompactUI()
+	local compact = configurations.CompactUI == true
+	for _, obj in ipairs(ScreenGui:GetDescendants()) do
+		if obj:IsA("TextButton") and obj:FindFirstChild("Switch") then
+			local desc = obj:FindFirstChild("Desc")
+			local title = obj:FindFirstChild("Title")
+			if compact then
+				if desc then desc.Visible = false end
+				obj.Size = UDim2.new(1, 0, 0, 48)
+				if title then
+					title.Size = UDim2.new(1, -72, 0, 48)
+					title.Position = UDim2.fromOffset(16, 0)
+					title.TextYAlignment = Enum.TextYAlignment.Center
+				end
+			else
+				local full = obj:GetAttribute("FullDescription")
+				if desc then
+					desc.Visible = true
+					obj.Size = UDim2.new(1, 0, 0, 64)
+					if title then
+						title.Size = UDim2.new(1, -72, 0, 20)
+						title.Position = UDim2.fromOffset(16, 10)
+						title.TextYAlignment = Enum.TextYAlignment.Top
+					end
+				elseif type(full) == "string" and full ~= "" and not desc then
+					obj.Size = UDim2.new(1, 0, 0, 48)
+				end
+			end
+		end
+	end
+end
+
 
 if configurations.TeleportSystem then
 	configurations.TeleportSystem.BuildUI({
@@ -3991,11 +4365,27 @@ end
 configurations.ResetWindowSizesToDefault = configurations.ResetUIToDefault
 
 function configurations.SaveWindowSizes()
-	-- Capture current on-screen sizes into config, then persist.
+	-- Capture current on-screen sizes + positions into config, then persist.
 	if Main and Main.Size.X.Offset > 0 then
 		configurations.MainWidthPx = Main.Size.X.Offset
 		configurations.MainHeightPx = Main.Size.Y.Offset
 	end
+	configurations.PanelPositions = configurations.PanelPositions or {}
+	local function savePos(name, gui)
+		if gui and gui.AbsoluteSize.X > 0 then
+			configurations.PanelPositions[name] = {
+				X = gui.AbsolutePosition.X,
+				Y = gui.AbsolutePosition.Y,
+			}
+		end
+	end
+	savePos("Main", Main)
+	savePos("PlayerPanel", PlayerPanel)
+	savePos("WhitelistPanel", configurations.WhitelistPanel)
+	savePos("JoinLogPanel", configurations.JoinLogPanel)
+	savePos("CreditLogPanel", configurations.CreditLogPanel)
+	savePos("PlayerCardPanel", configurations.PlayerCardPanel)
+
 	if PlayerPanel and PlayerPanel.Size.X.Offset > 0 then
 		configurations.PlayerPanelWidthPx = PlayerPanel.Size.X.Offset
 		configurations.PlayerPanelHeightPx = PlayerPanel.Size.Y.Offset
@@ -4067,10 +4457,29 @@ local SaveSizesBtn = configurations.MakeActionRow(
 	"Save window sizes",
 	4,
 	DisplayGrid,
-	"Save current Main / panel sizes only (scales already auto-save)."
+	"Save current Main / panel sizes and positions."
 )
 SaveSizesBtn.MouseButton1Click:Connect(function()
 	configurations.SaveWindowSizes()
+end)
+
+local CompactToggle = configurations.MakeToggle(
+	"Compact UI",
+	configurations.CompactUI,
+	UIColors.ACCENT,
+	UIColors.ACCENT_DIM,
+	5,
+	DisplayGrid,
+	"Hide toggle descriptions to save vertical space."
+)
+CompactToggle.MouseButton1Click:Connect(function()
+	configurations.CompactUI = not configurations.CompactUI
+	configurations.SetToggleVisual(CompactToggle, "Compact UI", configurations.CompactUI, UIColors.ACCENT, UIColors.ACCENT_DIM)
+	if configurations.ApplyCompactUI then configurations.ApplyCompactUI() end
+	configurations.SaveConfig()
+end)
+task.defer(function()
+	if configurations.ApplyCompactUI then configurations.ApplyCompactUI() end
 end)
 
 
@@ -4250,6 +4659,19 @@ EmergencyStopButton.MouseButton1Click:Connect(function()
 	else
 		StateLabel.Text = configurations.Farming and "Searching..." or "Stopped"
 		MiniState.Text = StateLabel.Text
+		do
+			local chipText, chipColor, chipBg = "IDLE", UIColors.MUTED, UIColors.INPUT
+			if configurations.EmergencyStopActive then
+				chipText, chipColor, chipBg = "STOP", UIColors.RED, UIColors.RED_DIM
+			elseif AlarmOverlay and AlarmOverlay.Visible then
+				chipText, chipColor, chipBg = "ALERT", UIColors.RED, UIColors.RED_DIM
+			elseif configurations.Farming then
+				chipText, chipColor, chipBg = "FIRING", UIColors.GREEN, UIColors.GREEN_DIM
+			elseif configurations.IsPaused then
+				chipText, chipColor, chipBg = "PAUSED", UIColors.YELLOW, Color3.fromRGB(55, 45, 22)
+			end
+			if configurations.SetStatusChip then configurations.SetStatusChip(chipText, chipColor, chipBg) end
+		end
 	end
 	configurations.UpdateEmergencyStopButton()
 end)
@@ -4677,9 +5099,81 @@ PlayerPanelClose.Font = Enum.Font.GothamBold
 PlayerPanelClose.Parent = PlayerPanelHeader
 Instance.new("UICorner", PlayerPanelClose).CornerRadius = UDim.new(0, 6)
 
+-- Search + tabs (Server / Pinned / Nearby)
+local PlayerSearchBox = Instance.new("TextBox")
+PlayerSearchBox.Name = "PlayerSearch"
+PlayerSearchBox.Size = UDim2.new(1, -20, 0, 28)
+PlayerSearchBox.Position = UDim2.fromOffset(10, 48)
+PlayerSearchBox.BackgroundColor3 = UIColors.INPUT
+PlayerSearchBox.BorderSizePixel = 0
+PlayerSearchBox.PlaceholderText = "Search name…"
+PlayerSearchBox.Text = ""
+PlayerSearchBox.TextColor3 = UIColors.TEXT
+PlayerSearchBox.PlaceholderColor3 = UIColors.MUTED
+PlayerSearchBox.TextSize = 12
+PlayerSearchBox.Font = Enum.Font.Gotham
+PlayerSearchBox.ClearTextOnFocus = false
+PlayerSearchBox.Parent = PlayerPanel
+Instance.new("UICorner", PlayerSearchBox).CornerRadius = UDim.new(0, 7)
+configurations.PlayerSearchBox = PlayerSearchBox
+
+local PlayerTabBar = Instance.new("Frame")
+PlayerTabBar.Name = "PlayerTabs"
+PlayerTabBar.Size = UDim2.new(1, -20, 0, 28)
+PlayerTabBar.Position = UDim2.fromOffset(10, 80)
+PlayerTabBar.BackgroundTransparency = 1
+PlayerTabBar.Parent = PlayerPanel
+local tabLayout = Instance.new("UIListLayout", PlayerTabBar)
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.Padding = UDim.new(0, 6)
+
+local function makePlayerTab(id, label)
+	local b = Instance.new("TextButton")
+	b.Name = "Tab_" .. id
+	b.Size = UDim2.fromOffset(78, 26)
+	b.BackgroundColor3 = UIColors.INPUT
+	b.BorderSizePixel = 0
+	b.Text = label
+	b.TextColor3 = UIColors.MUTED
+	b.TextSize = 11
+	b.Font = Enum.Font.GothamBold
+	b.Parent = PlayerTabBar
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
+	b.MouseButton1Click:Connect(function()
+		configurations.PlayerListTab = id
+		configurations.PlayerPanelMode = "server"
+		configurations.PlayerPanelBuildSignature = nil
+		for _, child in ipairs(PlayerTabBar:GetChildren()) do
+			if child:IsA("TextButton") then
+				local on = child.Name == "Tab_" .. id
+				child.BackgroundColor3 = on and UIColors.ACCENT_DIM or UIColors.INPUT
+				child.TextColor3 = on and UIColors.ACCENT or UIColors.MUTED
+			end
+		end
+	end)
+	return b
+end
+makePlayerTab("server", "Server")
+makePlayerTab("pinned", "Pinned")
+makePlayerTab("nearby", "Nearby")
+task.defer(function()
+	local id = configurations.PlayerListTab or "server"
+	for _, child in ipairs(PlayerTabBar:GetChildren()) do
+		if child:IsA("TextButton") then
+			local on = child.Name == "Tab_" .. id
+			child.BackgroundColor3 = on and UIColors.ACCENT_DIM or UIColors.INPUT
+			child.TextColor3 = on and UIColors.ACCENT or UIColors.MUTED
+		end
+	end
+end)
+PlayerSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	configurations.PlayerListFilter = PlayerSearchBox.Text
+	configurations.PlayerPanelBuildSignature = nil
+end)
+
 local PlayerScroll = Instance.new("ScrollingFrame")
-PlayerScroll.Size = UDim2.new(1, -20, 1, -56)
-PlayerScroll.Position = UDim2.fromOffset(10, 50)
+PlayerScroll.Size = UDim2.new(1, -20, 1, -118)
+PlayerScroll.Position = UDim2.fromOffset(10, 112)
 PlayerScroll.ZIndex = 91
 PlayerScroll.BackgroundTransparency = 1
 PlayerScroll.BorderSizePixel = 0
@@ -7392,7 +7886,7 @@ task.spawn(function()
 	local lastFlashToggle = 0
 	local PlayerVisuals = {}
 	local ThumbnailCache = {}
-	local PlayerPanelBuildSignature = nil
+	configurations.PlayerPanelBuildSignature = nil
 
 	while true do
 		local char = Player.Character
@@ -7725,6 +8219,31 @@ task.spawn(function()
 		if (PlayerPanel.Visible or (PlayerCardPanel and PlayerCardPanel.Visible)) and os.clock() - lastPlayerRefresh >= 0.5 then
 			lastPlayerRefresh = os.clock()
 			local panelPlayers = configurations.FilterPlayerPanelListing(Players:GetPlayers())
+			-- Tabs + search filter for Players-in-server panel
+			do
+				local tab = configurations.PlayerListTab or "server"
+				local q = string.lower(tostring(configurations.PlayerListFilter or ""))
+				local filtered = {}
+				for _, p in ipairs(panelPlayers) do
+					local ok = true
+					if tab == "pinned" then
+						ok = configurations.PinnedPlayerIds[tostring(p.UserId)] == true
+					elseif tab == "nearby" then
+						ok = false
+						local lr = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+						local oroot = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+						if lr and oroot then
+							ok = (lr.Position - oroot.Position).Magnitude <= (tonumber(configurations.AlertsDistance) or 1000)
+						end
+					end
+					if ok and q ~= "" then
+						local hay = string.lower(p.Name .. " " .. (p.DisplayName or ""))
+						ok = string.find(hay, q, 1, true) ~= nil
+					end
+					if ok then table.insert(filtered, p) end
+				end
+				panelPlayers = filtered
+			end
 			-- Floating player card: single target, independent of the server list panel.
 			if PlayerCardPanel and PlayerCardPanel.Visible and configurations.PlayerCardTargetUserId then
 				local cardTarget = Players:GetPlayerByUserId(tonumber(configurations.PlayerCardTargetUserId) or 0)
@@ -8017,9 +8536,9 @@ task.spawn(function()
 				}, ":"))
 			end
 			local panelSignature = table.concat(signatureParts, "|")
-			local rebuildPlayerRows = panelSignature ~= PlayerPanelBuildSignature
+			local rebuildPlayerRows = panelSignature ~= configurations.PlayerPanelBuildSignature
 			if rebuildPlayerRows then
-				PlayerPanelBuildSignature = panelSignature
+				configurations.PlayerPanelBuildSignature = panelSignature
 				for _, child in ipairs(PlayerScroll:GetChildren()) do
 					if child.Name:match("^PlayerRow_") then
 						child:Destroy()
@@ -8248,7 +8767,7 @@ task.spawn(function()
 							pinBtn.Text = on and "PINNED" or "PIN"
 							pinBtn.TextColor3 = on and UIColors.YELLOW or UIColors.MUTED
 							pinBtn.BackgroundColor3 = on and Color3.fromRGB(55, 45, 22) or UIColors.INPUT
-							PlayerPanelBuildSignature = nil
+							configurations.PlayerPanelBuildSignature = nil
 						end)
 
 						local espOn = configurations.IsPlayerESPEnabled(otherPlayer)

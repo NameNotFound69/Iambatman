@@ -1,6 +1,6 @@
 -- Party leader following and server navigation for Iamrich.
 -- The leader teleport flow follows AIC's in-game Party ChatEvent approach.
-local VERSION = "1.1.0"
+local VERSION = "1.2.0"
 print("[PartySystem] Version " .. VERSION .. " (public server list + direct join)")
 local PartySystem = {}
 
@@ -618,44 +618,84 @@ function PartySystem.Initialize(configuration, services)
 			entryCount += 1
 			local row = Instance.new("Frame")
 			row.Name = "Server_" .. tostring(entryCount)
-			row.Size = UDim2.new(1, -2, 0, 54)
+			row.Size = UDim2.new(1, -2, 0, 72)
 			row.LayoutOrder = entryCount
-			row.BackgroundColor3 = palette.INPUT
+			row.BackgroundColor3 = palette.CARD or palette.INPUT
 			row.BorderSizePixel = 0
 			row.Parent = list
-			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 7)
+			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+			local rowStroke = Instance.new("UIStroke", row)
+			rowStroke.Color = palette.BORDER or Color3.fromRGB(40, 45, 60)
+			rowStroke.Transparency = 0.55
+			rowStroke.Thickness = 1
 
-			local detail = Instance.new("TextLabel")
-			detail.Size = UDim2.new(1, -98, 1, -8)
-			detail.Position = UDim2.fromOffset(9, 4)
-			detail.BackgroundTransparency = 1
-			local shortId = string.sub(server.Id, 1, 8) .. "…" .. string.sub(server.Id, -6)
-			local pingText = server.Ping and (tostring(server.Ping) .. " ms") or "n/a"
-			local fpsText = server.FPS and tostring(server.FPS) or "n/a"
-			detail.Text = string.format("%d/%d players  ·  Ping %s  ·  FPS %s\n%s", server.Playing, server.MaxPlayers, pingText, fpsText, shortId)
-			detail.TextColor3 = palette.TEXT
-			detail.TextSize = 10
-			detail.Font = Enum.Font.Gotham
-			detail.TextXAlignment = Enum.TextXAlignment.Left
-			detail.TextYAlignment = Enum.TextYAlignment.Center
-			detail.TextWrapped = false
-			detail.TextTruncate = Enum.TextTruncate.AtEnd
-			detail.Parent = row
+			local playing = tonumber(server.Playing) or 0
+			local maxPlayers = tonumber(server.MaxPlayers) or 0
+			local pingVal = tonumber(server.Ping)
+			local fpsVal = tonumber(server.FPS)
+			local shortId = string.sub(tostring(server.Id), 1, 8) .. "…" .. string.sub(tostring(server.Id), -6)
+
+			local title = Instance.new("TextLabel")
+			title.Name = "Title"
+			title.Size = UDim2.new(1, -160, 0, 20)
+			title.Position = UDim2.fromOffset(12, 8)
+			title.BackgroundTransparency = 1
+			title.Text = string.format("%d / %d players", playing, maxPlayers)
+			title.TextColor3 = palette.TEXT
+			title.TextSize = 13
+			title.Font = Enum.Font.GothamBold
+			title.TextXAlignment = Enum.TextXAlignment.Left
+			title.Parent = row
+
+			local meta = Instance.new("TextLabel")
+			meta.Name = "Meta"
+			meta.Size = UDim2.new(1, -160, 0, 18)
+			meta.Position = UDim2.fromOffset(12, 30)
+			meta.BackgroundTransparency = 1
+			local pingText = pingVal and (tostring(math.floor(pingVal + 0.5)) .. " ms") or "n/a"
+			local fpsText = fpsVal and tostring(math.floor(fpsVal + 0.5)) or "n/a"
+			meta.Text = string.format("Ping %s   ·   FPS %s   ·   %s", pingText, fpsText, shortId)
+			meta.TextColor3 = palette.MUTED
+			meta.TextSize = 11
+			meta.Font = Enum.Font.Gotham
+			meta.TextXAlignment = Enum.TextXAlignment.Left
+			meta.TextTruncate = Enum.TextTruncate.AtEnd
+			meta.Parent = row
 
 			local join = Instance.new("TextButton")
 			join.Name = "JoinServer"
-			join.Size = UDim2.new(0, 72, 0, 30)
-			join.Position = UDim2.new(1, -80, 0.5, -15)
+			join.Size = UDim2.fromOffset(64, 28)
+			join.Position = UDim2.new(1, -72, 0.5, -14)
 			join.BackgroundColor3 = palette.ACCENT_DIM
 			join.BorderSizePixel = 0
 			join.Text = "Join"
 			join.TextColor3 = palette.TEXT
-			join.TextSize = 11
+			join.TextSize = 12
 			join.Font = Enum.Font.GothamBold
 			join.Parent = row
 			Instance.new("UICorner", join).CornerRadius = UDim.new(0, 7)
 			join.MouseButton1Click:Connect(function()
 				JoinServer(server.Id)
+			end)
+
+			local info = Instance.new("TextButton")
+			info.Name = "InfoServer"
+			info.Size = UDim2.fromOffset(52, 28)
+			info.Position = UDim2.new(1, -130, 0.5, -14)
+			info.BackgroundColor3 = palette.INPUT
+			info.BorderSizePixel = 0
+			info.Text = "Info"
+			info.TextColor3 = palette.TEXT
+			info.TextSize = 12
+			info.Font = Enum.Font.GothamBold
+			info.Parent = row
+			Instance.new("UICorner", info).CornerRadius = UDim.new(0, 7)
+			info.MouseButton1Click:Connect(function()
+				if configuration.OpenServerInfo then
+					configuration.OpenServerInfo(server)
+				elseif Notify then
+					Notify("Server", string.format("%d/%d players · Ping %s · FPS %s\n%s", playing, maxPlayers, pingText, fpsText, tostring(server.Id)), 8)
+				end
 			end)
 		end
 
