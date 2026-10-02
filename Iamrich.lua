@@ -1,4 +1,4 @@
-local VERSION = "2.6.28"
+local VERSION = "2.6.29"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -336,10 +336,22 @@ configurations.PinnedPlayerIds = {}
 configurations.PlayerESPEnabled = {}
 configurations.BlockPromptCache = {}
 configurations.SavedMinimized = false
-configurations.MainWidthScale = 0.72
+-- Design size in pixels (Fluent-style). Does not stretch with the screen.
+-- GuiScale zooms everything; auto-fit only shrinks on tiny viewports.
+configurations.MainWidthPx = 520
+configurations.MainHeightPx = 560
+configurations.MainWidthScale = 0.72  -- legacy
 configurations.MainHeightScale = 0.84
 configurations.GuiScale = 1.0
 configurations.TextScale = 1.0
+configurations.PlayerPanelWidthPx = 340
+configurations.PlayerPanelHeightPx = 420
+configurations.WhitelistPanelWidthPx = 300
+configurations.WhitelistPanelHeightPx = 360
+configurations.JoinLogWidthPx = 320
+configurations.JoinLogHeightPx = 360
+configurations.CreditLogWidthPx = 340
+configurations.CreditLogHeightPx = 380
 configurations.PlayerPanelWidthScale = 0.36
 configurations.PlayerPanelHeightScale = 0.60
 configurations.WhitelistPanelWidthScale = 0.40
@@ -706,6 +718,23 @@ function configurations.LoadConfig()
 	if type(config.CreditLogHiddenUsers) == "table" then configurations.CreditLogHiddenUsers = config.CreditLogHiddenUsers end
 	configurations.CreditLogWidthScale = math.clamp(ReadNumber("CreditLogWidthScale", configurations.CreditLogWidthScale, 0.32, false), 0.32, 0.65)
 	configurations.CreditLogHeightScale = math.clamp(ReadNumber("CreditLogHeightScale", configurations.CreditLogHeightScale, 0.35, false), 0.35, 0.90)
+	do
+		local camera = workspace.CurrentCamera
+		local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+		local function ReadPx(key, current, lo, hi)
+			local v = tonumber(config[key])
+			if v and v >= lo then return math.clamp(math.floor(v + 0.5), lo, hi) end
+			return current
+		end
+		configurations.CreditLogWidthPx = ReadPx("CreditLogWidthPx", configurations.CreditLogWidthPx or 340, 260, 560)
+		configurations.CreditLogHeightPx = ReadPx("CreditLogHeightPx", configurations.CreditLogHeightPx or 380, 240, 700)
+		if config.CreditLogWidthPx == nil and tonumber(config.CreditLogWidthScale) then
+			configurations.CreditLogWidthPx = math.clamp(math.floor(tonumber(config.CreditLogWidthScale) * viewport.X + 0.5), 260, 560)
+		end
+		if config.CreditLogHeightPx == nil and tonumber(config.CreditLogHeightScale) then
+			configurations.CreditLogHeightPx = math.clamp(math.floor(tonumber(config.CreditLogHeightScale) * viewport.Y + 0.5), 240, 700)
+		end
+	end
 	configurations.AlertsDistance = math.clamp(ReadNumber("AlertsDistance", configurations.AlertsDistance, 0, true), 0, 100000)
 	configurations.FollowDistance = math.clamp(ReadNumber("FollowDistance", configurations.FollowDistance, 2, false), 2, 100)
 	if type(config.FollowTargetVisible) == "boolean" then
@@ -741,19 +770,44 @@ function configurations.LoadConfig()
 		configurations.PartyLeaderName = type(config.PartyLeaderName) == "string" and config.PartyLeaderName or nil
 	end
 	configurations.PartyResumeFarmOnJoin = config.PartyResumeFarmOnJoin == true
-	configurations.MainWidthScale = math.clamp(ReadNumber("MainWidthScale", configurations.MainWidthScale, 0.2, false), 0.2, 0.75)
-	configurations.MainHeightScale = math.clamp(ReadNumber("MainHeightScale", configurations.MainHeightScale, 0.4, false), 0.4, 0.95)
 	configurations.GuiScale = math.clamp(ReadNumber("GuiScale", configurations.GuiScale, 1, false), 0.20, 2.50)
 	configurations.TextScale = math.clamp(ReadNumber("TextScale", configurations.TextScale, 1, false), 0.20, 2.50)
 	local camera = workspace.CurrentCamera
 	local viewport = camera and camera.ViewportSize or Vector2.new(1000, 800)
-	local legacyWidth = tonumber(config.MainWidth)
-	if config.MainWidthScale == nil and legacyWidth then
-		configurations.MainWidthScale = math.clamp(legacyWidth / math.max(1, viewport.X), 0.2, 0.75)
+	local function ReadPx(key, current, lo, hi)
+		local v = tonumber(config[key])
+		if v and v >= lo then return math.clamp(math.floor(v + 0.5), lo, hi) end
+		return current
 	end
-	local legacyHeight = tonumber(config.MainHeight)
-	if config.MainHeightScale == nil and legacyHeight then
-		configurations.MainHeightScale = math.clamp(legacyHeight / math.max(1, viewport.Y), 0.4, 0.95)
+	-- Prefer fixed px; migrate scale-based saves once.
+	if tonumber(config.MainWidthPx) then
+		configurations.MainWidthPx = ReadPx("MainWidthPx", configurations.MainWidthPx or 520, 360, 900)
+	elseif tonumber(config.MainWidthScale) then
+		configurations.MainWidthPx = math.clamp(math.floor(tonumber(config.MainWidthScale) * viewport.X + 0.5), 360, 900)
+	elseif tonumber(config.MainWidth) then
+		configurations.MainWidthPx = math.clamp(math.floor(tonumber(config.MainWidth) + 0.5), 360, 900)
+	end
+	if tonumber(config.MainHeightPx) then
+		configurations.MainHeightPx = ReadPx("MainHeightPx", configurations.MainHeightPx or 560, 320, 900)
+	elseif tonumber(config.MainHeightScale) then
+		configurations.MainHeightPx = math.clamp(math.floor(tonumber(config.MainHeightScale) * viewport.Y + 0.5), 320, 900)
+	elseif tonumber(config.MainHeight) then
+		configurations.MainHeightPx = math.clamp(math.floor(tonumber(config.MainHeight) + 0.5), 320, 900)
+	end
+	configurations.MainWidthScale = math.clamp((configurations.MainWidthPx or 520) / math.max(1, viewport.X), 0.15, 0.95)
+	configurations.MainHeightScale = math.clamp((configurations.MainHeightPx or 560) / math.max(1, viewport.Y), 0.20, 0.95)
+
+	configurations.PlayerPanelWidthPx = ReadPx("PlayerPanelWidthPx", configurations.PlayerPanelWidthPx or 340, 260, 560)
+	configurations.PlayerPanelHeightPx = ReadPx("PlayerPanelHeightPx", configurations.PlayerPanelHeightPx or 420, 280, 700)
+	configurations.WhitelistPanelWidthPx = ReadPx("WhitelistPanelWidthPx", configurations.WhitelistPanelWidthPx or 300, 240, 520)
+	configurations.WhitelistPanelHeightPx = ReadPx("WhitelistPanelHeightPx", configurations.WhitelistPanelHeightPx or 360, 240, 640)
+	configurations.JoinLogWidthPx = ReadPx("JoinLogWidthPx", configurations.JoinLogWidthPx or 320, 260, 560)
+	configurations.JoinLogHeightPx = ReadPx("JoinLogHeightPx", configurations.JoinLogHeightPx or 360, 240, 640)
+	if config.PlayerPanelWidthPx == nil and tonumber(config.PlayerPanelWidthScale) then
+		configurations.PlayerPanelWidthPx = math.clamp(math.floor(tonumber(config.PlayerPanelWidthScale) * viewport.X + 0.5), 260, 560)
+	end
+	if config.PlayerPanelHeightPx == nil and tonumber(config.PlayerPanelHeightScale) then
+		configurations.PlayerPanelHeightPx = math.clamp(math.floor(tonumber(config.PlayerPanelHeightScale) * viewport.Y + 0.5), 280, 700)
 	end
 	configurations.PlayerPanelWidthScale = math.clamp(ReadNumber("PlayerPanelWidthScale", configurations.PlayerPanelWidthScale, 0.36, false), 0.28, 0.52)
 	configurations.PlayerPanelHeightScale = math.clamp(ReadNumber("PlayerPanelHeightScale", configurations.PlayerPanelHeightScale, 0.35, false), 0.35, 0.9)
@@ -924,10 +978,20 @@ function configurations.SaveConfig()
 		AutoAttackInterval = configurations.AutoAttackInterval,
 		AutoSkillEnabled = configurations.AutoSkillEnabled,
 		AutoSkillInterval = configurations.AutoSkillInterval,
+		MainWidthPx = configurations.MainWidthPx,
+		MainHeightPx = configurations.MainHeightPx,
 		MainWidthScale = configurations.MainWidthScale,
 		MainHeightScale = configurations.MainHeightScale,
 		GuiScale = configurations.GuiScale,
 		TextScale = configurations.TextScale,
+		PlayerPanelWidthPx = configurations.PlayerPanelWidthPx,
+		PlayerPanelHeightPx = configurations.PlayerPanelHeightPx,
+		WhitelistPanelWidthPx = configurations.WhitelistPanelWidthPx,
+		WhitelistPanelHeightPx = configurations.WhitelistPanelHeightPx,
+		JoinLogWidthPx = configurations.JoinLogWidthPx,
+		JoinLogHeightPx = configurations.JoinLogHeightPx,
+		CreditLogWidthPx = configurations.CreditLogWidthPx,
+		CreditLogHeightPx = configurations.CreditLogHeightPx,
 		PlayerPanelWidthScale = configurations.PlayerPanelWidthScale,
 		PlayerPanelHeightScale = configurations.PlayerPanelHeightScale,
 		WhitelistPanelWidthScale = configurations.WhitelistPanelWidthScale,
@@ -1687,8 +1751,10 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = Player:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromScale(configurations.MainWidthScale, configurations.MainHeightScale)
-Main.Position = UDim2.fromScale(0.5 - configurations.MainWidthScale / 2, 0.5 - configurations.MainHeightScale / 2)
+-- Fixed design size (Fluent-style). GuiScale zooms; does not stretch with the screen.
+Main.Size = UDim2.fromOffset(configurations.MainWidthPx or 520, configurations.MainHeightPx or 560)
+Main.Position = UDim2.fromScale(0.5, 0.5)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
 Main.ZIndex = 90
 Main.BackgroundColor3 = UIColors.BG
 Main.BorderSizePixel = 0
@@ -1768,8 +1834,22 @@ function configurations.ApplyTextScale(root)
 	end
 end
 
+function configurations.GetEffectiveGuiScale()
+	local userScale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize
+	if not viewport or viewport.X < 1 or viewport.Y < 1 then return userScale end
+	-- Auto-fit: never grow past design size on large screens; shrink only if the
+	-- fixed window would overflow the viewport (Fluent-style fixed UI).
+	local designW = tonumber(configurations.MainWidthPx) or 520
+	local designH = tonumber(configurations.MainHeightPx) or 560
+	local fit = math.min(1, (viewport.X - 24) / designW, (viewport.Y - 24) / designH)
+	return math.clamp(userScale * fit, 0.20, 2.50)
+end
+
 function configurations.ApplyGuiScale()
-	local scale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+	local scale = configurations.GetEffectiveGuiScale and configurations.GetEffectiveGuiScale()
+		or math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
 	local camera = workspace.CurrentCamera
 	local viewport = camera and camera.ViewportSize
 
@@ -1782,25 +1862,20 @@ function configurations.ApplyGuiScale()
 				scaleObj.Parent = root
 			end
 
-			-- Preserve center of Main window when scaling
 			local keepCenter = (root == Main) and viewport and viewport.X > 0 and viewport.Y > 0
 			local oldCenter = nil
-			if keepCenter then
+			if keepCenter and root.AbsoluteSize.X > 0 then
 				oldCenter = root.AbsolutePosition + root.AbsoluteSize * 0.5
 			end
 
 			scaleObj.Scale = scale
 
-			if keepCenter and oldCenter then
+			if keepCenter and oldCenter and root.AbsoluteSize.X > 0 then
 				local newSize = root.AbsoluteSize
-				if newSize.X > 0 and newSize.Y > 0 then
-					local maxX = math.max(0, 1 - newSize.X / viewport.X)
-					local maxY = math.max(0, 1 - newSize.Y / viewport.Y)
-					root.Position = UDim2.fromScale(
-						math.clamp((oldCenter.X - newSize.X * 0.5) / viewport.X, 0, maxX),
-						math.clamp((oldCenter.Y - newSize.Y * 0.5) / viewport.Y, 0, maxY)
-					)
-				end
+				local px = math.clamp(oldCenter.X - newSize.X * 0.5, 8, math.max(8, viewport.X - newSize.X - 8))
+				local py = math.clamp(oldCenter.Y - newSize.Y * 0.5, 8, math.max(8, viewport.Y - newSize.Y - 8))
+				root.AnchorPoint = Vector2.new(0, 0)
+				root.Position = UDim2.fromOffset(px, py)
 			end
 		end
 	end
@@ -1860,53 +1935,55 @@ end
 function configurations.ApplyResponsiveMainSize()
 	local camera = workspace.CurrentCamera
 	if not camera then return end
-	local viewport = configurations.GetViewportSize()
+	local viewport = camera.ViewportSize
 	if viewport.X < 1 or viewport.Y < 1 then return end
+	local uiScale = configurations.GetEffectiveGuiScale and configurations.GetEffectiveGuiScale()
+		or math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
 
-	-- Minimized uses fixed pixel size; keep it on-screen after viewport changes.
 	if configurations.IsMinimized then
-		-- MINI_WIDTH/HEIGHT are defined later; use the same fixed pixel card size.
-		local w = 300
-		local h = 136
-		local px = Main.Position.X.Scale * viewport.X + Main.Position.X.Offset
-		local py = Main.Position.Y.Scale * viewport.Y + Main.Position.Y.Offset
-		-- Prefer AbsolutePosition when layout has resolved.
-		if Main.AbsoluteSize.X > 0 then
-			px = Main.AbsolutePosition.X
-			py = Main.AbsolutePosition.Y
-		end
-		px = math.clamp(px, 8, math.max(8, viewport.X - w - 8))
-		py = math.clamp(py, 8, math.max(8, viewport.Y - h - 8))
+		local w, h = 300, 136
+		local abs = Main.AbsolutePosition
+		local px = (Main.AbsoluteSize.X > 0) and abs.X or 8
+		local py = (Main.AbsoluteSize.Y > 0) and abs.Y or 8
+		px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
+		py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
+		Main.AnchorPoint = Vector2.new(0, 0)
 		Main.Size = UDim2.fromOffset(w, h)
 		Main.Position = UDim2.fromOffset(px, py)
 		return
 	end
 
-	-- Keep the configured relative size when the screen changes.
-	-- GuiScale already handles visual scaling, so do not divide the window size by it.
-	-- Only cap the window when it physically cannot fit in the current viewport.
-	local maxWidth = math.max(0.05, math.min(0.75, 1 - 16 / viewport.X))
-	local maxHeight = math.max(0.05, math.min(0.95, 1 - 16 / viewport.Y))
-	local minWidth = math.min(0.20, maxWidth)
-	local minHeight = math.min(0.40, maxHeight)
+	-- Fixed pixel design size — never stretch to fill the screen.
+	local wantW = math.floor(tonumber(configurations.MainWidthPx) or 520)
+	local wantH = math.floor(tonumber(configurations.MainHeightPx) or 560)
+	local maxW = math.max(360, math.floor((viewport.X - 24) / uiScale))
+	local maxH = math.max(320, math.floor((viewport.Y - 24) / uiScale))
+	local w = math.clamp(wantW, 360, math.min(900, maxW))
+	local h = math.clamp(wantH, 320, math.min(900, maxH))
 
-	local wantedWidth = tonumber(configurations.MainWidthScale) or 0.55
-	local wantedHeight = tonumber(configurations.MainHeightScale) or 0.70
-	local width = math.clamp(wantedWidth, minWidth, maxWidth)
-	local height = math.clamp(wantedHeight, minHeight, maxHeight)
+	local abs = Main.AbsolutePosition
+	local px, py
+	if Main.AbsoluteSize.X > 0 then
+		px, py = abs.X, abs.Y
+	else
+		px = math.max(8, (viewport.X - w * uiScale) * 0.5)
+		py = math.max(8, (viewport.Y - h * uiScale) * 0.5)
+	end
 
-	-- Capture on-screen pixel position BEFORE resizing (handles Offset drag positions).
-	local xScale, yScale = configurations.PositionToScale(Main, viewport)
-
-	Main.Size = UDim2.fromScale(width, height)
+	Main.AnchorPoint = Vector2.new(0, 0)
+	Main.Size = UDim2.fromOffset(w, h)
 
 	if not configurations.MainWindowInitialized then
-		Main.Position = UDim2.fromScale((1 - width) * 0.5, (1 - height) * 0.5)
+		px = math.max(8, (viewport.X - w * uiScale) * 0.5)
+		py = math.max(8, (viewport.Y - h * uiScale) * 0.5)
 		configurations.MainWindowInitialized = true
 	else
-		xScale, yScale = configurations.ClampPositionScale(xScale, yScale, width, height)
-		Main.Position = UDim2.fromScale(xScale, yScale)
+		px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
+		py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
 	end
+	Main.Position = UDim2.fromOffset(px, py)
+	configurations.MainWidthScale = w / math.max(1, viewport.X)
+	configurations.MainHeightScale = h / math.max(1, viewport.Y)
 end
 
 configurations.ApplyResponsiveMainSize()
@@ -1942,8 +2019,10 @@ local ContentPanel
 local Sidebar
 local InfoCard, StartBtn, ToggleGrid, SettingsCard
 local AlarmOverlay
+local HEADER_H = 40
+local SIDEBAR_W = 118
 local Header = Instance.new("Frame")
-Header.Size = UDim2.fromScale(1, 0.09)
+Header.Size = UDim2.new(1, 0, 0, HEADER_H)
 Header.Active = true
 Header.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 Header.BorderSizePixel = 0
@@ -1951,8 +2030,8 @@ Header.Parent = Main
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
 
 local HeaderFix = Instance.new("Frame")
-HeaderFix.Size = UDim2.fromScale(1, 0.45)
-HeaderFix.Position = UDim2.fromScale(0, 0.55)
+HeaderFix.Size = UDim2.new(1, 0, 0, 14)
+HeaderFix.Position = UDim2.new(0, 0, 1, -14)
 HeaderFix.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
 HeaderFix.BorderSizePixel = 0
 HeaderFix.Parent = Header
@@ -1966,10 +2045,10 @@ HeaderRule.BorderSizePixel = 0
 HeaderRule.Parent = Header
 
 local WindowDots = {}
-function configurations.MakeWindowDot(x, color)
+function configurations.MakeWindowDot(xOffset, color)
 	local dot = Instance.new("Frame")
-	dot.Size = UDim2.fromScale(0.018, 0.28)
-	dot.Position = UDim2.fromScale(x, 0.36)
+	dot.Size = UDim2.fromOffset(10, 10)
+	dot.Position = UDim2.fromOffset(xOffset, 15)
 	dot.BackgroundColor3 = color
 	dot.BorderSizePixel = 0
 	dot.Parent = Header
@@ -1977,24 +2056,24 @@ function configurations.MakeWindowDot(x, color)
 	table.insert(WindowDots, dot)
 	return dot
 end
-configurations.MakeWindowDot(0.035, Color3.fromRGB(255, 95, 86))
-configurations.MakeWindowDot(0.075, Color3.fromRGB(255, 190, 46))
-configurations.MakeWindowDot(0.115, Color3.fromRGB(40, 201, 64))
+configurations.MakeWindowDot(14, Color3.fromRGB(255, 95, 86))
+configurations.MakeWindowDot(30, Color3.fromRGB(255, 190, 46))
+configurations.MakeWindowDot(46, Color3.fromRGB(40, 201, 64))
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.fromScale(0.50, 0.42)
-Title.Position = UDim2.fromScale(0.155, 0.28)
+Title.Size = UDim2.fromOffset(80, 22)
+Title.Position = UDim2.fromOffset(66, 9)
 Title.BackgroundTransparency = 1
 Title.Text = "EXP+"
 Title.TextColor3 = UIColors.TEXT
-Title.TextSize = 17
+Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
 local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.fromScale(0.30, 0.30)
-Subtitle.Position = UDim2.fromScale(0.42, 0.35)
+Subtitle.Size = UDim2.fromOffset(64, 18)
+Subtitle.Position = UDim2.fromOffset(140, 11)
 Subtitle.BackgroundTransparency = 1
 Subtitle.Text = "v" .. VERSION
 Subtitle.TextColor3 = UIColors.MUTED
@@ -2190,28 +2269,23 @@ function configurations.ApplyMinimized(state)
 		MinimizeBtn.Size = UDim2.fromOffset(24, 24)
 	else
 		Header.BackgroundColor3 = Color3.fromRGB(18, 20, 30)
-		Header.Size = UDim2.fromScale(1, 0.09)
+		Header.Size = UDim2.new(1, 0, 0, HEADER_H)
 		configurations.MainWindowInitialized = true
 		configurations.ApplyResponsiveMainSize()
 		if SavedMainPosition then
-			local width = Main.Size.X.Scale
-			local height = Main.Size.Y.Scale
-			local vx = math.max(1, (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X) or 1280)
-			local vy = math.max(1, (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y) or 720)
-			local xScale = SavedMainPosition.X.Scale + SavedMainPosition.X.Offset / vx
-			local yScale = SavedMainPosition.Y.Scale + SavedMainPosition.Y.Offset / vy
-			xScale, yScale = configurations.ClampPositionScale(xScale, yScale, width, height)
-			Main.Position = UDim2.fromScale(xScale, yScale)
-		else
-			Main.Position = UDim2.fromScale(0.5 - Main.Size.X.Scale / 2, 0.5 - Main.Size.Y.Scale / 2)
+			local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
+			local uiScale = configurations.GetEffectiveGuiScale and configurations.GetEffectiveGuiScale() or 1
+			local w = Main.Size.X.Offset
+			local h = Main.Size.Y.Offset
+			local px = SavedMainPosition.X.Scale * viewport.X + SavedMainPosition.X.Offset
+			local py = SavedMainPosition.Y.Scale * viewport.Y + SavedMainPosition.Y.Offset
+			px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
+			py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
+			Main.AnchorPoint = Vector2.new(0, 0)
+			Main.Position = UDim2.fromOffset(px, py)
 		end
-		Main.Position = UDim2.fromScale(
-			math.clamp(Main.Position.X.Scale, 0, math.max(0, 1 - Main.Size.X.Scale)),
-			math.clamp(Main.Position.Y.Scale, 0, math.max(0, 1 - Main.Size.Y.Scale))
-		)
-		-- Same order: Status left, minimize (−) rightmost
-		Status.Position = UDim2.new(1, -84, 0, 10)
-		Status.Size = UDim2.fromOffset(48, 20)
+		Status.Position = UDim2.new(1, -84, 0, 9)
+		Status.Size = UDim2.fromOffset(48, 22)
 		MinimizeBtn.Position = UDim2.new(1, -32, 0, 8)
 		MinimizeBtn.Size = UDim2.fromOffset(24, 24)
 	end
@@ -2281,10 +2355,8 @@ UserInputService.InputChanged:Connect(function(input)
 		math.max(0, parentSize.Y - mainSize.Y)
 	)
 
-	-- Store as Scale so ViewportSize changes can re-clamp using screen percentages.
-	local vx = math.max(1, parentSize.X)
-	local vy = math.max(1, parentSize.Y)
-	Main.Position = UDim2.fromScale(x / vx, y / vy)
+	Main.AnchorPoint = Vector2.new(0, 0)
+	Main.Position = UDim2.fromOffset(x, y)
 end)
 
 --==================================================
@@ -2293,8 +2365,8 @@ end)
 -- Right content panel (dark like the image)
 ContentPanel = Instance.new("Frame")
 ContentPanel.Name = "ContentPanel"
-ContentPanel.Size = UDim2.fromScale(0.715, 0.88)
-ContentPanel.Position = UDim2.fromScale(0.270, 0.10)
+ContentPanel.Size = UDim2.new(1, -(SIDEBAR_W + 20), 1, -(HEADER_H + 12))
+ContentPanel.Position = UDim2.fromOffset(SIDEBAR_W + 12, HEADER_H + 6)
 ContentPanel.BackgroundColor3 = Color3.fromRGB(15, 17, 25)
 ContentPanel.BorderSizePixel = 0
 ContentPanel.Parent = Main
@@ -2352,30 +2424,30 @@ local PerformancePage = configurations.CreatePage("Performance", false)
 
 function configurations.AddPageHeading(page, title, description)
 	local heading = Instance.new("Frame")
-	heading.Size = UDim2.new(1, 0, 0, 56)
+	heading.Size = UDim2.new(1, 0, 0, 40)
 	heading.LayoutOrder = 1
 	heading.BackgroundTransparency = 1
 	heading.Parent = page
 	local titleLabel = Instance.new("TextLabel")
-	titleLabel.Size = UDim2.new(1, -10, 0, 28)
-	titleLabel.Position = UDim2.fromOffset(4, 2)
+	titleLabel.Size = UDim2.new(1, -8, 0, 20)
+	titleLabel.Position = UDim2.fromOffset(2, 0)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = title
 	titleLabel.TextColor3 = UIColors.TEXT
-	titleLabel.TextSize = 20
+	titleLabel.TextSize = 16
 	titleLabel.Font = Enum.Font.GothamBold
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	titleLabel.Parent = heading
 	local descriptionLabel = Instance.new("TextLabel")
-	descriptionLabel.Size = UDim2.new(1, -10, 0, 20)
-	descriptionLabel.Position = UDim2.fromOffset(4, 32)
+	descriptionLabel.Size = UDim2.new(1, -8, 0, 16)
+	descriptionLabel.Position = UDim2.fromOffset(2, 20)
 	descriptionLabel.BackgroundTransparency = 1
 	descriptionLabel.Text = description
 	descriptionLabel.TextColor3 = UIColors.MUTED
-	descriptionLabel.TextSize = 12
+	descriptionLabel.TextSize = 11
 	descriptionLabel.Font = Enum.Font.Gotham
 	descriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-	descriptionLabel.TextWrapped = true
+	descriptionLabel.TextTruncate = Enum.TextTruncate.AtEnd
 	descriptionLabel.Parent = heading
 	return heading
 end
@@ -2391,8 +2463,8 @@ configurations.AddPageHeading(PerformancePage, "Performance", "Reduce graphics l
 
 Sidebar = Instance.new("Frame")
 Sidebar.Name = "Navigation"
-Sidebar.Size = UDim2.fromScale(0.24, 0.88)
-Sidebar.Position = UDim2.fromScale(0.015, 0.10)
+Sidebar.Size = UDim2.new(0, SIDEBAR_W, 1, -(HEADER_H + 12))
+Sidebar.Position = UDim2.fromOffset(8, HEADER_H + 6)
 Sidebar.BackgroundColor3 = UIColors.SIDEBAR_BG
 Sidebar.BorderSizePixel = 0
 Sidebar.Visible = not configurations.IsMinimized
@@ -2551,7 +2623,7 @@ configurations.SetMainTab("EXP")
 --==================================================
 local ServerCard = Instance.new("Frame")
 ServerCard.Name = "ServerCard"
-ServerCard.Size = UDim2.new(1, 0, 0, 90)
+ServerCard.Size = UDim2.new(1, 0, 0, 78)
 ServerCard.LayoutOrder = 2
 ServerCard.BackgroundColor3 = UIColors.CARD
 ServerCard.BorderSizePixel = 0
@@ -2688,7 +2760,7 @@ end)
 -- HERO EXP UIColors.CARD (big numbers)
 --==================================================
 InfoCard = Instance.new("Frame")
-InfoCard.Size = UDim2.new(1, 0, 0, 242)
+InfoCard.Size = UDim2.new(1, 0, 0, 190)
 InfoCard.LayoutOrder = 3
 InfoCard.BackgroundColor3 = UIColors.CARD
 InfoCard.BorderSizePixel = 0
@@ -2740,7 +2812,7 @@ local ExpCaption = Instance.new("TextLabel")
 ExpCaption.Size = UDim2.new(1, -20, 0, 12)
 ExpCaption.Position = UDim2.fromOffset(10, 44)
 ExpCaption.BackgroundTransparency = 1
-ExpCaption.Text = "TARGET EXP  (FARM)"
+ExpCaption.Text = "FARM EXP"
 ExpCaption.TextColor3 = UIColors.ACCENT
 ExpCaption.TextSize = 11
 ExpCaption.Font = Enum.Font.GothamBold
@@ -4376,8 +4448,8 @@ end)
 --==================================================
 local PlayerPanel = Instance.new("Frame")
 PlayerPanel.Name = "PlayerListPanel"
-PlayerPanel.Size = UDim2.fromScale(configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale)
-PlayerPanel.Position = UDim2.fromScale(0.52, 0.19)
+PlayerPanel.Size = UDim2.fromOffset(configurations.PlayerPanelWidthPx or 340, configurations.PlayerPanelHeightPx or 420)
+PlayerPanel.Position = UDim2.fromOffset(80, 80)
 PlayerPanel.ZIndex = 90
 PlayerPanel.BackgroundColor3 = UIColors.BG
 PlayerPanel.BorderSizePixel = 0
@@ -4558,8 +4630,8 @@ end)
 
 configurations.WhitelistPanel = Instance.new("Frame")
 configurations.WhitelistPanel.Name = "WhitelistPanel"
-configurations.WhitelistPanel.Size = UDim2.fromScale(configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale)
-configurations.WhitelistPanel.Position = UDim2.fromScale(0.04, 0.20)
+configurations.WhitelistPanel.Size = UDim2.fromOffset(configurations.WhitelistPanelWidthPx or 300, configurations.WhitelistPanelHeightPx or 360)
+configurations.WhitelistPanel.Position = UDim2.fromOffset(40, 80)
 configurations.WhitelistPanel.ZIndex = 90
 configurations.WhitelistPanel.BackgroundColor3 = UIColors.BG
 configurations.WhitelistPanel.BorderSizePixel = 0
@@ -4687,8 +4759,8 @@ configurations.WhitelistLayout.HorizontalAlignment = Enum.HorizontalAlignment.Ce
 
 configurations.JoinLogPanel = Instance.new("Frame")
 configurations.JoinLogPanel.Name = "PlayerJoinLogPanel"
-configurations.JoinLogPanel.Size = UDim2.fromScale(configurations.JoinLogWidthScale, configurations.JoinLogHeightScale)
-configurations.JoinLogPanel.Position = UDim2.fromScale(0.03, 0.2)
+configurations.JoinLogPanel.Size = UDim2.fromOffset(configurations.JoinLogWidthPx or 320, configurations.JoinLogHeightPx or 360)
+configurations.JoinLogPanel.Position = UDim2.fromOffset(40, 100)
 configurations.JoinLogPanel.ZIndex = 90
 configurations.JoinLogPanel.BackgroundColor3 = UIColors.BG
 configurations.JoinLogPanel.BorderSizePixel = 0
@@ -4853,8 +4925,8 @@ end)
 
 configurations.CreditLogPanel = Instance.new("Frame")
 configurations.CreditLogPanel.Name = "CreditLogPanel"
-configurations.CreditLogPanel.Size = UDim2.fromScale(configurations.CreditLogWidthScale, configurations.CreditLogHeightScale)
-configurations.CreditLogPanel.Position = UDim2.fromScale(0.59, 0.2)
+configurations.CreditLogPanel.Size = UDim2.fromOffset(configurations.CreditLogWidthPx or 340, configurations.CreditLogHeightPx or 380)
+configurations.CreditLogPanel.Position = UDim2.fromOffset(100, 90)
 configurations.CreditLogPanel.ZIndex = 90
 configurations.CreditLogPanel.BackgroundColor3 = UIColors.BG
 configurations.CreditLogPanel.BorderSizePixel = 0
@@ -4889,7 +4961,7 @@ configurations.CreditLogTitle.Size = UDim2.new(1, -56, 0, 22)
 configurations.CreditLogTitle.Position = UDim2.fromOffset(14, 11)
 configurations.CreditLogTitle.ZIndex = 92
 configurations.CreditLogTitle.BackgroundTransparency = 1
-configurations.CreditLogTitle.Text = "Credit Log · current EXP target"
+configurations.CreditLogTitle.Text = "Credit Log"
 configurations.CreditLogTitle.TextColor3 = UIColors.TEXT
 configurations.CreditLogTitle.TextSize = 16
 configurations.CreditLogTitle.Font = Enum.Font.GothamBold
@@ -4911,8 +4983,8 @@ Instance.new("UICorner", configurations.CreditLogCloseButton).CornerRadius = UDi
 
 configurations.CreditLogFilterScroll = Instance.new("ScrollingFrame")
 configurations.CreditLogFilterScroll.Name = "PlayerFilters"
-configurations.CreditLogFilterScroll.Size = UDim2.new(1, -20, 0, 48)
-configurations.CreditLogFilterScroll.Position = UDim2.fromOffset(10, 50)
+configurations.CreditLogFilterScroll.Size = UDim2.new(1, -20, 0, 32)
+configurations.CreditLogFilterScroll.Position = UDim2.fromOffset(10, 48)
 configurations.CreditLogFilterScroll.ZIndex = 91
 configurations.CreditLogFilterScroll.BackgroundTransparency = 1
 configurations.CreditLogFilterScroll.BorderSizePixel = 0
@@ -4924,13 +4996,13 @@ configurations.CreditLogFilterScroll.ScrollingDirection = Enum.ScrollingDirectio
 configurations.CreditLogFilterScroll.Parent = configurations.CreditLogPanel
 configurations.CreditLogFilterLayout = Instance.new("UIListLayout", configurations.CreditLogFilterScroll)
 configurations.CreditLogFilterLayout.FillDirection = Enum.FillDirection.Horizontal
-configurations.CreditLogFilterLayout.Padding = UDim.new(0, 6)
+configurations.CreditLogFilterLayout.Padding = UDim.new(0, 4)
 configurations.CreditLogFilterLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 configurations.CreditLogScroll = Instance.new("ScrollingFrame")
 configurations.CreditLogScroll.Name = "Credits"
-configurations.CreditLogScroll.Size = UDim2.new(1, -20, 1, -112)
-configurations.CreditLogScroll.Position = UDim2.fromOffset(10, 104)
+configurations.CreditLogScroll.Size = UDim2.new(1, -16, 1, -90)
+configurations.CreditLogScroll.Position = UDim2.fromOffset(8, 84)
 configurations.CreditLogScroll.ZIndex = 91
 configurations.CreditLogScroll.BackgroundTransparency = 1
 configurations.CreditLogScroll.BorderSizePixel = 0
@@ -4940,10 +5012,23 @@ configurations.CreditLogScroll.CanvasSize = UDim2.new()
 configurations.CreditLogScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 configurations.CreditLogScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 configurations.CreditLogScroll.Parent = configurations.CreditLogPanel
-configurations.CreditLogLayout = Instance.new("UIListLayout", configurations.CreditLogScroll)
-configurations.CreditLogLayout.Padding = UDim.new(0, 6)
+
+-- Grid: name + timer cells only
+configurations.CreditLogLayout = Instance.new("UIGridLayout")
+configurations.CreditLogLayout.Name = "CreditGrid"
+configurations.CreditLogLayout.CellSize = UDim2.fromOffset(150, 40)
+configurations.CreditLogLayout.CellPadding = UDim2.fromOffset(6, 6)
+configurations.CreditLogLayout.FillDirection = Enum.FillDirection.Horizontal
+configurations.CreditLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 configurations.CreditLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
-configurations.CreditLogLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+configurations.CreditLogLayout.Parent = configurations.CreditLogScroll
+
+local CreditLogGridPad = Instance.new("UIPadding")
+CreditLogGridPad.PaddingTop = UDim.new(0, 2)
+CreditLogGridPad.PaddingLeft = UDim.new(0, 2)
+CreditLogGridPad.PaddingRight = UDim.new(0, 2)
+CreditLogGridPad.PaddingBottom = UDim.new(0, 2)
+CreditLogGridPad.Parent = configurations.CreditLogScroll
 
 function configurations.RefreshCreditLog()
 	for _, entry in pairs(configurations.CreditLogEntries) do
@@ -4967,19 +5052,19 @@ function configurations.RefreshCreditLog()
 		local hidden = configurations.CreditLogHiddenUsers[userId] == true
 		local filterButton = Instance.new("TextButton")
 		filterButton.Name = "CreditLogFilter_" .. userId
-		filterButton.Size = UDim2.fromOffset(132, 30)
+		filterButton.Size = UDim2.fromOffset(96, 26)
 		filterButton.LayoutOrder = order
 		filterButton.ZIndex = 92
 		filterButton.BackgroundColor3 = hidden and UIColors.INPUT or UIColors.GREEN_DIM
 		filterButton.BorderSizePixel = 0
 		filterButton.AutoButtonColor = false
-		filterButton.Text = (hidden and "○  @" or "✓  @") .. configurations.CreditLogKnownPlayers[userId]
+		filterButton.Text = (hidden and "@" or "✓ @") .. configurations.CreditLogKnownPlayers[userId]
 		filterButton.TextColor3 = hidden and UIColors.MUTED or UIColors.GREEN
 		filterButton.TextSize = 11
 		filterButton.Font = Enum.Font.GothamBold
 		filterButton.TextTruncate = Enum.TextTruncate.AtEnd
 		filterButton.Parent = configurations.CreditLogFilterScroll
-		Instance.new("UICorner", filterButton).CornerRadius = UDim.new(0, 7)
+		Instance.new("UICorner", filterButton).CornerRadius = UDim.new(0, 6)
 		filterButton.MouseButton1Click:Connect(function()
 			configurations.CreditLogHiddenUsers[filterUserId] = not (configurations.CreditLogHiddenUsers[filterUserId] == true)
 			configurations.CreditLogDirty = true
@@ -5002,13 +5087,12 @@ function configurations.RefreshCreditLog()
 		local creditedUserId = entry.UserId
 		local row = Instance.new("Frame")
 		row.Name = "CreditLogRow_" .. tostring(order)
-		row.Size = UDim2.new(1, -6, 0, 42)
 		row.LayoutOrder = order
 		row.ZIndex = 92
 		row.BackgroundColor3 = UIColors.CARD
 		row.BorderSizePixel = 0
 		row.Parent = configurations.CreditLogScroll
-		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 9)
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
 		local rowStroke = Instance.new("UIStroke", row)
 		rowStroke.Color = UIColors.BORDER
 		rowStroke.Transparency = 0.55
@@ -5016,14 +5100,14 @@ function configurations.RefreshCreditLog()
 
 		local nameButton = Instance.new("TextButton")
 		nameButton.Name = "CreditedPlayer"
-		nameButton.Size = UDim2.new(0.62, -10, 1, 0)
-		nameButton.Position = UDim2.fromOffset(12, 0)
+		nameButton.Size = UDim2.new(1, -8, 0, 18)
+		nameButton.Position = UDim2.fromOffset(6, 3)
 		nameButton.ZIndex = 93
 		nameButton.BackgroundTransparency = 1
 		nameButton.AutoButtonColor = false
-		nameButton.Text = "HIT · @" .. entry.Username
+		nameButton.Text = "@" .. entry.Username
 		nameButton.TextColor3 = UIColors.TEXT
-		nameButton.TextSize = 13
+		nameButton.TextSize = 12
 		nameButton.Font = Enum.Font.GothamBold
 		nameButton.TextXAlignment = Enum.TextXAlignment.Left
 		nameButton.TextTruncate = Enum.TextTruncate.AtEnd
@@ -5035,25 +5119,26 @@ function configurations.RefreshCreditLog()
 
 		local countdown = Instance.new("TextLabel")
 		countdown.Name = "Countdown"
-		countdown.Size = UDim2.new(0.38, -8, 1, 0)
-		countdown.Position = UDim2.new(0.62, 0, 0, 0)
+		countdown.Size = UDim2.new(1, -8, 0, 14)
+		countdown.Position = UDim2.fromOffset(6, 22)
 		countdown.ZIndex = 93
 		countdown.BackgroundTransparency = 1
 		countdown.TextColor3 = UIColors.GREEN
 		countdown.TextSize = 11
 		countdown.Font = Enum.Font.GothamBold
-		countdown.TextXAlignment = Enum.TextXAlignment.Right
+		countdown.TextXAlignment = Enum.TextXAlignment.Left
 		countdown.Parent = row
 		entry.CountdownLabel = countdown
 	end
 	if #rows == 0 then
+		-- Full-width empty state (span grid by using a tall label)
 		local empty = Instance.new("TextLabel")
 		empty.Name = "CreditLogEmpty"
-		empty.Size = UDim2.new(1, -8, 0, 42)
+		empty.Size = UDim2.fromOffset(300, 40)
 		empty.LayoutOrder = 1
 		empty.ZIndex = 92
 		empty.BackgroundTransparency = 1
-		empty.Text = "No credited players on the current EXP target yet."
+		empty.Text = "No credits yet"
 		empty.TextColor3 = UIColors.MUTED
 		empty.TextSize = 12
 		empty.Font = Enum.Font.Gotham
@@ -5098,14 +5183,11 @@ function configurations.MakeDraggable(panel, handle)
 			local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
 			if not viewport or viewport.X < 1 or viewport.Y < 1 then return end
 			local delta = input.Position - dragStart
-			local x = startAbs.X + delta.X
-			local y = startAbs.Y + delta.Y
-			local widthScale = panel.Size.X.Scale
-			local heightScale = panel.Size.Y.Scale
-			-- Convert pixel position → Scale using current ViewportSize so resize stays correct.
-			local xScale = math.clamp(x / viewport.X, 0, math.max(0, 1 - widthScale))
-			local yScale = math.clamp(y / viewport.Y, 0, math.max(0, 1 - heightScale))
-			panel.Position = UDim2.fromScale(xScale, yScale)
+			local w = panel.AbsoluteSize.X
+			local h = panel.AbsoluteSize.Y
+			local x = math.clamp(startAbs.X + delta.X, 8, math.max(8, viewport.X - w - 8))
+			local y = math.clamp(startAbs.Y + delta.Y, 8, math.max(8, viewport.Y - h - 8))
+			panel.Position = UDim2.fromOffset(x, y)
 		end
 	end)
 end
@@ -5115,22 +5197,22 @@ configurations.MakeDraggable(configurations.WhitelistPanel, configurations.White
 configurations.MakeDraggable(configurations.JoinLogPanel, configurations.JoinLogHeader)
 configurations.MakeDraggable(configurations.CreditLogPanel, configurations.CreditLogHeader)
 
-function configurations.MakeResizable(panel, name, minWidth, minHeight, onReleased, maxWidthScale)
+function configurations.MakeResizable(panel, name, minWidthPx, minHeightPx, onReleased, maxWidthPx, maxHeightPx)
 	local handle = Instance.new("TextButton")
 	handle.Name = name .. "ResizeHandle"
-	handle.Size = UDim2.fromOffset(34, 34)
+	handle.Size = UDim2.fromOffset(28, 28)
 	handle.AnchorPoint = Vector2.new(1, 1)
-	handle.Position = UDim2.new(1, -8, 1, -8)
+	handle.Position = UDim2.new(1, -6, 1, -6)
 	handle.ZIndex = 95
 	handle.BackgroundColor3 = UIColors.INPUT
 	handle.BackgroundTransparency = 0.05
 	handle.BorderSizePixel = 0
 	handle.Text = "↘"
 	handle.TextColor3 = UIColors.ACCENT
-	handle.TextSize = 20
+	handle.TextSize = 16
 	handle.Font = Enum.Font.GothamBold
 	handle.Parent = panel
-	Instance.new("UICorner", handle).CornerRadius = UDim.new(0, 9)
+	Instance.new("UICorner", handle).CornerRadius = UDim.new(0, 8)
 	local handleStroke = Instance.new("UIStroke", handle)
 	handleStroke.Color = UIColors.BORDER
 	handleStroke.Transparency = 0.15
@@ -5146,16 +5228,17 @@ function configurations.MakeResizable(panel, name, minWidth, minHeight, onReleas
 
 	local resizing = false
 	local startPoint
-	local startWidth, startHeight
+	local startW, startH
 	handle.InputBegan:Connect(function(input)
 		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
 		resizing = true
 		startPoint = input.Position
-		startWidth, startHeight = panel.Size.X.Scale, panel.Size.Y.Scale
+		startW = panel.Size.X.Offset > 0 and panel.Size.X.Offset or minWidthPx
+		startH = panel.Size.Y.Offset > 0 and panel.Size.Y.Offset or minHeightPx
 		input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
 				resizing = false
-				if onReleased then onReleased(panel.Size.X.Scale, panel.Size.Y.Scale) end
+				if onReleased then onReleased(panel.Size.X.Offset, panel.Size.Y.Offset) end
 			end
 		end)
 	end)
@@ -5164,34 +5247,66 @@ function configurations.MakeResizable(panel, name, minWidth, minHeight, onReleas
 		if not resizing or (input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch) then return end
 		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
 		if not viewport then return end
+		local uiScale = configurations.GetEffectiveGuiScale and configurations.GetEffectiveGuiScale()
+			or math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
 		local delta = input.Position - startPoint
-		local maxWidth = math.max(minWidth, math.min(maxWidthScale or 0.8, 1 - panel.Position.X.Scale))
-		local maxHeight = math.max(minHeight, math.min(0.9, 1 - panel.Position.Y.Scale))
-		panel.Size = UDim2.fromScale(
-			math.clamp(startWidth + delta.X / viewport.X, minWidth, maxWidth),
-			math.clamp(startHeight + delta.Y / viewport.Y, minHeight, maxHeight)
+		local maxW = math.max(minWidthPx, math.min(maxWidthPx or 560, math.floor((viewport.X - panel.AbsolutePosition.X - 8) / uiScale)))
+		local maxH = math.max(minHeightPx, math.min(maxHeightPx or 700, math.floor((viewport.Y - panel.AbsolutePosition.Y - 8) / uiScale)))
+		panel.Size = UDim2.fromOffset(
+			math.clamp(math.floor(startW + delta.X / uiScale + 0.5), minWidthPx, maxW),
+			math.clamp(math.floor(startH + delta.Y / uiScale + 0.5), minHeightPx, maxH)
 		)
 	end)
 end
 
-configurations.MakeResizable(PlayerPanel, "PlayerPanel", 0.28, 0.35, function(width, height)
-	configurations.PlayerPanelWidthScale, configurations.PlayerPanelHeightScale = width, height
+configurations.MakeResizable(PlayerPanel, "PlayerPanel", 280, 300, function(width, height)
+	configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx = width, height
 	configurations.SaveConfig()
-end, 0.52)
-configurations.MakeResizable(configurations.WhitelistPanel, "WhitelistPanel", 0.20, 0.32, function(width, height)
-	configurations.WhitelistPanelWidthScale, configurations.WhitelistPanelHeightScale = width, height
+end, 560, 700)
+configurations.MakeResizable(configurations.WhitelistPanel, "WhitelistPanel", 240, 260, function(width, height)
+	configurations.WhitelistPanelWidthPx, configurations.WhitelistPanelHeightPx = width, height
 	configurations.SaveConfig()
-end)
-configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 0.32, 0.35, function(width, height)
-	configurations.JoinLogWidthScale, configurations.JoinLogHeightScale = width, height
+end, 520, 640)
+configurations.MakeResizable(configurations.JoinLogPanel, "JoinLogPanel", 260, 260, function(width, height)
+	configurations.JoinLogWidthPx, configurations.JoinLogHeightPx = width, height
 	configurations.SaveConfig()
-end, 0.65)
-configurations.MakeResizable(configurations.CreditLogPanel, "CreditLogPanel", 0.32, 0.35, function(width, height)
-	configurations.CreditLogWidthScale, configurations.CreditLogHeightScale = width, height
+end, 560, 640)
+configurations.MakeResizable(configurations.CreditLogPanel, "CreditLogPanel", 280, 280, function(width, height)
+	configurations.CreditLogWidthPx, configurations.CreditLogHeightPx = width, height
 	configurations.SaveConfig()
-end, 0.65)
+end, 560, 700)
 
 function configurations.ApplyResponsiveOverlaySizes()
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize
+	if not viewport or viewport.X < 1 or viewport.Y < 1 then return end
+	local uiScale = configurations.GetEffectiveGuiScale and configurations.GetEffectiveGuiScale()
+		or math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+
+	configurations.ClampOverlaySize = function(panel, widthPx, heightPx, maxW, maxH)
+		if not panel or not panel.Parent then return end
+		local wantW = math.floor(tonumber(widthPx) or panel.Size.X.Offset or 320)
+		local wantH = math.floor(tonumber(heightPx) or panel.Size.Y.Offset or 360)
+		local fitW = math.max(240, math.floor((viewport.X - 24) / uiScale))
+		local fitH = math.max(200, math.floor((viewport.Y - 24) / uiScale))
+		local w = math.clamp(wantW, 240, math.min(maxW or 560, fitW))
+		local h = math.clamp(wantH, 200, math.min(maxH or 700, fitH))
+
+		local abs = panel.AbsolutePosition
+		local px = (panel.AbsoluteSize.X > 0) and abs.X or 40
+		local py = (panel.AbsoluteSize.Y > 0) and abs.Y or 80
+		px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
+		py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
+		panel.Size = UDim2.fromOffset(w, h)
+		panel.Position = UDim2.fromOffset(px, py)
+	end
+
+	configurations.ClampOverlaySize(PlayerPanel, configurations.PlayerPanelWidthPx, configurations.PlayerPanelHeightPx, 560, 700)
+	configurations.ClampOverlaySize(configurations.WhitelistPanel, configurations.WhitelistPanelWidthPx, configurations.WhitelistPanelHeightPx, 520, 640)
+	configurations.ClampOverlaySize(configurations.JoinLogPanel, configurations.JoinLogWidthPx, configurations.JoinLogHeightPx, 560, 640)
+	configurations.ClampOverlaySize(configurations.CreditLogPanel, configurations.CreditLogWidthPx, configurations.CreditLogHeightPx, 560, 700)
+end
+configurations.ApplyResponsiveOverlaySizes()
 	local viewport = configurations.GetViewportSize and configurations.GetViewportSize() or (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize)
 	if not viewport or viewport.X < 1 or viewport.Y < 1 then return end
 
@@ -5648,10 +5763,15 @@ configurations.ResizeHandle.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		configurations.Resizing = true
 		configurations.ResizeStart = input.Position
-		configurations.ResizeStartSize = Vector2.new(Main.Size.X.Scale, Main.Size.Y.Scale)
+		configurations.ResizeStartSize = Vector2.new(
+			Main.Size.X.Offset > 0 and Main.Size.X.Offset or configurations.MainWidthPx,
+			Main.Size.Y.Offset > 0 and Main.Size.Y.Offset or configurations.MainHeightPx
+		)
 		input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
 				configurations.Resizing = false
+				configurations.MainWidthPx = Main.Size.X.Offset
+				configurations.MainHeightPx = Main.Size.Y.Offset
 				configurations.SaveConfig()
 			end
 		end)
@@ -5665,21 +5785,18 @@ UserInputService.InputChanged:Connect(function(input)
 	if not camera then return end
 	local viewport = camera.ViewportSize
 	local delta = input.Position - configurations.ResizeStart
-	local uiScale = math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
-	local maxWidth = math.max(0.05, math.min(0.75, 1 - Main.Position.X.Scale, 1 - 16 / viewport.X))
-	local minWidth = math.min(0.20, maxWidth)
-	local maxHeight = math.max(0.05, math.min(0.95, 1 - Main.Position.Y.Scale, 1 - 16 / viewport.Y))
-	local minHeight = math.min(0.40, maxHeight)
-	configurations.MainWidthScale = math.clamp(configurations.ResizeStartSize.X + delta.X / (viewport.X * uiScale), minWidth, maxWidth)
-	if not configurations.IsMinimized then
-		configurations.MainHeightScale = math.clamp(configurations.ResizeStartSize.Y + delta.Y / (viewport.Y * uiScale), minHeight, maxHeight)
-	end
-	configurations.MainWindowInitialized = true
-	configurations.ApplyResponsiveMainSize()
-	configurations.ApplyGuiScale()
-	configurations.ApplyTextScale()
-
+	local uiScale = configurations.GetEffectiveGuiScale and configurations.GetEffectiveGuiScale()
+		or math.clamp(tonumber(configurations.GuiScale) or 1, 0.20, 2.50)
+	local maxW = math.max(360, math.floor((viewport.X - Main.AbsolutePosition.X - 16) / uiScale))
+	local maxH = math.max(320, math.floor((viewport.Y - Main.AbsolutePosition.Y - 16) / uiScale))
+	local w = math.clamp(math.floor(configurations.ResizeStartSize.X + delta.X / uiScale + 0.5), 360, math.min(900, maxW))
+	local h = configurations.IsMinimized and configurations.ResizeStartSize.Y
+		or math.clamp(math.floor(configurations.ResizeStartSize.Y + delta.Y / uiScale + 0.5), 320, math.min(900, maxH))
+	configurations.MainWidthPx = w
+	configurations.MainHeightPx = h
+	Main.Size = UDim2.fromOffset(w, h)
 end)
+
 
 --==================================================
 -- STATUS HELPERS
