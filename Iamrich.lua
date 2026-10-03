@@ -1,4 +1,4 @@
-local VERSION = "2.6.45"
+local VERSION = "2.6.46"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6595,9 +6595,35 @@ function configurations.RemoveCreditLogEntry(tag)
 	return true
 end
 
+-- Credit tags carry StartTime/EndTime either as child values or as attributes.
+function configurations.ReadCreditTagTime(tag, name)
+	local child = tag:FindFirstChild(name)
+	local value = child and child:IsA("ValueBase") and tonumber(child.Value)
+	if value == nil then value = tonumber(tag:GetAttribute(name)) end
+	return value
+end
+
+-- Returns seconds left when StartTime/EndTime are absolute server timestamps, otherwise nil.
+function configurations.GetCreditTagRemaining(startTime, endTime)
+	local now = workspace:GetServerTimeNow()
+	if startTime > 1e12 then
+		startTime, endTime = startTime / 1000, endTime / 1000
+	end
+	if startTime < 1e9 or math.abs(now - startTime) > 86400 then return nil end
+	return math.clamp(endTime - now, 0, endTime - startTime)
+end
+
+function configurations.ResolveCreditTagUserId(tag)
+	local userId = string.match(tag.Name, "^creator_(%d+)$")
+	if userId then return userId end
+	if string.sub(tag.Name, 1, 8) ~= "creator_" then return nil end
+	local player = Players:FindFirstChild(tag.Value)
+	return player and player:IsA("Player") and tostring(player.UserId) or nil
+end
+
 function configurations.TrackCreditLogTag(tag)
 	if not tag or not tag:IsA("StringValue") then return false end
-	local userId = string.match(tag.Name, "^creator_(%d+)$")
+	local userId = configurations.ResolveCreditTagUserId(tag)
 	if not userId then return false end
 	local entry = configurations.CreditLogEntries[tag]
 	if not entry then
@@ -6632,6 +6658,10 @@ function configurations.WatchCreditLogTarget(target)
 	configurations.CreditLogTarget = target
 	configurations.CreditLogHumanoid = humanoid
 	if not humanoid then return end
+	-- A new EXP target replaces the log; rows from the previous mob are dropped.
+	for tag, entry in pairs(configurations.CreditLogEntries) do
+		if entry.Humanoid ~= humanoid then configurations.RemoveCreditLogEntry(tag) end
+	end
 	configurations.CreditLogChildAddedConnection = humanoid.ChildAdded:Connect(function(child)
 		if child:IsA("StringValue") then configurations.TrackCreditLogTag(child) end
 	end)
@@ -6658,16 +6688,22 @@ function configurations.UpdateCreditLog()
 			if entry.NameButton and entry.NameButton.Parent and entry.NameButton.Text ~= "@" .. entry.Username then
 				entry.NameButton.Text = "@" .. entry.Username
 			end
-			local startObject = tag:FindFirstChild("StartTime")
-			local endObject = tag:FindFirstChild("EndTime")
-			local startTime = startObject and tonumber(startObject.Value)
-			local endTime = endObject and tonumber(endObject.Value)
-			if startTime and endTime and startTime > 0 and endTime >= startTime
-				and (startTime ~= entry.LastStartTime or endTime ~= entry.LastEndTime) then
-				entry.LastStartTime = startTime
-				entry.LastEndTime = endTime
-				entry.ExpireAt = now + math.max(0, endTime - startTime)
-				configurations.CreditLogDirty = true
+			local startTime = configurations.ReadCreditTagTime(tag, "StartTime")
+			local endTime = configurations.ReadCreditTagTime(tag, "EndTime")
+			if startTime and endTime and startTime > 0 and endTime >= startTime then
+				local serverRemaining = configurations.GetCreditTagRemaining(startTime, endTime)
+				if serverRemaining then
+					-- Absolute timestamps: remaining time is independent of when we first saw the tag.
+					entry.ExpireAt = now + serverRemaining
+				elseif startTime ~= entry.LastStartTime or endTime ~= entry.LastEndTime then
+					-- Relative times: anchor the duration on first sight / on refresh.
+					entry.ExpireAt = now + (endTime - startTime)
+				end
+				if startTime ~= entry.LastStartTime or endTime ~= entry.LastEndTime then
+					entry.LastStartTime = startTime
+					entry.LastEndTime = endTime
+					configurations.CreditLogDirty = true
+				end
 			end
 			if entry.CountdownLabel and entry.CountdownLabel.Parent then
 				local remaining = entry.ExpireAt and math.max(0, math.ceil(entry.ExpireAt - now)) or nil
