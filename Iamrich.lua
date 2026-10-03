@@ -1,4 +1,4 @@
-local VERSION = "2.6.46"
+local VERSION = "2.6.47"
 print("[Iamrich] Version " .. VERSION .. " starting...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -231,7 +231,6 @@ local configurations = {}
 configurations.IsStudio = RunService:IsStudio()
 configurations.Amount = 5000
 configurations.MaxDistance = 250
-configurations.ExpApproachDistance = 30
 configurations.ExpAutoApproachEnabled = false
 configurations.Interval = 1
 configurations.ExpGoal = 2000000
@@ -814,7 +813,6 @@ function configurations.LoadConfig()
 	end
 
 	configurations.Amount = math.floor(ReadNumber("Amount", configurations.Amount, 0, false))
-	configurations.ExpApproachDistance = math.clamp(ReadNumber("ExpApproachDistance", configurations.ExpApproachDistance, 5, false), 5, 100)
 	if type(config.ExpAutoApproachEnabled) == "boolean" then
 		configurations.ExpAutoApproachEnabled = config.ExpAutoApproachEnabled
 	end
@@ -1060,7 +1058,6 @@ function configurations.SaveConfig()
 	local config = {
 		Amount = configurations.Amount,
 		MaxDistance = configurations.MaxDistance,
-		ExpApproachDistance = configurations.ExpApproachDistance,
 		ExpAutoApproachEnabled = configurations.ExpAutoApproachEnabled,
 		Interval = configurations.Interval,
 		ExpGoal = configurations.ExpGoal,
@@ -2275,7 +2272,7 @@ function configurations.ApplyGuiScale()
 				local px = math.clamp(oldPosition.X, 8, math.max(8, viewport.X - newSize.X - 8))
 				local py = math.clamp(oldPosition.Y, 8, math.max(8, viewport.Y - newSize.Y - 8))
 				root.AnchorPoint = Vector2.new(0, 0)
-				root.Position = UDim2.fromOffset(px / math.max(scale, 0.01), py / math.max(scale, 0.01))
+				root.Position = UDim2.fromOffset(px, py)
 			end
 		end
 	end
@@ -2320,10 +2317,8 @@ function configurations.PositionToScale(guiObject, viewport)
 	-- Prefer AbsolutePosition when available (works for both Scale and Offset positions).
 	local abs = guiObject.AbsolutePosition
 	local size = guiObject.AbsoluteSize
-	local scaleObject = guiObject:FindFirstChild("GuiScale")
-	local guiScale = scaleObject and scaleObject:IsA("UIScale") and math.max(scaleObject.Scale, 0.01) or 1
-	local xScale = abs.X / (vx * guiScale)
-	local yScale = abs.Y / (vy * guiScale)
+	local xScale = abs.X / vx
+	local yScale = abs.Y / vy
 	-- Fallback if Absolute* is not ready yet (e.g. first frame before layout).
 	if size.X < 1 and size.Y < 1 then
 		xScale = guiObject.Position.X.Scale + guiObject.Position.X.Offset / vx
@@ -2355,7 +2350,7 @@ function configurations.ApplyResponsiveMainSize()
 		py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
 		Main.AnchorPoint = Vector2.new(0, 0)
 		Main.Size = UDim2.fromOffset(w, h)
-		Main.Position = UDim2.fromOffset(px / math.max(uiScale, 0.01), py / math.max(uiScale, 0.01))
+		Main.Position = UDim2.fromOffset(px, py)
 		return
 	end
 
@@ -2387,7 +2382,7 @@ function configurations.ApplyResponsiveMainSize()
 		px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
 		py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
 	end
-	Main.Position = UDim2.fromOffset(px / math.max(uiScale, 0.01), py / math.max(uiScale, 0.01))
+	Main.Position = UDim2.fromOffset(px, py)
 	configurations.MainWidthScale = w / math.max(1, viewport.X)
 	configurations.MainHeightScale = h / math.max(1, viewport.Y)
 end
@@ -2418,8 +2413,6 @@ function configurations.ApplySavedPanelPositions()
 	local function apply(name, gui)
 		local p = pos[name]
 		if not p or not gui then return end
-		local scaleObject = gui:FindFirstChild("GuiScale")
-		local guiScale = scaleObject and scaleObject:IsA("UIScale") and scaleObject.Scale or 1
 		local positionScaleX = tonumber(p.PositionScaleX)
 		local positionOffsetX = tonumber(p.PositionOffsetX)
 		local positionScaleY = tonumber(p.PositionScaleY)
@@ -2430,12 +2423,12 @@ function configurations.ApplySavedPanelPositions()
 			gui.AnchorPoint = Vector2.new(anchorX or 0, anchorY or 0)
 			gui.Position = UDim2.new(positionScaleX, positionOffsetX, positionScaleY, positionOffsetY)
 		else
-			-- Older builds stored absolute screen pixels; convert them back to the
-			-- root's unscaled offsets so saved positions survive GUI scaling.
+			-- Older builds stored absolute screen pixels; with AnchorPoint (0, 0) these
+			-- are the Offset directly (UIScale scales around the anchor, not Position).
 			local x, y = tonumber(p.X), tonumber(p.Y)
 			if not x or not y then return end
 			gui.AnchorPoint = Vector2.new(0, 0)
-			gui.Position = UDim2.fromOffset(x / math.max(guiScale, 0.01), y / math.max(guiScale, 0.01))
+			gui.Position = UDim2.fromOffset(x, y)
 		end
 
 		local viewport = configurations.GetViewportSize and configurations.GetViewportSize()
@@ -2443,16 +2436,16 @@ function configurations.ApplySavedPanelPositions()
 		if viewport and absoluteSize.X > 0 and absoluteSize.Y > 0 then
 			local position = gui.Position
 			local anchor = gui.AnchorPoint
-			local screenX = (position.X.Scale * viewport.X + position.X.Offset) * guiScale - anchor.X * absoluteSize.X
-			local screenY = (position.Y.Scale * viewport.Y + position.Y.Offset) * guiScale - anchor.Y * absoluteSize.Y
+			local screenX = (position.X.Scale * viewport.X + position.X.Offset) - anchor.X * absoluteSize.X
+			local screenY = (position.Y.Scale * viewport.Y + position.Y.Offset) - anchor.Y * absoluteSize.Y
 			local clampedX = math.clamp(screenX, 8, math.max(8, viewport.X - absoluteSize.X - 8))
 			local clampedY = math.clamp(screenY, 8, math.max(8, viewport.Y - absoluteSize.Y - 8))
 			if clampedX ~= screenX or clampedY ~= screenY then
 				gui.Position = UDim2.new(
 					position.X.Scale,
-					(clampedX + anchor.X * absoluteSize.X) / math.max(guiScale, 0.01) - position.X.Scale * viewport.X,
+					(clampedX + anchor.X * absoluteSize.X) - position.X.Scale * viewport.X,
 					position.Y.Scale,
-					(clampedY + anchor.Y * absoluteSize.Y) / math.max(guiScale, 0.01) - position.Y.Scale * viewport.Y
+					(clampedY + anchor.Y * absoluteSize.Y) - position.Y.Scale * viewport.Y
 				)
 			end
 		end
@@ -2721,8 +2714,8 @@ function configurations.ApplyMinimized(state)
 		Header.Size = UDim2.fromScale(1, 1)
 		Header.BackgroundColor3 = UIColors.BG
 		-- Keep near previous top-left, clamp into viewport using pixel x/y
-		local px = math.clamp(sx * viewport.X, 8 / uiScale, math.max(8 / uiScale, viewport.X / uiScale - MINI_WIDTH - 8 / uiScale))
-		local py = math.clamp(sy * viewport.Y, 8 / uiScale, math.max(8 / uiScale, viewport.Y / uiScale - MINI_HEIGHT - 8 / uiScale))
+		local px = math.clamp(sx * viewport.X, 8, math.max(8, viewport.X - MINI_WIDTH * uiScale - 8))
+		local py = math.clamp(sy * viewport.Y, 8, math.max(8, viewport.Y - MINI_HEIGHT * uiScale - 8))
 		Main.Position = UDim2.fromOffset(px, py)
 		-- Same order as full UI: Status left, expand (+) rightmost
 		Status.Position = UDim2.new(1, -84, 0, 8)
@@ -2741,8 +2734,8 @@ function configurations.ApplyMinimized(state)
 			local h = Main.Size.Y.Offset
 			local px = SavedMainPosition.X.Scale * viewport.X + SavedMainPosition.X.Offset
 			local py = SavedMainPosition.Y.Scale * viewport.Y + SavedMainPosition.Y.Offset
-			px = math.clamp(px, 8 / uiScale, math.max(8 / uiScale, viewport.X / uiScale - w - 8 / uiScale))
-			py = math.clamp(py, 8 / uiScale, math.max(8 / uiScale, viewport.Y / uiScale - h - 8 / uiScale))
+			px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
+			py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
 			Main.AnchorPoint = Vector2.new(0, 0)
 			Main.Position = UDim2.fromOffset(px, py)
 		end
@@ -2761,10 +2754,10 @@ MinimizeBtn.MouseButton1Click:Connect(function()
 	configurations.SaveConfig()
 end)
 
--- Drag (offset-from-click: keeps the grabbed point under the cursor; safe with UIScale)
+-- Drag (offset-from-click: keeps the grabbed point under the cursor). UIScale scales a
+-- frame around its AnchorPoint and does not move Position, so Offset == AbsolutePosition.
 local Dragging = false
 local DragOffset = nil -- Vector2: cursor - AbsolutePosition at press
-local MainDragScale = 1
 
 Header.InputBegan:Connect(function(input)
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1
@@ -2783,9 +2776,7 @@ Header.InputBegan:Connect(function(input)
 	Main.AnchorPoint = Vector2.new(0, 0)
 	-- Convert current visual top-left into Offset position first (no jump).
 	local abs = Main.AbsolutePosition
-	local scaleObject = Main:FindFirstChild("GuiScale")
-	MainDragScale = scaleObject and scaleObject:IsA("UIScale") and math.max(scaleObject.Scale, 0.01) or 1
-	Main.Position = UDim2.fromOffset(abs.X / MainDragScale, abs.Y / MainDragScale)
+	Main.Position = UDim2.fromOffset(abs.X, abs.Y)
 	DragOffset = Vector2.new(input.Position.X - abs.X, input.Position.Y - abs.Y)
 
 	input.Changed:Connect(function()
@@ -2818,7 +2809,7 @@ UserInputService.InputChanged:Connect(function(input)
 	y = math.clamp(y, 0, math.max(0, parentSize.Y - mainSize.Y))
 
 	Main.AnchorPoint = Vector2.new(0, 0)
-	Main.Position = UDim2.fromOffset(x / MainDragScale, y / MainDragScale)
+	Main.Position = UDim2.fromOffset(x, y)
 end)
 
 --==================================================
@@ -2878,6 +2869,7 @@ end
 local ExpPage = configurations.CreatePage("EXP", true)
 local ESPPage = configurations.CreatePage("ESP", false)
 local PlayerPage = configurations.CreatePage("Player", false)
+local FollowPage = configurations.CreatePage("Follow", false)
 local AlertsPage = configurations.CreatePage("Alerts", false)
 local FarmPage = configurations.CreatePage("Farm", false)
 local CombatPage = configurations.CreatePage("Combat", false)
@@ -2917,8 +2909,9 @@ end
 
 configurations.AddPageHeading(ExpPage, "Overview", "Level, EXP, server status and active farm session")
 configurations.AddPageHeading(ESPPage, "ESP", "Player markers, lines and boxes on screen")
-configurations.AddPageHeading(PlayerPage, "Players", "Follow, whitelist, server players and block settings")
-configurations.AddPageHeading(AlertsPage, "Alerts & Safety", "Nearby alerts and join log")
+configurations.AddPageHeading(PlayerPage, "Players", "Players in this server")
+configurations.AddPageHeading(FollowPage, "Follow", "Follow a player with spacing and a target line")
+configurations.AddPageHeading(AlertsPage, "Alerts & Safety", "Nearby alerts, join log, whitelist and auto block")
 configurations.AddPageHeading(FarmPage, "EXP Farm", "Cycle, range, timing and target behavior")
 configurations.AddPageHeading(CombatPage, "Combat", "Auto attack, skills, Boss and Miniboss targeting")
 configurations.AddPageHeading(WaypointPage, "Waypoint", "Pin a position and return when displaced")
@@ -3019,32 +3012,38 @@ function configurations.MakeNavButton(text, icon, order)
 	return button
 end
 
--- Categories ordered for daily use: status → farm → social → movement → visuals
-configurations.MakeNavSection("Main", 1)
-local NavButtons = {
-	EXP = configurations.MakeNavButton("Overview", nil, 2),
-}
-configurations.MakeNavSection("Farm", 3)
-NavButtons.Farm   = configurations.MakeNavButton("EXP Farm", nil, 4)
-NavButtons.Combat = configurations.MakeNavButton("Combat", nil, 5)
-configurations.MakeNavSection("Social", 6)
-NavButtons.Player = configurations.MakeNavButton("Players", nil, 7)
-NavButtons.Alerts = configurations.MakeNavButton("Alerts", nil, 8)
-if configurations.PartySystem then
-	NavButtons.Party = configurations.MakeNavButton("Party", nil, 9)
+-- Categories grouped by concept: status → farm → movement → social → safety → visuals
+local NavButtons = {}
+local navOrder = 0
+local function addNavSection(text)
+	navOrder += 1
+	configurations.MakeNavSection(text, navOrder)
 end
-configurations.MakeNavSection("Movement", 10)
-NavButtons.Waypoint = configurations.MakeNavButton("Waypoint", nil, 11)
-if configurations.TeleportSystem then
-	NavButtons.Teleport = configurations.MakeNavButton("Teleport", nil, 12)
+local function addNavButton(key, text)
+	navOrder += 1
+	NavButtons[key] = configurations.MakeNavButton(text, nil, navOrder)
 end
+addNavSection("Main")
+addNavButton("EXP", "Overview")
+addNavSection("Farm")
+addNavButton("Farm", "EXP Farm")
+addNavButton("Combat", "Combat")
+addNavSection("Movement")
+addNavButton("Follow", "Follow")
+addNavButton("Waypoint", "Waypoint")
+if configurations.TeleportSystem then addNavButton("Teleport", "Teleport") end
+addNavSection("Social")
+addNavButton("Player", "Players")
+if configurations.PartySystem then addNavButton("Party", "Party") end
 if configurations.PartySystem and type(configurations.PartySystem.BuildServerUI) == "function" then
-	NavButtons.Server = configurations.MakeNavButton("Server", nil, configurations.TeleportSystem and 13 or 12)
+	addNavButton("Server", "Server")
 end
-configurations.MakeNavSection("Visuals", configurations.TeleportSystem and 14 or 13)
-NavButtons.ESP = configurations.MakeNavButton("ESP", nil, configurations.TeleportSystem and 15 or 14)
-NavButtons.Performance = configurations.MakeNavButton("Performance", nil, configurations.TeleportSystem and 16 or 15)
-NavButtons.Display = configurations.MakeNavButton("Display", nil, configurations.TeleportSystem and 17 or 16)
+addNavSection("Safety")
+addNavButton("Alerts", "Alerts")
+addNavSection("Visuals")
+addNavButton("ESP", "ESP")
+addNavButton("Performance", "Performance")
+addNavButton("Display", "Display")
 
 function configurations.SetMainTab(tab)
 	for name, page in pairs(Pages) do
@@ -3502,6 +3501,7 @@ end
 
 local AlertsGrid = configurations.MakeToggleGrid(AlertsPage, 2)
 local PlayersGrid = configurations.MakeToggleGrid(PlayerPage, 2)
+local FollowGrid = configurations.MakeToggleGrid(FollowPage, 2)
 local CombatGrid = configurations.MakeToggleGrid(CombatPage, 2)
 local PerformanceGrid = configurations.MakeToggleGrid(PerformancePage, 2)
 
@@ -4001,7 +4001,7 @@ end)
 UpdateWaypointInfo()
 
 local FollowDistanceCard, FollowDistanceInput = configurations.MakeNumberCard(
-	PlayerPage, "Follow spacing (studs)", function() return configurations.FollowDistance end, 3, 2, 100,
+	FollowPage, "Follow spacing (studs)", function() return configurations.FollowDistance end, 3, 2, 100,
 	function(value) configurations.FollowDistance = value end
 )
 local FollowTargetButton = configurations.MakeToggle(
@@ -4009,8 +4009,8 @@ local FollowTargetButton = configurations.MakeToggle(
 	configurations.FollowTargetVisible,
 	UIColors.ACCENT,
 	UIColors.ACCENT_DIM,
-	6,
-	PlayersGrid,
+	3,
+	FollowGrid,
 	"Draw a line to the current follow position."
 )
 FollowTargetButton.MouseButton1Click:Connect(function()
@@ -4631,18 +4631,18 @@ local ESPToggleButton = configurations.MakeToggle("Player ESP", configurations.E
 local ESPLineButton = configurations.MakeToggle("ESP lines", configurations.ESPLineEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 3, nil, "Draw lines to players.")
 local ESPBoxButton = configurations.MakeToggle("ESP boxes", configurations.ESPBoxEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 4, nil, "Draw boxes around players.")
 local FPSBoostButton = configurations.MakeToggle("Boost FPS", configurations.FPSBoostEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 1, PerformanceGrid, "Reduce visual effects while keeping scene lights and color correction.")
-local AutoBlockButton = configurations.MakeToggle("Auto block", configurations.AutoBlockEnabled, UIColors.RED, UIColors.RED_DIM, 5, PlayersGrid, "Open Roblox's Block prompt for non-whitelisted players.")
+local AutoBlockButton = configurations.MakeToggle("Auto block", configurations.AutoBlockEnabled, UIColors.RED, UIColors.RED_DIM, 7, AlertsGrid, "Open Roblox's Block prompt for non-whitelisted players.")
 local PlayerListButton = configurations.MakeActionRow("Player list", 1, PlayersGrid, "View players in this server.")
-local WhitelistButton = configurations.MakeActionRow("Whitelist", 2, PlayersGrid, "Whitelisted players do not trigger alerts or auto-block.")
-FollowSelectButton = configurations.MakeActionRow("Choose follow target", 3, PlayersGrid, "Select who to follow.")
-FollowToggleButton = configurations.MakeToggle("Follow", configurations.FollowEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 4, PlayersGrid, "Follow the selected player; turn off to pause.")
+local WhitelistButton = configurations.MakeActionRow("Whitelist", 6, AlertsGrid, "Whitelisted players do not trigger alerts or auto-block.")
+FollowSelectButton = configurations.MakeActionRow("Choose follow target", 1, FollowGrid, "Select who to follow.")
+FollowToggleButton = configurations.MakeToggle("Follow", configurations.FollowEnabled, UIColors.ACCENT, UIColors.ACCENT_DIM, 2, FollowGrid, "Follow the selected player; turn off to pause.")
 configurations.FinishExpAfterBlockButton = configurations.MakeToggle(
 	"Attack after block",
 	configurations.FinishExpAfterBlockEnabled,
 	UIColors.RED,
 	UIColors.RED_DIM,
-	6,
-	PlayersGrid,
+	8,
+	AlertsGrid,
 	"With Auto block on, confirm Block first, then finish the locked EXP mob before hopping."
 )
 
@@ -4897,7 +4897,7 @@ end)
 -- SETTINGS (compact 2x2)
 --==================================================
 SettingsCard = Instance.new("Frame")
-SettingsCard.Size = UDim2.new(1, 0, 0, 142)
+SettingsCard.Size = UDim2.new(1, 0, 0, 104)
 SettingsCard.LayoutOrder = 2
 SettingsCard.BackgroundColor3 = UIColors.CARD
 SettingsCard.BorderSizePixel = 0
@@ -4943,10 +4943,9 @@ function configurations.MakeCompactSetting(parent, name, default, xScale, yOffse
 end
 
 local AmountBox = configurations.MakeCompactSetting(SettingsCard, "Amount / cycle", configurations.Amount, 0, 24)
-local DistBox = configurations.MakeCompactSetting(SettingsCard, "EXP target search radius (studs)", configurations.MaxDistance, 0.5, 24)
+local DistBox = configurations.MakeCompactSetting(SettingsCard, "EXP range (studs)", configurations.MaxDistance, 0.5, 24)
 local IntervalBox = configurations.MakeCompactSetting(SettingsCard, "Interval (s)", configurations.Interval, 0, 62)
 local MaxBox = configurations.MakeCompactSetting(SettingsCard, "EXP Max", configurations.ExpGoal, 0.5, 62)
-local ExpApproachBox = configurations.MakeCompactSetting(SettingsCard, "EXP firing range / standoff (studs)", configurations.ExpApproachDistance, 0, 100)
 
 local ExpAutoApproachButton = configurations.MakeToggle(
 	"Move to target",
@@ -4955,7 +4954,7 @@ local ExpAutoApproachButton = configurations.MakeToggle(
 	UIColors.ACCENT_DIM,
 	3,
 	FarmPage,
-	"When off, waits within the search radius. When on, approaches the target and jumps if stuck."
+	"Off: waits until a target is within EXP range. On: walks back into EXP range and jumps if stuck."
 )
 ExpAutoApproachButton.MouseButton1Click:Connect(function()
 	configurations.ExpAutoApproachEnabled = not configurations.ExpAutoApproachEnabled
@@ -5145,14 +5144,6 @@ DistBox.FocusLost:Connect(function()
 		configurations.MaxDistance = math.clamp(v, 5, 100000)
 	end
 	DistBox.Text = tostring(configurations.MaxDistance)
-	configurations.SaveConfig()
-end)
-ExpApproachBox.FocusLost:Connect(function()
-	local v = tonumber(ExpApproachBox.Text)
-	if v and v > 0 then
-		configurations.ExpApproachDistance = math.clamp(v, 5, 100)
-	end
-	ExpApproachBox.Text = tostring(configurations.ExpApproachDistance)
 	configurations.SaveConfig()
 end)
 IntervalBox.FocusLost:Connect(function()
@@ -6119,10 +6110,6 @@ end)
 function configurations.MakeDraggable(panel, handle)
 	if not panel or not handle or panel:GetAttribute("IamrichDraggableConnected") then return end
 	panel:SetAttribute("IamrichDraggableConnected", true)
-	local function getPanelScale()
-		local scaleObject = panel:FindFirstChild("GuiScale")
-		return scaleObject and scaleObject:IsA("UIScale") and math.max(scaleObject.Scale, 0.01) or 1
-	end
 	local dragging = false
 	local dragOffset -- cursor - AbsolutePosition at press
 	handle.InputBegan:Connect(function(input)
@@ -6140,8 +6127,7 @@ function configurations.MakeDraggable(panel, handle)
 		dragging = true
 		panel.AnchorPoint = Vector2.new(0, 0)
 		local abs = panel.AbsolutePosition
-		local scale = getPanelScale()
-		panel.Position = UDim2.fromOffset(abs.X / scale, abs.Y / scale)
+		panel.Position = UDim2.fromOffset(abs.X, abs.Y)
 		dragOffset = Vector2.new(input.Position.X - abs.X, input.Position.Y - abs.Y)
 
 		input.Changed:Connect(function()
@@ -6165,8 +6151,7 @@ function configurations.MakeDraggable(panel, handle)
 		local x = math.clamp(input.Position.X - dragOffset.X, 8, math.max(8, viewport.X - w - 8))
 		local y = math.clamp(input.Position.Y - dragOffset.Y, 8, math.max(8, viewport.Y - h - 8))
 		panel.AnchorPoint = Vector2.new(0, 0)
-		local scale = getPanelScale()
-		panel.Position = UDim2.fromOffset(x / scale, y / scale)
+		panel.Position = UDim2.fromOffset(x, y)
 	end)
 end
 
@@ -6277,7 +6262,7 @@ function configurations.ApplyResponsiveOverlaySizes()
 		px = math.clamp(px, 8, math.max(8, viewport.X - w * uiScale - 8))
 		py = math.clamp(py, 8, math.max(8, viewport.Y - h * uiScale - 8))
 		panel.Size = UDim2.fromOffset(w, h)
-		panel.Position = UDim2.fromOffset(px / math.max(uiScale, 0.01), py / math.max(uiScale, 0.01))
+		panel.Position = UDim2.fromOffset(px, py)
 	end
 
 	if not configurations.PlayerPanelCardMode then
@@ -7288,7 +7273,7 @@ task.spawn(function()
 			and not (configurations.PendingServerHop and configurations.ServerHopKillTarget == target)
 			and not (configurations.AlertCombatPending and configurations.AlertCombatTarget == target) then
 			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-			local standoff = configurations.ExpApproachDistance
+			local standoff = configurations.MaxDistance
 			if dist > standoff + 0.75 then
 				local goal = OrbitApproachPoint(root, mroot, standoff)
 				SmoothMoveTo(humanoid, root, goal, expMoveState, dist > 60 and 0.18 or 0.28, 1.8)
@@ -7322,7 +7307,7 @@ task.spawn(function()
 			continue
 		end
 
-		if configurations.ExpAutoApproachEnabled and dist > configurations.ExpApproachDistance + 1 then
+		if configurations.ExpAutoApproachEnabled and dist > configurations.MaxDistance + 1 then
 			StateLabel.Text = "Moving"
 			MiniState.Text = "Walking to locked EXP target"
 		elseif configurations.NoProgressCycles >= 2 then
@@ -7371,7 +7356,7 @@ task.spawn(function()
 			local firingDistance = firingRoot and firingMobRoot
 				and (firingRoot.Position - firingMobRoot.Position).Magnitude or math.huge
 			local inApproach = not configurations.ExpAutoApproachEnabled
-				or firingDistance <= configurations.ExpApproachDistance + 0.75
+				or firingDistance <= configurations.MaxDistance + 0.75
 			local hasEngaged = engagedFireTarget == target
 
 			-- EXP target movement is opt-in; Combat can still approach the target
@@ -7379,7 +7364,7 @@ task.spawn(function()
 			if configurations.ExpAutoApproachEnabled and firingRoot and firingMobRoot and not inApproach then
 				local moveHumanoid = firingCharacter and firingCharacter:FindFirstChildOfClass("Humanoid")
 				if moveHumanoid then
-					local goal = OrbitApproachPoint(firingRoot, firingMobRoot, configurations.ExpApproachDistance)
+					local goal = OrbitApproachPoint(firingRoot, firingMobRoot, configurations.MaxDistance)
 					SmoothMoveTo(moveHumanoid, firingRoot, goal, expMoveState, 0.22, 1.6)
 					chasingExpTarget = target
 				end
@@ -7395,7 +7380,7 @@ task.spawn(function()
 			if not hasEngaged then
 				if not inApproach then
 					StateLabel.Text = "Moving"
-					MiniState.Text = string.format("Approach target once (%.0f / %.0f studs)", firingDistance, configurations.ExpApproachDistance)
+					MiniState.Text = string.format("Approach target once (%.0f / %.0f studs)", firingDistance, configurations.MaxDistance)
 					task.wait(0.08)
 					continue
 				end
